@@ -1,0 +1,112 @@
+# Hotel Room Booking Platform
+
+## Overview
+
+This is a comprehensive hotel room booking platform built for Sri Shankeshwar Bengaluru Bhavan. The system supports a single-property hotel with two room categories, accommodating both regular customers and privileged trustees with auto-booking capabilities. The platform features a customer-facing booking interface, admin dashboard for complete management, and trustee management system.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React with TypeScript using Vite as the build tool
+- **UI Library**: Shadcn/ui components built on Radix UI primitives
+- **Styling**: Tailwind CSS with custom CSS variables for theming
+- **State Management**: TanStack Query (React Query) for server state management
+- **Routing**: Wouter for client-side routing
+- **Form Handling**: React Hook Form with Zod validation
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js server
+- **Language**: TypeScript with ES modules
+- **Database ORM**: Drizzle ORM with PostgreSQL dialect
+- **Database Provider**: Neon Database (serverless PostgreSQL)
+- **Session Management**: Connect-pg-simple for PostgreSQL session storage
+- **Build Tools**: ESBuild for production builds, TSX for development
+
+### Project Structure
+- `/client` - React frontend application
+- `/server` - Express.js backend API
+- `/shared` - Shared TypeScript schemas and types
+- `/migrations` - Database migration files
+
+## Key Components
+
+### User Management
+- **Customer Portal**: Public booking interface with room search and guest details
+- **Admin Dashboard**: Complete booking and guest management system
+- **Trustee System**: Privileged users with auto-booking capabilities (2 days/month)
+
+### Room Management
+- **Room Categories**: Two configurable room types with pricing and unit limits
+- **Availability Engine**: Real-time room availability checking with date range queries
+- **Booking System**: Support for online payments and pay-at-check-in options
+
+### Database Schema
+- **Room Categories**: Configurable room types with pricing and unit counts
+- **Users**: Customer and trustee information with auto-booking preferences
+- **Room Bookings**: Booking records with status tracking and payment information
+- **ID Proofs**: Document management for guest identification
+- **Admin Users**: Administrative access control
+
+## Data Flow
+
+### Booking Process
+1. Customer searches for available rooms by date and category
+2. System checks availability against existing bookings
+3. Customer provides guest details and payment preference
+4. Booking is created with unique booking ID
+5. Email notifications are triggered for confirmation
+
+### Trustee Auto-Booking
+1. Admin triggers monthly auto-booking process
+2. System identifies active trustees with configured booking dates
+3. Automatic bookings are created for available dates
+4. Email notifications sent to trustees with opt-out options
+
+### Admin Operations
+1. Dashboard displays real-time statistics and recent bookings
+2. Check-in/check-out management with status updates
+3. ID proof verification and management
+4. Trustee configuration and auto-booking controls
+
+## External Dependencies
+
+### Core Dependencies
+- **Database**: Neon Database (serverless PostgreSQL)
+- **UI Components**: Radix UI primitives with Shadcn/ui
+- **State Management**: TanStack Query for data fetching
+- **Validation**: Zod for runtime type checking
+- **Styling**: Tailwind CSS with PostCSS processing
+
+### Development Tools
+- **Build System**: Vite for frontend, ESBuild for backend
+- **Type Checking**: TypeScript with strict configuration
+- **Code Quality**: ESLint and Prettier (implied by project structure)
+
+## Deployment Strategy
+
+### Development Environment
+- Vite dev server for frontend with hot module replacement
+- TSX for backend development with auto-restart
+- Replit integration with runtime error overlay
+
+### Production Build
+- Frontend built with Vite to `/dist/public`
+- Backend bundled with ESBuild to `/dist/index.js`
+- Static file serving through Express.js
+- Environment variables for database connectivity
+
+### Database Management
+- Drizzle Kit for schema management and migrations
+- PostgreSQL connection through Neon serverless driver
+- Session storage in PostgreSQL using connect-pg-simple
+
+## Changelog
+```
+Changelog:
+- July 07, 2025. Initial setup
+```
+
+## User Preferences
+```
+Preferred communication style: Simple, everyday language.
+```
