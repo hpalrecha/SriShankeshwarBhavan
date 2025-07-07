@@ -1,0 +1,171 @@
+Feature Specification Document – Hotel Room Booking Platform (Web)
+🔧 1. Platform Overview
+This is a single-property hotel room booking platform, supporting:
+
+Two room categories with limited units
+
+Normal customers and Trustees
+
+Auto-booking logic for Trustees
+
+Online or Pay-at-check-in payment options
+
+Manual check-in process with ID proof upload
+
+Admin dashboard for complete booking and guest management
+
+Email notifications on key events
+
+👥 2. User Roles
+1. Customer (Public User)
+Can search and book available rooms
+
+Can choose between online or cash payment
+
+Can upload ID proof after booking or during check-in
+
+2. Trustee (Privileged User)
+Gets 2 days/month auto-booked
+
+Can opt-out via email prompt
+
+Booking is free (FOC)
+
+3. Admin
+Can manage bookings, guests, check-ins, payments, and trustees
+
+Can upload/check ID proofs
+
+Can trigger/cancel auto-bookings
+
+Full system visibility
+
+📑 3. Core Modules & Features
+🔹 3.1 Public Website (Customer Portal)
+a. Room Listing & Availability
+Calendar view or date picker
+
+Show available rooms by category
+
+Show pricing per night
+
+Blocked/unavailable dates hidden
+
+b. Booking Flow
+Select Room Category
+
+Choose Check-in and Check-out Dates
+
+Enter Guest Details (Name, Email, Mobile)
+
+Payment Option: Online / Pay at Check-in
+
+Summary Page → Confirm Booking
+
+Confirmation Page with Booking ID
+
+c. Payments
+Online via Payment Gateway (Razorpay, Stripe, etc.)
+
+Status update: Paid / Pending
+
+Support for Pay at Check-in (status = Unpaid)
+
+d. ID Proof Upload (Optional)
+Allow users to upload ID anytime post-booking
+
+Upload via link in email or from booking confirmation screen
+
+e. Booking Management (For Users)
+View past/future bookings using mobile/email + OTP
+
+Re-upload ID if needed
+
+Cancel booking (based on policy)
+
+🔹 3.2 Trustee Auto-Booking Logic
+a. Trustee Master (maintained by Admin)
+Name, Mobile, Email
+
+Allowed Auto-book Dates (e.g., 1st & 15th)
+
+Assigned Room Type
+
+Status (Active / Inactive)
+
+b. Auto-Booking Engine
+Cron job runs monthly to create bookings for each trustee
+
+Pre-fills booking in system as “FOC - Pending Confirmation”
+
+Sends confirmation email: “Your stay for 1st–2nd is booked. Click to cancel if not required.”
+
+If trustee clicks cancel → Slot is freed for public booking
+
+If no action, room stays reserved
+
+🔹 3.3 Admin Panel
+a. Dashboard
+Today's check-ins & check-outs
+
+Occupancy overview by date & room type
+
+Recent activity feed (bookings, cancellations)
+
+b. Booking Management
+View, Edit, Cancel Bookings
+
+Change payment status (Paid/Unpaid)
+
+Manual booking creation (for walk-ins)
+
+c. Guest Check-In
+Upload/check ID proof
+
+Assign Room Number manually
+
+Mark as Checked-In / Checked-Out
+
+Option to collect pending payment (for Pay-at-check-in)
+
+d. Room Inventory
+Configure Room Categories (e.g., Deluxe, Standard)
+
+Set total units per category
+
+Mark rooms unavailable (maintenance block)
+
+e. Trustee Management
+Add/Edit Trustees
+
+View upcoming trustee bookings
+
+Cancel or reassign trustee stays
+
+Trigger manual opt-out email if needed
+
+f. Notification Settings
+Email templates (Booking, Cancellation, Check-in, etc.)
+
+Trigger settings (auto-enabled or manual)
+
+🔔 4. Notifications (Email)
+Event	Recipient	Message
+Booking Confirmed	Customer	Room details, Booking ID, payment summary
+Trustee Auto-Booking	Trustee	Confirm/Cancel stay link
+Check-in Done	Admin	Internal confirmation
+Check-out Done	Admin	Internal note
+Booking Cancelled	Customer, Admin	Cancellation note and status
+
+🗃 5. Database Entities (Simplified)
+User (id, name, email, mobile, is_trustee)
+
+RoomCategory (id, name, price, total_units)
+
+RoomBooking (id, user_id, room_category_id, checkin, checkout, status, payment_status, is_auto_booking)
+
+TrusteeAutoBooking (id, trustee_id, booking_date, opt_out_status)
+
+IDProof (id, booking_id, file_url)
+
+AdminUser (id, name, email, role)
