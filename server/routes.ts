@@ -3,8 +3,126 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcrypt";
+import session from "express-session";
+
+// Session middleware for user authentication
+interface AuthenticatedRequest extends Express.Request {
+  user?: { id: number; email: string; name: string; isTrustee: boolean };
+}
+
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  next();
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true in production with HTTPS
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+
+  // Authentication routes
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { name, email, mobile, password } = req.body;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const user = await storage.createUser({
+        name,
+        email,
+        mobile,
+        password: hashedPassword,
+      });
+
+      res.status(201).json({ message: "User created successfully", userId: user.id });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Find user
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Set session
+      (req.session as any).userId = user.id;
+      (req.session as any).userEmail = user.email;
+
+      res.json({ 
+        message: "Login successful", 
+        user: { 
+          id: user.id, 
+          name: user.name, 
+          email: user.email,
+          isTrustee: user.isTrustee 
+        } 
+      });
+    } catch (error) {
+      console.error("Error logging in:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session?.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Could not log out" });
+      }
+      res.json({ message: "Logout successful" });
+    });
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.session as any).userId;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        isTrustee: user.isTrustee 
+      });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
   // Room Categories
   app.get("/api/room-categories", async (req, res) => {
     try {
@@ -60,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", async (req, res) => {
     try {
       const bookingSchema = z.object({
-        user: insertUserSchema,
+        user: insertUserSchema.omit({ password: true }),
         booking: insertRoomBookingSchema.extend({
           checkinDate: z.string(),
           checkoutDate: z.string(),
@@ -72,7 +190,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user exists or create new user
       let user = await storage.getUserByEmail(userData.email);
       if (!user) {
-        user = await storage.createUser(userData);
+        // Create user with a default password for guest bookings
+        const hashedPassword = await bcrypt.hash("guest123", 10);
+        user = await storage.createUser({
+          ...userData,
+          password: hashedPassword,
+        });
       }
 
       // Generate booking ID
@@ -122,6 +245,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching booking:", error);
       res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  // Add user bookings route
+  app.get("/api/my-bookings", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.session as any).userId;
+      const bookings = await storage.getRoomBookings();
+      
+      // Filter bookings for current user and add category details
+      const userBookings = [];
+      for (const booking of bookings) {
+        if (booking.userId === userId) {
+          const category = await storage.getRoomCategory(booking.roomCategoryId);
+          const user = await storage.getUser(booking.userId);
+          userBookings.push({
+            booking,
+            user,
+            category,
+          });
+        }
+      }
+      
+      res.json(userBookings);
+    } catch (error) {
+      console.error("Error fetching user bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Cancel booking route
+  app.patch("/api/bookings/:id/cancel", requireAuth, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const userId = (req.session as any).userId;
+      
+      const booking = await storage.getRoomBooking(bookingId);
+      if (!booking || booking.userId !== userId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.status !== "confirmed") {
+        return res.status(400).json({ message: "Booking cannot be cancelled" });
+      }
+
+      await storage.updateRoomBooking(bookingId, { status: "cancelled" });
+      res.json({ message: "Booking cancelled successfully" });
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      res.status(500).json({ message: "Failed to cancel booking" });
     }
   });
 
@@ -286,23 +459,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/seed", async (req, res) => {
     try {
       // Create room categories
-      const deluxeCategory = await storage.createRoomCategory({
-        name: "Deluxe Room",
-        description: "Spacious deluxe room with modern amenities, AC, WiFi, and attached bathroom",
-        price: "2500.00",
-        totalUnits: 10,
-      });
+      let deluxeCategory, standardCategory;
+      try {
+        deluxeCategory = await storage.createRoomCategory({
+          name: "Deluxe Room",
+          description: "Spacious deluxe room with modern amenities, AC, WiFi, and attached bathroom",
+          price: "2500.00",
+          totalUnits: 10,
+        });
+      } catch (error) {
+        console.log("Deluxe room category already exists");
+      }
 
-      const standardCategory = await storage.createRoomCategory({
-        name: "Standard Room", 
-        description: "Comfortable standard room with essential amenities, AC, WiFi, and attached bathroom",
-        price: "1800.00",
-        totalUnits: 15,
-      });
+      try {
+        standardCategory = await storage.createRoomCategory({
+          name: "Standard Room", 
+          description: "Comfortable standard room with essential amenities, AC, WiFi, and attached bathroom",
+          price: "1800.00",
+          totalUnits: 15,
+        });
+      } catch (error) {
+        console.log("Standard room category already exists");
+      }
+
+      // Create test user for demo purposes
+      let testUser;
+      try {
+        const hashedPassword = await bcrypt.hash("password123", 10);
+        testUser = await storage.createUser({
+          name: "Test User",
+          email: "test@example.com",
+          mobile: "9876543210",
+          password: hashedPassword,
+        });
+      } catch (error) {
+        console.log("Test user already exists");
+        testUser = await storage.getUserByEmail("test@example.com");
+      }
+
+      const categories = await storage.getRoomCategories();
 
       res.json({ 
         message: "Database seeded successfully",
-        categories: [deluxeCategory, standardCategory]
+        categories,
+        testUser: testUser ? { email: testUser.email, password: "password123" } : null
       });
     } catch (error) {
       console.error("Seeding error:", error);

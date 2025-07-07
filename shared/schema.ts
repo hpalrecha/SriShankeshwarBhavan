@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   mobile: varchar("mobile", { length: 20 }).notNull(),
+  password: varchar("password", { length: 255 }).notNull(),
   isTrustee: boolean("is_trustee").default(false),
   trusteeAutoBookDates: varchar("trustee_auto_book_dates", { length: 100 }), // e.g., "1,15"
   trusteeRoomCategoryId: integer("trustee_room_category_id").references(() => roomCategories.id),
