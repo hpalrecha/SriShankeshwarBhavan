@@ -282,6 +282,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seed initial data
+  app.get("/api/seed", async (req, res) => {
+    try {
+      // Create room categories
+      const deluxeCategory = await storage.createRoomCategory({
+        name: "Deluxe Room",
+        description: "Spacious deluxe room with modern amenities, AC, WiFi, and attached bathroom",
+        price: "2500.00",
+        totalUnits: 10,
+      });
+
+      const standardCategory = await storage.createRoomCategory({
+        name: "Standard Room", 
+        description: "Comfortable standard room with essential amenities, AC, WiFi, and attached bathroom",
+        price: "1800.00",
+        totalUnits: 15,
+      });
+
+      res.json({ 
+        message: "Database seeded successfully",
+        categories: [deluxeCategory, standardCategory]
+      });
+    } catch (error) {
+      console.error("Seeding error:", error);
+      res.status(500).json({ message: "Failed to seed database" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

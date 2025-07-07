@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Header from "@/components/layout/header";
-import Tabs from "@/components/layout/tabs";
 import BookingForm from "@/components/booking/booking-form";
 import RoomResults from "@/components/booking/room-results";
+import HeroSection from "@/components/home/hero-section";
+import AmenitiesSection from "@/components/home/amenities-section";
+import LocationSection from "@/components/home/location-section";
+import ContactSection from "@/components/home/contact-section";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 
 export default function Home() {
-  const [currentTab, setCurrentTab] = useState("booking");
   const [bookingData, setBookingData] = useState<BookingFormData | null>(null);
   const [availabilityData, setAvailabilityData] = useState<RoomAvailability | null>(null);
 
@@ -16,37 +18,41 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
-      <Tabs currentTab={currentTab} onTabChange={setCurrentTab} />
       
-      {currentTab === "booking" && (
-        <div>
-          {/* Booking Hero Section */}
-          <div className="bg-gradient-to-r from-brand-orange-bg to-white py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">Book Your Stay</h2>
-                <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-                  Experience comfort and convenience at Sri Shankeshwar Bengaluru Bhavan
-                </p>
-              </div>
-              
-              <div className="mt-10 max-w-3xl mx-auto">
-                <BookingForm onSearch={handleSearch} />
-              </div>
-            </div>
-          </div>
+      {/* Hero Section with Property Image */}
+      <HeroSection />
 
-          {/* Room Results */}
-          {bookingData && availabilityData && (
-            <RoomResults 
-              bookingData={bookingData} 
-              availabilityData={availabilityData} 
-            />
-          )}
+      {/* Booking Form Section */}
+      <section className="relative -mt-20 z-10 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-xl shadow-2xl p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900">Find Your Perfect Room</h2>
+              <p className="mt-2 text-gray-600">Select your dates and discover available accommodations</p>
+            </div>
+            <BookingForm onSearch={handleSearch} />
+          </div>
         </div>
+      </section>
+
+      {/* Room Results */}
+      {bookingData && availabilityData && (
+        <RoomResults 
+          bookingData={bookingData} 
+          availabilityData={availabilityData} 
+        />
       )}
+
+      {/* Amenities Section */}
+      <AmenitiesSection />
+
+      {/* Location Section */}
+      <LocationSection />
+
+      {/* Contact Section */}
+      <ContactSection />
     </div>
   );
 }

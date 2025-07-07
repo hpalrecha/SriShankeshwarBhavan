@@ -1,9 +1,13 @@
+import { useLocation } from "wouter";
+
 interface TabsProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
 }
 
 export default function Tabs({ currentTab, onTabChange }: TabsProps) {
+  const [, setLocation] = useLocation();
+  
   const tabs = [
     { id: "booking", label: "Guest Booking", path: "/" },
     { id: "admin", label: "Admin Dashboard", path: "/admin" },
@@ -12,7 +16,7 @@ export default function Tabs({ currentTab, onTabChange }: TabsProps) {
 
   const handleTabClick = (tabId: string, path: string) => {
     onTabChange(tabId);
-    window.history.pushState({}, "", path);
+    setLocation(path);
   };
 
   return (
