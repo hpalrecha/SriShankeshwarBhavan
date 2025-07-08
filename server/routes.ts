@@ -521,12 +521,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         testUser = await storage.getUserByEmail("test@example.com");
       }
 
+      // Create admin user for demo purposes
+      let adminUser;
+      try {
+        const hashedAdminPassword = await bcrypt.hash("admin123", 10);
+        adminUser = await storage.createAdminUser({
+          name: "Admin User",
+          email: "admin@example.com",
+          password: hashedAdminPassword,
+        });
+      } catch (error) {
+        console.log("Admin user already exists");
+        adminUser = await storage.getAdminUserByEmail("admin@example.com");
+      }
+
       const categories = await storage.getRoomCategories();
 
       res.json({ 
         message: "Database seeded successfully",
         categories,
-        testUser: testUser ? { email: testUser.email, password: "password123" } : null
+        testUser: testUser ? { email: testUser.email, password: "password123" } : null,
+        adminUser: adminUser ? { email: adminUser.email, password: "admin123" } : null
       });
     } catch (error) {
       console.error("Seeding error:", error);
