@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Header from "@/components/layout/header";
-import BookingForm from "@/components/booking/booking-form";
+import SimpleBookingForm from "@/components/booking/simple-booking-form";
 import RoomResults from "@/components/booking/room-results";
 import HeroSection from "@/components/home/hero-section";
 import AmenitiesSection from "@/components/home/amenities-section";
@@ -32,7 +32,7 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-gray-900">Find Your Perfect Room</h2>
               <p className="mt-2 text-gray-600">Select your dates and discover available accommodations</p>
             </div>
-            <BookingForm onSearch={handleSearch} />
+            <SimpleBookingForm onSearch={handleSearch} />
           </div>
         </div>
       </section>

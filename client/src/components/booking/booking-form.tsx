@@ -15,7 +15,7 @@ import type { BookingFormData, RoomAvailability } from "@/lib/types";
 const formSchema = z.object({
   checkinDate: z.string().min(1, "Check-in date is required"),
   checkoutDate: z.string().min(1, "Check-out date is required"),
-  roomCategoryId: z.string().min(1, "Room category is required"),
+  guests: z.number().min(1, "At least 1 guest required").max(10, "Maximum 10 guests allowed"),
 });
 
 interface BookingFormProps {
@@ -30,20 +30,33 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
     queryKey: ["/api/room-categories"],
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<BookingFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       checkinDate: "",
       checkoutDate: "",
-      roomCategoryId: "",
+      guests: 2,
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: BookingFormData) => {
     setIsSearching(true);
     try {
+      // Find the best available room category for the guest count
+      const bestCategory = roomCategories?.find(cat => (cat.maxOccupancy || 2) >= values.guests) || roomCategories?.[0];
+      
+      if (!bestCategory) {
+        toast({
+          title: "No suitable rooms",
+          description: "No rooms available for the selected guest count.",
+          variant: "destructive",
+        });
+        setIsSearching(false);
+        return;
+      }
+
       const response = await fetch(
-        `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${values.roomCategoryId}`
+        `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${bestCategory.id}`
       );
       
       if (!response.ok) {

@@ -3,7 +3,7 @@ import type { RoomCategory, User, RoomBooking } from "@shared/schema";
 export interface BookingFormData {
   checkinDate: string;
   checkoutDate: string;
-  roomCategoryId: number;
+  guests: number;
 }
 
 export interface GuestFormData {
@@ -18,6 +18,7 @@ export interface RoomAvailability {
   availableUnits: number;
   totalUnits: number;
   category: RoomCategory;
+  roomCategoryId?: number;
 }
 
 export interface BookingWithDetails {

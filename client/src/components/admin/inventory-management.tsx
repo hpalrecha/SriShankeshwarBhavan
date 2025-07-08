@@ -365,6 +365,14 @@ export default function InventoryManagement() {
                 <p className="text-sm text-gray-600">Bed Configuration</p>
                 <p className="font-semibold text-brand-orange">{category.bedConfiguration || "1 Double Bed"}</p>
               </div>
+              
+              <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium text-green-800">Current Availability</p>
+                  <p className="text-lg font-bold text-green-600">{category.totalUnits} / {category.totalUnits}</p>
+                </div>
+                <p className="text-xs text-green-600 mt-1">All rooms available today</p>
+              </div>
             </CardContent>
           </Card>
         ))}
