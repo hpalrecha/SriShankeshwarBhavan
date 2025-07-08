@@ -42,67 +42,37 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
   const onSubmit = async (values: BookingFormData) => {
     setIsSearching(true);
     try {
-      // Find the best available room category for the guest count
-      let bestCategory = roomCategories.find(cat => (cat.maxOccupancy || 2) >= values.guests);
-      
-      // If no single room can accommodate all guests, find the largest room
-      if (!bestCategory && roomCategories.length > 0) {
-        bestCategory = roomCategories.reduce((prev, current) => 
-          ((current.maxOccupancy || 2) > (prev.maxOccupancy || 2)) ? current : prev
+      // Check availability for all room categories
+      const availabilityPromises = roomCategories.map(async (category) => {
+        const response = await fetch(
+          `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${category.id}`
         );
-      }
-      
-      if (!bestCategory) {
-        toast({
-          title: "No suitable rooms",
-          description: "No rooms available for the selected guest count.",
-          variant: "destructive",
-        });
-        setIsSearching(false);
-        return;
-      }
+        if (response.ok) {
+          const availability = await response.json();
+          return { ...availability, category };
+        }
+        return null;
+      });
 
-      const response = await fetch(
-        `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${bestCategory.id}`
-      );
-      
-      if (!response.ok) {
-        throw new Error("Failed to check availability");
-      }
+      const allAvailabilities = await Promise.all(availabilityPromises);
+      const availableRooms = allAvailabilities.filter(avail => avail && avail.available);
 
-      const availability: RoomAvailability = await response.json();
-      
-      // Calculate how many rooms are needed for the guest count
-      const maxOccupancy = bestCategory.maxOccupancy || 2;
-      const roomsNeeded = Math.ceil(values.guests / maxOccupancy);
-      
-      if (!availability.available || availability.availableUnits < roomsNeeded) {
-        const availableMessage = roomsNeeded > 1 
-          ? `${roomsNeeded} rooms needed but only ${availability.availableUnits || 0} available.`
-          : "No rooms are available for the selected dates.";
-          
+      if (availableRooms.length === 0) {
         toast({
-          title: "Insufficient availability",
-          description: availableMessage + " Please try different dates.",
+          title: "No rooms available",
+          description: "No rooms are available for the selected dates. Please try different dates.",
           variant: "destructive",
         });
       } else {
-        // Add rooms needed info to availability data
-        const enhancedAvailability = {
-          ...availability,
-          roomsNeeded,
-          guestsPerRoom: Math.ceil(values.guests / roomsNeeded)
-        };
+        // Pass all available rooms to the results component
+        onSearch(values, { 
+          availableRooms,
+          totalGuests: values.guests 
+        } as any);
         
-        onSearch(values, enhancedAvailability);
-        
-        const successMessage = roomsNeeded > 1 
-          ? `${roomsNeeded} rooms available for ${values.guests} guests!`
-          : `Room available for ${values.guests} guest${values.guests > 1 ? 's' : ''}!`;
-          
         toast({
           title: "Rooms found!",
-          description: successMessage,
+          description: `${availableRooms.length} room type${availableRooms.length > 1 ? 's' : ''} available for your dates.`,
         });
       }
     } catch (error) {

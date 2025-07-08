@@ -21,6 +21,8 @@ export interface RoomAvailability {
   roomCategoryId?: number;
   roomsNeeded?: number;
   guestsPerRoom?: number;
+  availableRooms?: RoomAvailability[];
+  totalGuests?: number;
 }
 
 export interface BookingWithDetails {

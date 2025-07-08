@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "@/components/layout/header";
 import SimpleBookingForm from "@/components/booking/simple-booking-form";
 import RoomResults from "@/components/booking/room-results";
+import RoomSelection from "@/components/booking/room-selection";
 import HeroSection from "@/components/home/hero-section";
 import AmenitiesSection from "@/components/home/amenities-section";
 import LocationSection from "@/components/home/location-section";
@@ -9,12 +10,13 @@ import ContactSection from "@/components/home/contact-section";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 
 export default function Home() {
-  const [bookingData, setBookingData] = useState<BookingFormData | null>(null);
-  const [availabilityData, setAvailabilityData] = useState<RoomAvailability | null>(null);
+  const [searchResults, setSearchResults] = useState<{
+    bookingData: BookingFormData;
+    availabilityData: RoomAvailability;
+  } | null>(null);
 
-  const handleSearch = (data: BookingFormData, availability: RoomAvailability) => {
-    setBookingData(data);
-    setAvailabilityData(availability);
+  const handleSearch = (data: BookingFormData, availability: any) => {
+    setSearchResults({ bookingData: data, availabilityData: availability });
   };
 
   return (
@@ -38,11 +40,18 @@ export default function Home() {
       </section>
 
       {/* Room Results */}
-      {bookingData && availabilityData && (
-        <RoomResults 
-          bookingData={bookingData} 
-          availabilityData={availabilityData} 
-        />
+      {searchResults && (
+        searchResults.availabilityData.availableRooms ? (
+          <RoomSelection 
+            bookingData={searchResults.bookingData}
+            availabilityData={searchResults.availabilityData}
+          />
+        ) : (
+          <RoomResults 
+            bookingData={searchResults.bookingData}
+            availabilityData={searchResults.availabilityData}
+          />
+        )
       )}
 
       {/* Amenities Section */}

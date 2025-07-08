@@ -26,7 +26,7 @@ const guestSchema = z.object({
 
 interface GuestDetailsFormProps {
   bookingData: BookingFormData;
-  availabilityData: RoomAvailability;
+  availabilityData: RoomAvailability | any;
   onCancel: () => void;
 }
 
@@ -72,14 +72,18 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const checkinDate = new Date(bookingData.checkinDate);
   const checkoutDate = new Date(bookingData.checkoutDate);
   const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
-  const roomsNeeded = availabilityData.roomsNeeded || 1;
-  const totalAmount = parseFloat(availabilityData.category.price) * nights * roomsNeeded;
+  
+  // Handle both single room and multiple room selections
+  const totalAmount = availabilityData.totalCost || 
+    (parseFloat(availabilityData.category?.price || "0") * nights * (availabilityData.roomsNeeded || 1));
+  
+  const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
   const onSubmit = (values: z.infer<typeof guestSchema>) => {
     createBookingMutation.mutate({
       user: values,
       booking: {
-        roomCategoryId: availabilityData.category.id,
+        roomCategoryId: primaryCategory?.id || 0,
         checkinDate: bookingData.checkinDate,
         checkoutDate: bookingData.checkoutDate,
         guests: bookingData.guests,
@@ -88,7 +92,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         totalAmount: totalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
-        roomsBooked: roomsNeeded,
+        roomsBooked: availabilityData.totalRoomsSelected || availabilityData.roomsNeeded || 1,
       },
     });
   };
@@ -181,16 +185,27 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold text-gray-900 mb-3">Booking Summary</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Room Category:</span>
-                    <span className="font-medium">{availabilityData.category.name}</span>
-                  </div>
-                  {roomsNeeded > 1 && (
+                  {/* Room Selection Summary */}
+                  {availabilityData.selectedRooms ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between font-medium">
+                        <span>Selected Rooms:</span>
+                        <span>{availabilityData.totalRoomsSelected} room{availabilityData.totalRoomsSelected > 1 ? 's' : ''}</span>
+                      </div>
+                      {availabilityData.selectedRooms.map((room: any, index: number) => (
+                        <div key={index} className="flex justify-between text-sm pl-4">
+                          <span>{room.quantity} × {room.category.name}</span>
+                          <span>₹{(room.quantity * parseFloat(room.category.price) * nights).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
                     <div className="flex justify-between">
-                      <span>Number of Rooms:</span>
-                      <span className="font-medium">{roomsNeeded} rooms</span>
+                      <span>Room Category:</span>
+                      <span className="font-medium">{primaryCategory?.name || 'Room'}</span>
                     </div>
                   )}
+                  
                   <div className="flex justify-between">
                     <span>Total Guests:</span>
                     <span className="font-medium">{bookingData.guests}</span>
@@ -206,10 +221,6 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   <div className="flex justify-between">
                     <span>Number of nights:</span>
                     <span>{nights}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Price per night:</span>
-                    <span>₹{availabilityData.category.price}{roomsNeeded > 1 ? ` × ${roomsNeeded} rooms` : ''}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                     <span>Total Amount:</span>
