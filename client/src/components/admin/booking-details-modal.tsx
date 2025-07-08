@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon } from "lucide-react";
+import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
@@ -261,6 +261,29 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Cancel Booking Section - Only show for checked out bookings */}
+              {booking.booking.status === 'checked_out' && booking.booking.status !== 'cancelled' && (
+                <div className="space-y-2 pt-4 border-t">
+                  <Label className="text-red-600 font-medium">Booking Actions</Label>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+                        handleUpdate("status", "cancelled");
+                      }
+                    }}
+                    disabled={updateBookingMutation.isPending}
+                    className="w-full"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel Booking
+                  </Button>
+                  <p className="text-xs text-gray-500">
+                    This will mark the booking as cancelled and may trigger refund processing.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
