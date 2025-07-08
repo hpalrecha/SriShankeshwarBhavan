@@ -21,7 +21,8 @@ const adminBookingSchema = z.object({
   checkoutDate: z.string().min(1, "Check-out date is required"),
   roomCategoryId: z.string().min(1, "Room category is required"),
   guests: z.number().min(1, "At least 1 guest required"),
-  paymentMethod: z.enum(["online", "checkin"]),
+  roomsBooked: z.number().min(1, "At least 1 room required"),
+  paymentMethod: z.enum(["upi", "cash", "card", "bank_transfer", "checkin"]),
 });
 
 type AdminBookingFormData = z.infer<typeof adminBookingSchema>;
@@ -45,7 +46,8 @@ export default function AdminBookingForm() {
       checkoutDate: "",
       roomCategoryId: "",
       guests: 2,
-      paymentMethod: "checkin",
+      roomsBooked: 1,
+      paymentMethod: "cash",
     },
   });
 
@@ -62,6 +64,7 @@ export default function AdminBookingForm() {
           checkoutDate: data.checkoutDate,
           roomCategoryId: parseInt(data.roomCategoryId),
           guests: data.guests,
+          roomsBooked: data.roomsBooked,
           paymentMethod: data.paymentMethod,
           status: "confirmed",
         },
@@ -155,11 +158,25 @@ export default function AdminBookingForm() {
                 id="guests"
                 type="number"
                 min="1"
-                max="10"
+                max="20"
                 {...form.register("guests", { valueAsNumber: true })}
               />
               {form.formState.errors.guests && (
                 <p className="text-sm text-red-600">{form.formState.errors.guests.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="roomsBooked">Number of Rooms</Label>
+              <Input
+                id="roomsBooked"
+                type="number"
+                min="1"
+                max="10"
+                {...form.register("roomsBooked", { valueAsNumber: true })}
+              />
+              {form.formState.errors.roomsBooked && (
+                <p className="text-sm text-red-600">{form.formState.errors.roomsBooked.message}</p>
               )}
             </div>
 
@@ -210,15 +227,21 @@ export default function AdminBookingForm() {
 
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method</Label>
-              <Select onValueChange={(value) => form.setValue("paymentMethod", value as "online" | "checkin")}>
+              <Select onValueChange={(value) => form.setValue("paymentMethod", value as "upi" | "cash" | "card" | "bank_transfer" | "checkin")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="card">Debit/Credit Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                   <SelectItem value="checkin">Pay at Check-in</SelectItem>
-                  <SelectItem value="online">Online Payment</SelectItem>
                 </SelectContent>
               </Select>
+              {form.formState.errors.paymentMethod && (
+                <p className="text-sm text-red-600">{form.formState.errors.paymentMethod.message}</p>
+              )}
             </div>
           </div>
 
