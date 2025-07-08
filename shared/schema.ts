@@ -37,12 +37,14 @@ export const roomBookings = pgTable("room_bookings", {
   roomCategoryId: integer("room_category_id").references(() => roomCategories.id).notNull(),
   checkinDate: timestamp("checkin_date").notNull(),
   checkoutDate: timestamp("checkout_date").notNull(),
+  guests: integer("guests").notNull().default(1),
   status: varchar("status", { length: 50 }).notNull().default("confirmed"), // confirmed, cancelled, checked_in, checked_out
   paymentStatus: varchar("payment_status", { length: 50 }).notNull().default("unpaid"), // paid, unpaid, pending
   paymentMethod: varchar("payment_method", { length: 50 }), // online, checkin
   isAutoBooking: boolean("is_auto_booking").default(false),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   roomNumber: varchar("room_number", { length: 20 }),
+  roomsBooked: integer("rooms_booked").default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

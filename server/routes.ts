@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         booking: insertRoomBookingSchema.extend({
           checkinDate: z.string(),
           checkoutDate: z.string(),
-        }),
+        }).omit({ userId: true }), // Remove userId from validation since we'll add it server-side
       });
 
       const { user: userData, booking: bookingData } = bookingSchema.parse(req.body);
