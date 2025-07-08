@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar } from "lucide-react";
+import { Users, Calendar, Bed } from "lucide-react";
 import GuestDetailsForm from "./guest-details-form";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 
@@ -43,7 +43,11 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
                 <div className="flex items-center mt-3 space-x-4">
                   <span className="flex items-center text-sm text-gray-500">
                     <Users className="w-4 h-4 mr-1" />
-                    <span>2 Guests</span>
+                    <span>Up to {category.maxOccupancy || 2} Guests</span>
+                  </span>
+                  <span className="flex items-center text-sm text-gray-500">
+                    <Bed className="w-4 h-4 mr-1" />
+                    <span>{category.bedConfiguration || "1 Double Bed"}</span>
                   </span>
                   <span className="flex items-center text-sm text-gray-500">
                     <Calendar className="w-4 h-4 mr-1" />

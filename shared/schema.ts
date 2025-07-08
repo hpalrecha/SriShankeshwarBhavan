@@ -10,6 +10,8 @@ export const roomCategories = pgTable("room_categories", {
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   totalUnits: integer("total_units").notNull(),
+  maxOccupancy: integer("max_occupancy").notNull().default(2),
+  bedConfiguration: varchar("bed_configuration", { length: 100 }).notNull().default("1 Double Bed"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -126,6 +128,9 @@ export const trusteeAutoBookingsRelations = relations(trusteeAutoBookings, ({ on
 export const insertRoomCategorySchema = createInsertSchema(roomCategories).omit({
   id: true,
   createdAt: true,
+}).extend({
+  maxOccupancy: z.number().min(1).max(10),
+  bedConfiguration: z.string().min(1).max(100),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

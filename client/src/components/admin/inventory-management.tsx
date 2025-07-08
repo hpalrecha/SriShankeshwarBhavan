@@ -20,6 +20,8 @@ const categorySchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Please enter a valid price"),
   totalUnits: z.number().min(1, "Must have at least 1 room"),
+  maxOccupancy: z.number().min(1, "At least 1 person capacity required").max(10, "Maximum 10 people allowed"),
+  bedConfiguration: z.string().min(1, "Bed configuration is required"),
 });
 
 type CategoryFormData = z.infer<typeof categorySchema>;
@@ -41,6 +43,8 @@ export default function InventoryManagement() {
       description: "",
       price: "",
       totalUnits: 1,
+      maxOccupancy: 2,
+      bedConfiguration: "1 Double Bed",
     },
   });
 
@@ -122,6 +126,8 @@ export default function InventoryManagement() {
       description: category.description || "",
       price: category.price,
       totalUnits: category.totalUnits,
+      maxOccupancy: category.maxOccupancy || 2,
+      bedConfiguration: category.bedConfiguration || "1 Double Bed",
     });
     setIsDialogOpen(true);
   };
@@ -239,6 +245,47 @@ export default function InventoryManagement() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="maxOccupancy">Max People</Label>
+                  <Input
+                    id="maxOccupancy"
+                    type="number"
+                    {...form.register("maxOccupancy", { valueAsNumber: true })}
+                    placeholder="2"
+                    min="1"
+                    max="10"
+                  />
+                  {form.formState.errors.maxOccupancy && (
+                    <p className="text-sm text-red-600">
+                      {form.formState.errors.maxOccupancy.message}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="bedConfiguration">Bed Configuration</Label>
+                  <select
+                    id="bedConfiguration"
+                    {...form.register("bedConfiguration")}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="1 Double Bed">1 Double Bed</option>
+                    <option value="2 Single Beds">2 Single Beds</option>
+                    <option value="1 King Bed">1 King Bed</option>
+                    <option value="1 Queen Bed">1 Queen Bed</option>
+                    <option value="3 Single Beds">3 Single Beds</option>
+                    <option value="1 Double + 1 Single">1 Double + 1 Single</option>
+                    <option value="2 Double Beds">2 Double Beds</option>
+                  </select>
+                  {form.formState.errors.bedConfiguration && (
+                    <p className="text-sm text-red-600">
+                      {form.formState.errors.bedConfiguration.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={handleDialogClose}>
                   Cancel
@@ -309,11 +356,14 @@ export default function InventoryManagement() {
                   <div className="flex items-center justify-center text-brand-orange">
                     <Users className="h-4 w-4" />
                   </div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <Badge variant="outline" className="text-xs">
-                    Active
-                  </Badge>
+                  <p className="text-sm text-gray-600">Max People</p>
+                  <p className="font-semibold">{category.maxOccupancy || 2}</p>
                 </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Bed Configuration</p>
+                <p className="font-semibold text-brand-orange">{category.bedConfiguration || "1 Double Bed"}</p>
               </div>
             </CardContent>
           </Card>
