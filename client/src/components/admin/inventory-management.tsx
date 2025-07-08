@@ -46,10 +46,8 @@ export default function InventoryManagement() {
 
   const createMutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
-      await apiRequest("/api/admin/room-categories", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest("POST", "/api/admin/room-categories", data);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/room-categories"] });
@@ -60,10 +58,11 @@ export default function InventoryManagement() {
         description: "New room category has been added successfully.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Creation error:", error);
       toast({
         title: "Creation failed",
-        description: "Unable to create room category. Please try again.",
+        description: error.message || "Unable to create room category. Please try again.",
         variant: "destructive",
       });
     },
@@ -71,10 +70,8 @@ export default function InventoryManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<CategoryFormData> }) => {
-      await apiRequest(`/api/admin/room-categories/${data.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data.updates),
-      });
+      const response = await apiRequest("PATCH", `/api/admin/room-categories/${data.id}`, data.updates);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/room-categories"] });
@@ -86,10 +83,11 @@ export default function InventoryManagement() {
         description: "Room category has been updated successfully.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Update error:", error);
       toast({
         title: "Update failed",
-        description: "Unable to update room category. Please try again.",
+        description: error.message || "Unable to update room category. Please try again.",
         variant: "destructive",
       });
     },
@@ -97,9 +95,8 @@ export default function InventoryManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/admin/room-categories/${id}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest("DELETE", `/api/admin/room-categories/${id}`);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/room-categories"] });
@@ -108,10 +105,11 @@ export default function InventoryManagement() {
         description: "Room category has been deleted successfully.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Delete error:", error);
       toast({
         title: "Delete failed",
-        description: "Unable to delete room category. Please try again.",
+        description: error.message || "Unable to delete room category. Please try again.",
         variant: "destructive",
       });
     },
