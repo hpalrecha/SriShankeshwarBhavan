@@ -5,10 +5,13 @@ import Tabs from "@/components/layout/tabs";
 import DashboardStats from "@/components/admin/dashboard-stats";
 import BookingsTable from "@/components/admin/bookings-table";
 import CheckinCheckout from "@/components/admin/checkin-checkout";
+import InventoryManagement from "@/components/admin/inventory-management";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function Admin() {
-  const [currentTab, setCurrentTab] = useState("admin");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -30,10 +33,24 @@ export default function Admin() {
     return null; // Will redirect in useEffect
   }
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "dashboard":
+        return <DashboardStats />;
+      case "inventory":
+        return <InventoryManagement />;
+      case "bookings":
+        return <BookingsTable />;
+      case "checkin":
+        return <CheckinCheckout />;
+      default:
+        return <DashboardStats />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <Tabs currentTab={currentTab} onTabChange={setCurrentTab} />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
@@ -41,7 +58,8 @@ export default function Admin() {
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage bookings, guests, and hotel operations</p>
           </div>
-          <button
+          <Button
+            variant="outline"
             onClick={() => {
               localStorage.removeItem("admin_logged_in");
               setLocation("/");
@@ -50,15 +68,39 @@ export default function Admin() {
                 description: "You have been successfully logged out.",
               });
             }}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
           >
             Logout
-          </button>
+          </Button>
         </div>
+
+        {/* Tab Navigation */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex space-x-6">
+              {[
+                { id: "dashboard", label: "Dashboard" },
+                { id: "inventory", label: "Room Inventory" },
+                { id: "bookings", label: "Bookings" },
+                { id: "checkin", label: "Check-in/out" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-brand-orange text-white"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
         
-        <DashboardStats />
-        <BookingsTable />
-        <CheckinCheckout />
+        {/* Tab Content */}
+        {renderTabContent()}
       </div>
     </div>
   );

@@ -68,12 +68,13 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     },
   });
 
-  const onSubmit = (values: z.infer<typeof guestSchema>) => {
-    const checkinDate = new Date(bookingData.checkinDate);
-    const checkoutDate = new Date(bookingData.checkoutDate);
-    const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
-    const totalAmount = parseFloat(availabilityData.category.price) * nights;
+  // Calculate booking details
+  const checkinDate = new Date(bookingData.checkinDate);
+  const checkoutDate = new Date(bookingData.checkoutDate);
+  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+  const totalAmount = parseFloat(availabilityData.category.price) * nights;
 
+  const onSubmit = (values: z.infer<typeof guestSchema>) => {
     createBookingMutation.mutate({
       user: values,
       booking: {
@@ -172,6 +173,37 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   </FormItem>
                 )}
               />
+
+              {/* Booking Summary */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold text-gray-900 mb-3">Booking Summary</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Room Category:</span>
+                    <span className="font-medium">{availabilityData.category.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Check-in:</span>
+                    <span>{new Date(bookingData.checkinDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Check-out:</span>
+                    <span>{new Date(bookingData.checkoutDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Number of nights:</span>
+                    <span>{nights}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Price per night:</span>
+                    <span>₹{availabilityData.category.price}</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between font-semibold text-lg">
+                    <span>Total Amount:</span>
+                    <span className="text-brand-orange">₹{totalAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
               
               <div className="flex space-x-4 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>

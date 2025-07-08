@@ -109,14 +109,7 @@ export default function Header() {
                 >
                   Sign Up
                 </Button>
-                <Button 
-                  onClick={() => setLocation("/admin/login")}
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                >
-                  Admin
-                </Button>
+
               </div>
             )}
           </div>

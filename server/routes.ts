@@ -298,6 +298,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin room category management routes
+  app.post("/api/admin/room-categories", async (req, res) => {
+    try {
+      const categoryData = req.body;
+      const category = await storage.createRoomCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating room category:", error);
+      res.status(500).json({ message: "Failed to create room category" });
+    }
+  });
+
+  app.patch("/api/admin/room-categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const category = await storage.updateRoomCategory(id, updates);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating room category:", error);
+      res.status(500).json({ message: "Failed to update room category" });
+    }
+  });
+
   // Admin Routes
   app.get("/api/admin/dashboard-stats", async (req, res) => {
     try {
