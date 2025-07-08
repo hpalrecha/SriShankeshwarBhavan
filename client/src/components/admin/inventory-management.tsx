@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Bed, Users, DollarSign } from "lucide-react";
+import { Plus, Edit, Bed, Users, DollarSign, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { RoomCategory } from "@shared/schema";
@@ -95,6 +95,28 @@ export default function InventoryManagement() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/admin/room-categories/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/room-categories"] });
+      toast({
+        title: "Room category deleted",
+        description: "Room category has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Delete failed",
+        description: "Unable to delete room category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEdit = (category: RoomCategory) => {
     setEditingCategory(category);
     form.reset({
@@ -121,6 +143,12 @@ export default function InventoryManagement() {
     setIsDialogOpen(false);
     setEditingCategory(null);
     form.reset();
+  };
+
+  const handleDelete = (categoryId: number, categoryName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${categoryName}"? This action cannot be undone.`)) {
+      deleteMutation.mutate(categoryId);
+    }
   };
 
   if (isLoading) {
@@ -241,14 +269,24 @@ export default function InventoryManagement() {
                     {category.description}
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEdit(category)}
-                  className="p-2"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                <div className="flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(category)}
+                    className="p-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(category.id, category.name)}
+                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

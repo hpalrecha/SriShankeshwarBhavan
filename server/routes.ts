@@ -322,6 +322,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/admin/room-categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if there are any bookings for this category
+      const bookings = await storage.getRoomBookings();
+      const hasBookings = bookings.some(booking => booking.roomCategoryId === id && booking.status !== "cancelled");
+      
+      if (hasBookings) {
+        return res.status(400).json({ 
+          message: "Cannot delete room category with active bookings" 
+        });
+      }
+      
+      await storage.deleteRoomCategory(id);
+      res.json({ message: "Room category deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting room category:", error);
+      res.status(500).json({ message: "Failed to delete room category" });
+    }
+  });
+
   // Admin Routes
   app.get("/api/admin/dashboard-stats", async (req, res) => {
     try {

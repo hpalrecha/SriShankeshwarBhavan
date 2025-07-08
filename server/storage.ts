@@ -27,6 +27,7 @@ export interface IStorage {
   getRoomCategory(id: number): Promise<RoomCategory | undefined>;
   createRoomCategory(category: InsertRoomCategory): Promise<RoomCategory>;
   updateRoomCategory(id: number, category: Partial<InsertRoomCategory>): Promise<RoomCategory>;
+  deleteRoomCategory(id: number): Promise<void>;
 
   // Users
   getUser(id: number): Promise<User | undefined>;
@@ -85,6 +86,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(roomCategories.id, id))
       .returning();
     return updatedCategory;
+  }
+
+  async deleteRoomCategory(id: number): Promise<void> {
+    await db.delete(roomCategories).where(eq(roomCategories.id, id));
   }
 
   // Users
