@@ -38,15 +38,22 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-8">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Rooms</h3>
-        {isAutoSelected && (
-          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <p className="text-green-800 text-sm">
-              We've automatically selected the best room for {bookingData.guests} guest{bookingData.guests > 1 ? 's' : ''}. 
-              {suitableCategories.length > 1 && ` ${suitableCategories.length} room types can accommodate your group.`}
-            </p>
+        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <div className="text-green-800 text-sm">
+            {availabilityData.roomsNeeded && availabilityData.roomsNeeded > 1 ? (
+              <div>
+                <p className="font-medium">Multiple rooms recommended for {bookingData.guests} guests</p>
+                <p>We suggest booking {availabilityData.roomsNeeded} × {category.name} rooms ({availabilityData.guestsPerRoom} guests per room)</p>
+              </div>
+            ) : (
+              <p>
+                We've automatically selected the best room for {bookingData.guests} guest{bookingData.guests > 1 ? 's' : ''}. 
+                {suitableCategories.length > 1 && ` ${suitableCategories.length} room types can accommodate your group.`}
+              </p>
+            )}
           </div>
-        )}
+        </div>
       </div>
       
       <Card className="shadow-lg overflow-hidden mb-6">
@@ -87,9 +94,19 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
                 )}
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">₹{category.price}</p>
-                <p className="text-sm text-gray-500">per night</p>
-                <p className="text-sm text-gray-600 mt-1">Total: ₹{(parseFloat(category.price) * nights).toLocaleString()}</p>
+                {availabilityData.roomsNeeded && availabilityData.roomsNeeded > 1 ? (
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">₹{category.price} × {availabilityData.roomsNeeded}</p>
+                    <p className="text-sm text-gray-500">per night ({availabilityData.roomsNeeded} rooms)</p>
+                    <p className="text-sm text-gray-600 mt-1">Total: ₹{(parseFloat(category.price) * nights * availabilityData.roomsNeeded).toLocaleString()}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">₹{category.price}</p>
+                    <p className="text-sm text-gray-500">per night</p>
+                    <p className="text-sm text-gray-600 mt-1">Total: ₹{(parseFloat(category.price) * nights).toLocaleString()}</p>
+                  </div>
+                )}
                 <Button 
                   className="mt-3 bg-brand-orange hover:bg-brand-orange-light"
                   onClick={handleSelectRoom}

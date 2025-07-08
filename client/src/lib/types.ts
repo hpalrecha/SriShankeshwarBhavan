@@ -19,6 +19,8 @@ export interface RoomAvailability {
   totalUnits: number;
   category: RoomCategory;
   roomCategoryId?: number;
+  roomsNeeded?: number;
+  guestsPerRoom?: number;
 }
 
 export interface BookingWithDetails {

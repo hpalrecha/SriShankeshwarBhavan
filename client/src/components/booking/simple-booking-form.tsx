@@ -43,7 +43,14 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
     setIsSearching(true);
     try {
       // Find the best available room category for the guest count
-      const bestCategory = roomCategories.find(cat => (cat.maxOccupancy || 2) >= values.guests) || roomCategories[0];
+      let bestCategory = roomCategories.find(cat => (cat.maxOccupancy || 2) >= values.guests);
+      
+      // If no single room can accommodate all guests, find the largest room
+      if (!bestCategory && roomCategories.length > 0) {
+        bestCategory = roomCategories.reduce((prev, current) => 
+          ((current.maxOccupancy || 2) > (prev.maxOccupancy || 2)) ? current : prev
+        );
+      }
       
       if (!bestCategory) {
         toast({
@@ -65,17 +72,37 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
 
       const availability: RoomAvailability = await response.json();
       
-      if (!availability.available) {
+      // Calculate how many rooms are needed for the guest count
+      const maxOccupancy = bestCategory.maxOccupancy || 2;
+      const roomsNeeded = Math.ceil(values.guests / maxOccupancy);
+      
+      if (!availability.available || availability.availableUnits < roomsNeeded) {
+        const availableMessage = roomsNeeded > 1 
+          ? `${roomsNeeded} rooms needed but only ${availability.availableUnits || 0} available.`
+          : "No rooms are available for the selected dates.";
+          
         toast({
-          title: "No rooms available",
-          description: "No rooms are available for the selected dates. Please try different dates.",
+          title: "Insufficient availability",
+          description: availableMessage + " Please try different dates.",
           variant: "destructive",
         });
       } else {
-        onSearch(values, availability);
+        // Add rooms needed info to availability data
+        const enhancedAvailability = {
+          ...availability,
+          roomsNeeded,
+          guestsPerRoom: Math.ceil(values.guests / roomsNeeded)
+        };
+        
+        onSearch(values, enhancedAvailability);
+        
+        const successMessage = roomsNeeded > 1 
+          ? `${roomsNeeded} rooms available for ${values.guests} guests!`
+          : `Room available for ${values.guests} guest${values.guests > 1 ? 's' : ''}!`;
+          
         toast({
           title: "Rooms found!",
-          description: `${availability.availableUnits} rooms available for your dates.`,
+          description: successMessage,
         });
       }
     } catch (error) {

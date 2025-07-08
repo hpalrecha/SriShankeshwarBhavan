@@ -72,20 +72,23 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const checkinDate = new Date(bookingData.checkinDate);
   const checkoutDate = new Date(bookingData.checkoutDate);
   const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
-  const totalAmount = parseFloat(availabilityData.category.price) * nights;
+  const roomsNeeded = availabilityData.roomsNeeded || 1;
+  const totalAmount = parseFloat(availabilityData.category.price) * nights * roomsNeeded;
 
   const onSubmit = (values: z.infer<typeof guestSchema>) => {
     createBookingMutation.mutate({
       user: values,
       booking: {
-        roomCategoryId: bookingData.roomCategoryId,
+        roomCategoryId: availabilityData.category.id,
         checkinDate: bookingData.checkinDate,
         checkoutDate: bookingData.checkoutDate,
+        guests: bookingData.guests,
         paymentMethod: values.paymentMethod,
         paymentStatus: values.paymentMethod === "online" ? "pending" : "unpaid",
         totalAmount: totalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
+        roomsBooked: roomsNeeded,
       },
     });
   };
@@ -182,6 +185,16 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     <span>Room Category:</span>
                     <span className="font-medium">{availabilityData.category.name}</span>
                   </div>
+                  {roomsNeeded > 1 && (
+                    <div className="flex justify-between">
+                      <span>Number of Rooms:</span>
+                      <span className="font-medium">{roomsNeeded} rooms</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Total Guests:</span>
+                    <span className="font-medium">{bookingData.guests}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span>Check-in:</span>
                     <span>{new Date(bookingData.checkinDate).toLocaleDateString()}</span>
@@ -196,7 +209,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   </div>
                   <div className="flex justify-between">
                     <span>Price per night:</span>
-                    <span>₹{availabilityData.category.price}</span>
+                    <span>₹{availabilityData.category.price}{roomsNeeded > 1 ? ` × ${roomsNeeded} rooms` : ''}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                     <span>Total Amount:</span>
