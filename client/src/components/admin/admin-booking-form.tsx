@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,8 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, Users, Phone, Mail } from "lucide-react";
+import { Calendar, Users, Phone, Mail, Plus, Minus } from "lucide-react";
 import type { RoomCategory } from "@shared/schema";
+
+const roomSelectionSchema = z.object({
+  categoryId: z.number(),
+  quantity: z.number().min(0),
+});
 
 const adminBookingSchema = z.object({
   guestName: z.string().min(2, "Guest name is required"),
@@ -19,9 +24,11 @@ const adminBookingSchema = z.object({
   guestMobile: z.string().min(10, "Valid mobile number is required"),
   checkinDate: z.string().min(1, "Check-in date is required"),
   checkoutDate: z.string().min(1, "Check-out date is required"),
-  roomCategoryId: z.string().min(1, "Room category is required"),
   guests: z.number().min(1, "At least 1 guest required"),
-  roomsBooked: z.number().min(1, "At least 1 room required"),
+  roomSelections: z.array(roomSelectionSchema).refine(
+    (selections) => selections.some(s => s.quantity > 0),
+    "At least one room must be selected"
+  ),
   paymentMethod: z.enum(["upi", "cash", "card", "bank_transfer", "checkin"]),
 });
 
@@ -31,10 +38,22 @@ export default function AdminBookingForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [roomSelections, setRoomSelections] = useState<Record<number, number>>({});
 
   const { data: roomCategories = [] } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
   });
+
+  // Initialize room selections when categories load
+  useEffect(() => {
+    if (roomCategories.length > 0 && Object.keys(roomSelections).length === 0) {
+      const initialSelections: Record<number, number> = {};
+      roomCategories.forEach(category => {
+        initialSelections[category.id] = 0;
+      });
+      setRoomSelections(initialSelections);
+    }
+  }, [roomCategories, roomSelections]);
 
   const form = useForm<AdminBookingFormData>({
     resolver: zodResolver(adminBookingSchema),
@@ -44,16 +63,23 @@ export default function AdminBookingForm() {
       guestMobile: "",
       checkinDate: "",
       checkoutDate: "",
-      roomCategoryId: "",
       guests: 2,
-      roomsBooked: 1,
+      roomSelections: [],
       paymentMethod: "cash",
     },
   });
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: AdminBookingFormData) => {
-      const response = await apiRequest("POST", "/api/bookings", {
+      // Convert room selections to the format expected by API
+      const roomSelectionArray = Object.entries(roomSelections)
+        .filter(([_, quantity]) => quantity > 0)
+        .map(([categoryId, quantity]) => ({
+          categoryId: parseInt(categoryId),
+          quantity
+        }));
+
+      const response = await apiRequest("POST", "/api/admin/bookings/combination", {
         user: {
           name: data.guestName,
           email: data.guestEmail,
@@ -62,9 +88,8 @@ export default function AdminBookingForm() {
         booking: {
           checkinDate: data.checkinDate,
           checkoutDate: data.checkoutDate,
-          roomCategoryId: parseInt(data.roomCategoryId),
           guests: data.guests,
-          roomsBooked: data.roomsBooked,
+          roomSelections: roomSelectionArray,
           paymentMethod: data.paymentMethod,
           status: "confirmed",
         },
@@ -89,7 +114,41 @@ export default function AdminBookingForm() {
     },
   });
 
+  const updateRoomSelection = (categoryId: number, quantity: number) => {
+    setRoomSelections(prev => ({
+      ...prev,
+      [categoryId]: Math.max(0, quantity)
+    }));
+  };
+
+  const getTotalRooms = () => {
+    return Object.values(roomSelections).reduce((sum, quantity) => sum + quantity, 0);
+  };
+
+  const getTotalAmount = () => {
+    const checkinDate = form.watch("checkinDate");
+    const checkoutDate = form.watch("checkoutDate");
+    
+    if (!checkinDate || !checkoutDate) return 0;
+    
+    const nights = Math.ceil((new Date(checkoutDate).getTime() - new Date(checkinDate).getTime()) / (1000 * 60 * 60 * 24));
+    
+    return Object.entries(roomSelections).reduce((total, [categoryId, quantity]) => {
+      const category = roomCategories.find(cat => cat.id === parseInt(categoryId));
+      return total + (category ? category.price * quantity * nights : 0);
+    }, 0);
+  };
+
   const onSubmit = (data: AdminBookingFormData) => {
+    if (getTotalRooms() === 0) {
+      toast({
+        title: "No rooms selected",
+        description: "Please select at least one room to proceed.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     createBookingMutation.mutate(data);
     setIsSubmitting(false);
@@ -166,19 +225,7 @@ export default function AdminBookingForm() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="roomsBooked">Number of Rooms</Label>
-              <Input
-                id="roomsBooked"
-                type="number"
-                min="1"
-                max="10"
-                {...form.register("roomsBooked", { valueAsNumber: true })}
-              />
-              {form.formState.errors.roomsBooked && (
-                <p className="text-sm text-red-600">{form.formState.errors.roomsBooked.message}</p>
-              )}
-            </div>
+
 
             <div className="space-y-2">
               <Label htmlFor="checkinDate">Check-in Date</Label>
@@ -206,24 +253,63 @@ export default function AdminBookingForm() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="roomCategoryId">Room Category</Label>
-              <Select onValueChange={(value) => form.setValue("roomCategoryId", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select room type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roomCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id.toString()}>
-                      {category.name} - ₹{category.price} (Max {category.maxOccupancy || 2} guests)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.roomCategoryId && (
-                <p className="text-sm text-red-600">{form.formState.errors.roomCategoryId.message}</p>
-              )}
+          </div>
+
+          {/* Room Selection Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-lg font-semibold">Room Selection</Label>
+              <div className="text-sm text-gray-600">
+                Total Rooms: {getTotalRooms()} | Total Amount: ₹{getTotalAmount().toLocaleString()}
+              </div>
             </div>
+            
+            <div className="grid gap-4">
+              {roomCategories.map((category) => (
+                <Card key={category.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold">{category.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        ₹{category.price}/night • Max {category.maxOccupancy || 2} guests • {category.totalUnits} units available
+                      </p>
+                      {category.description && (
+                        <p className="text-xs text-gray-500 mt-1">{category.description}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateRoomSelection(category.id, (roomSelections[category.id] || 0) - 1)}
+                        disabled={!roomSelections[category.id] || roomSelections[category.id] <= 0}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      
+                      <span className="w-12 text-center font-medium">
+                        {roomSelections[category.id] || 0}
+                      </span>
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateRoomSelection(category.id, (roomSelections[category.id] || 0) + 1)}
+                        disabled={(roomSelections[category.id] || 0) >= (category.totalUnits || 10)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method</Label>

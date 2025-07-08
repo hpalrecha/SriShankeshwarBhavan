@@ -264,6 +264,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create combination booking route (for admin)
+  app.post("/api/admin/bookings/combination", async (req, res) => {
+    try {
+      const { user: userData, booking: bookingData } = req.body;
+
+      // Create or get user
+      let user = await storage.getUserByEmail(userData.email);
+      if (!user) {
+        const hashedPassword = await bcrypt.hash("guest123", 10);
+        user = await storage.createUser({
+          name: userData.name,
+          email: userData.email,
+          mobile: userData.mobile,
+          password: hashedPassword,
+        });
+      }
+
+      // Calculate total amount from all room selections
+      let totalAmount = 0;
+      let totalRooms = 0;
+      const checkinDate = new Date(bookingData.checkinDate);
+      const checkoutDate = new Date(bookingData.checkoutDate);
+      const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Create separate bookings for each room type selected
+      const createdBookings = [];
+      
+      for (const selection of bookingData.roomSelections) {
+        if (selection.quantity > 0) {
+          const roomCategory = await storage.getRoomCategory(selection.categoryId);
+          if (!roomCategory) {
+            return res.status(400).json({ message: `Invalid room category: ${selection.categoryId}` });
+          }
+
+          const selectionAmount = nights * roomCategory.price * selection.quantity;
+          totalAmount += selectionAmount;
+          totalRooms += selection.quantity;
+
+          // Generate booking ID for each room type
+          const bookingId = `SSH-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+          const booking = await storage.createRoomBooking({
+            userId: user.id,
+            bookingId,
+            roomCategoryId: selection.categoryId,
+            checkinDate: bookingData.checkinDate,
+            checkoutDate: bookingData.checkoutDate,
+            guests: bookingData.guests,
+            roomsBooked: selection.quantity,
+            totalAmount: selectionAmount.toString(),
+            paymentMethod: bookingData.paymentMethod || "cash",
+            paymentStatus: bookingData.paymentMethod === "cash" ? "paid" : "pending",
+            status: bookingData.status || "confirmed",
+          });
+
+          createdBookings.push(booking);
+        }
+      }
+
+      res.json({ 
+        bookings: createdBookings, 
+        user,
+        totalAmount,
+        totalRooms,
+        message: `Created ${createdBookings.length} bookings for ${totalRooms} rooms`
+      });
+    } catch (error) {
+      console.error("Error creating combination booking:", error);
+      res.status(500).json({ message: "Failed to create combination booking" });
+    }
+  });
+
   // Create booking
   app.post("/api/bookings", async (req, res) => {
     try {
