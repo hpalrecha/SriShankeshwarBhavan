@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Eye, Users, Calendar, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import BookingDetailsModal from "./booking-details-modal";
 import type { BookingWithDetails } from "@/lib/types";
 
 export default function BookingsTable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: bookings, isLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/recent-bookings"],
@@ -21,6 +26,9 @@ export default function BookingsTable() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkouts"] });
       toast({
         title: "Booking Updated",
         description: "Booking has been successfully updated.",
@@ -41,6 +49,11 @@ export default function BookingsTable() {
       id: bookingId,
       updates: { status },
     });
+  };
+
+  const handleViewDetails = (booking: BookingWithDetails) => {
+    setSelectedBooking(booking);
+    setIsModalOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -90,6 +103,7 @@ export default function BookingsTable() {
   }
 
   return (
+    <>
     <Card className="mb-8">
       <CardHeader>
         <CardTitle>Recent Bookings</CardTitle>
@@ -113,6 +127,7 @@ export default function BookingsTable() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{user.name}</div>
                     <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="text-sm text-gray-500">{booking.guests} guests, {booking.roomsBooked || 1} room{(booking.roomsBooked || 1) > 1 ? 's' : ''}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {category.name}
@@ -128,6 +143,14 @@ export default function BookingsTable() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails({ booking, user, category })}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Details
+                      </Button>
                       {booking.status === "confirmed" && (
                         <Button
                           size="sm"
@@ -164,5 +187,15 @@ export default function BookingsTable() {
         </div>
       </CardContent>
     </Card>
+
+    <BookingDetailsModal 
+      booking={selectedBooking}
+      isOpen={isModalOpen}
+      onClose={() => {
+        setIsModalOpen(false);
+        setSelectedBooking(null);
+      }}
+    />
+    </>
   );
 }

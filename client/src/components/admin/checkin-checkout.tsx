@@ -25,6 +25,8 @@ export default function CheckinCheckout() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkins"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkouts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       toast({
         title: "Status Updated",
         description: "Guest status has been successfully updated.",

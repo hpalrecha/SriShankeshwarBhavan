@@ -1,0 +1,353 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import type { BookingWithDetails } from "@/lib/types";
+
+interface BookingDetailsModalProps {
+  booking: BookingWithDetails | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [roomNumber, setRoomNumber] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [status, setStatus] = useState("");
+  const [idProofFile, setIdProofFile] = useState<File | null>(null);
+
+  const { data: idProofs } = useQuery({
+    queryKey: ["/api/admin/id-proofs", booking?.booking.id],
+    enabled: !!booking,
+  });
+
+  const updateBookingMutation = useMutation({
+    mutationFn: async (updates: any) => {
+      return await apiRequest("PATCH", `/api/admin/bookings/${booking?.booking.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+      toast({
+        title: "Booking Updated",
+        description: "Booking has been successfully updated.",
+      });
+    },
+    onError: (error) => {
+      console.error("Update error:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const uploadIdProofMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("idProof", file);
+      formData.append("bookingId", booking?.booking.id.toString() || "");
+      
+      return await apiRequest("POST", "/api/admin/id-proofs", formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/id-proofs", booking?.booking.id] });
+      setIdProofFile(null);
+      toast({
+        title: "ID Proof Uploaded",
+        description: "Guest ID proof has been successfully uploaded.",
+      });
+    },
+    onError: (error) => {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload ID proof. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUpdate = (field: string, value: string) => {
+    updateBookingMutation.mutate({ [field]: value });
+  };
+
+  const handleIdProofUpload = () => {
+    if (idProofFile) {
+      uploadIdProofMutation.mutate(idProofFile);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      confirmed: "default",
+      checked_in: "secondary", 
+      checked_out: "outline",
+      cancelled: "destructive",
+    };
+    return <Badge variant={variants[status] || "default"}>{status.replace('_', ' ')}</Badge>;
+  };
+
+  const getPaymentStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      paid: "secondary",
+      unpaid: "destructive",
+      pending: "default",
+    };
+    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
+  };
+
+  if (!booking) return null;
+
+  const checkinDate = new Date(booking.booking.checkinDate);
+  const checkoutDate = new Date(booking.booking.checkoutDate);
+  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Booking Details - {booking.booking.bookingId}</span>
+            <div className="flex gap-2">
+              {getStatusBadge(booking.booking.status)}
+              {getPaymentStatusBadge(booking.booking.paymentStatus)}
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Guest Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Guest Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-gray-500" />
+                <span className="font-medium">{booking.user.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <span>{booking.user.email}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-gray-500" />
+                <span>{booking.user.mobile}</span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Guests: {booking.booking.guests}</p>
+                <p className="text-sm text-gray-600">Rooms Booked: {booking.booking.roomsBooked || 1}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Booking Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Booking Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-600">Room Category</p>
+                <p className="font-medium">{booking.category.name}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Check-in</p>
+                  <p className="font-medium">{checkinDate.toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Check-out</p>
+                  <p className="font-medium">{checkoutDate.toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Duration</p>
+                <p className="font-medium">{nights} night{nights > 1 ? 's' : ''}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Payment Method</p>
+                <p className="font-medium">{booking.booking.paymentMethod || 'Not specified'}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Admin Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Admin Controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="roomNumber">Room Number</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="roomNumber"
+                    value={roomNumber || booking.booking.roomNumber || ""}
+                    onChange={(e) => setRoomNumber(e.target.value)}
+                    placeholder="e.g. 101, 102"
+                  />
+                  <Button 
+                    onClick={() => handleUpdate("roomNumber", roomNumber)}
+                    disabled={updateBookingMutation.isPending}
+                    size="sm"
+                  >
+                    Update
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Booking Status</Label>
+                <Select
+                  value={status || booking.booking.status}
+                  onValueChange={(value) => {
+                    setStatus(value);
+                    handleUpdate("status", value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="checked_in">Checked In</SelectItem>
+                    <SelectItem value="checked_out">Checked Out</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <Select
+                  value={paymentStatus || booking.booking.paymentStatus}
+                  onValueChange={(value) => {
+                    setPaymentStatus(value);
+                    handleUpdate("paymentStatus", value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ID Proof Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                ID Proof Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="idProof">Upload Guest ID Proof</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="idProof"
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setIdProofFile(e.target.files?.[0] || null)}
+                  />
+                  <Button 
+                    onClick={handleIdProofUpload}
+                    disabled={!idProofFile || uploadIdProofMutation.isPending}
+                    size="sm"
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    Upload
+                  </Button>
+                </div>
+              </div>
+
+              {idProofs && idProofs.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Uploaded ID Proofs</Label>
+                  <div className="space-y-1">
+                    {idProofs.map((proof: any) => (
+                      <div key={proof.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{proof.fileName}</span>
+                        <Button variant="outline" size="sm">View</Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Separator />
+
+        {/* Payment Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-gray-600">Room Rate</p>
+                <p className="font-medium">₹{booking.category.price}/night</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Nights</p>
+                <p className="font-medium">{nights}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Rooms</p>
+                <p className="font-medium">{booking.booking.roomsBooked || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Total Amount</p>
+                <p className="font-bold text-lg text-brand-orange">₹{parseFloat(booking.booking.totalAmount).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

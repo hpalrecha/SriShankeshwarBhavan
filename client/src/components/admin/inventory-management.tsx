@@ -36,6 +36,12 @@ export default function InventoryManagement() {
     queryKey: ["/api/room-categories"],
   });
 
+  // Get real-time availability for each category
+  const { data: availabilityData } = useQuery({
+    queryKey: ["/api/admin/current-availability"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
@@ -369,9 +375,22 @@ export default function InventoryManagement() {
               <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-medium text-green-800">Current Availability</p>
-                  <p className="text-lg font-bold text-green-600">{category.totalUnits} / {category.totalUnits}</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {availabilityData?.[category.id] ? 
+                      `${availabilityData[category.id].available} / ${category.totalUnits}` :
+                      `${category.totalUnits} / ${category.totalUnits}`
+                    }
+                  </p>
                 </div>
-                <p className="text-xs text-green-600 mt-1">All rooms available today</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {availabilityData?.[category.id] ? (
+                    availabilityData[category.id].available === category.totalUnits ? 
+                      'All rooms available today' : 
+                      `${category.totalUnits - availabilityData[category.id].available} rooms booked today`
+                  ) : (
+                    'All rooms available today'
+                  )}
+                </p>
               </div>
             </CardContent>
           </Card>

@@ -134,6 +134,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current availability for admin dashboard
+  app.get("/api/admin/current-availability", async (req, res) => {
+    try {
+      const categories = await storage.getRoomCategories();
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const availability: Record<number, { available: number; booked: number }> = {};
+
+      for (const category of categories) {
+        const bookings = await storage.getBookingsByDateRange(today, tomorrow);
+        const bookedRooms = bookings
+          .filter(booking => 
+            booking.roomCategoryId === category.id && 
+            booking.status !== 'cancelled'
+          )
+          .reduce((sum, booking) => sum + (booking.roomsBooked || 1), 0);
+
+        availability[category.id] = {
+          available: Math.max(0, category.totalUnits - bookedRooms),
+          booked: bookedRooms
+        };
+      }
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching current availability:", error);
+      res.status(500).json({ message: "Failed to fetch current availability" });
+    }
+  });
+
+  // ID Proof Management
+  app.get("/api/admin/id-proofs/:bookingId", async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.bookingId);
+      const idProofs = await storage.getIdProofsByBookingId(bookingId);
+      res.json(idProofs);
+    } catch (error) {
+      console.error("Error fetching ID proofs:", error);
+      res.status(500).json({ message: "Failed to fetch ID proofs" });
+    }
+  });
+
+  app.post("/api/admin/id-proofs", async (req, res) => {
+    try {
+      // Note: In a real implementation, you'd handle file upload with multer or similar
+      const { bookingId, fileName, fileType } = req.body;
+      
+      const idProof = await storage.createIdProof({
+        bookingId: parseInt(bookingId),
+        fileName: fileName || "id_proof.jpg",
+        fileType: fileType || "image/jpeg",
+        filePath: `/uploads/${bookingId}/${fileName || "id_proof.jpg"}`,
+      });
+      
+      res.status(201).json(idProof);
+    } catch (error) {
+      console.error("Error creating ID proof:", error);
+      res.status(500).json({ message: "Failed to upload ID proof" });
+    }
+  });
+
   // Room availability check
   app.get("/api/rooms/availability", async (req, res) => {
     try {

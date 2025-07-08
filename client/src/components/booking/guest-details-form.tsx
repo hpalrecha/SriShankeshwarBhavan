@@ -52,6 +52,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     onSuccess: async (response) => {
       const result = await response.json();
       setBookingId(result.bookingId);
+      
+      // Invalidate caches for real-time updates
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+      
       setShowConfirmation(true);
       toast({
         title: "Booking Confirmed!",
