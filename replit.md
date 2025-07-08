@@ -103,6 +103,9 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 08, 2025: Fixed real-time inventory updates - rooms now properly show reduced availability after bookings
+- July 08, 2025: Enhanced admin dashboard with detailed booking modal, ID proof uploads, and payment management
+- July 08, 2025: Added comprehensive booking details modal with guest info, room assignment, and status controls
 - July 08, 2025: Simplified booking flow to only ask for dates and guest count
 - July 08, 2025: Added admin booking functionality with comprehensive form
 - July 08, 2025: Added room availability display in admin inventory management

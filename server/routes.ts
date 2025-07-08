@@ -139,18 +139,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const categories = await storage.getRoomCategories();
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+      
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const availability: Record<number, { available: number; booked: number }> = {};
 
       for (const category of categories) {
-        const bookings = await storage.getBookingsByDateRange(today, tomorrow);
-        const bookedRooms = bookings
-          .filter(booking => 
-            booking.roomCategoryId === category.id && 
-            booking.status !== 'cancelled'
-          )
+        // Get all active bookings (confirmed or checked in) for today
+        const allBookings = await storage.getRoomBookings();
+        // Show rooms as unavailable if they are:
+        // 1. Currently occupied (checkin <= today < checkout)
+        // 2. Confirmed for today (checkin = today) 
+        // 3. Checked in but not checked out
+        const bookedRooms = allBookings
+          .filter(booking => {
+            const checkin = new Date(booking.checkinDate);
+            const checkout = new Date(booking.checkoutDate);
+            checkin.setHours(0, 0, 0, 0);
+            checkout.setHours(0, 0, 0, 0);
+            
+            const isRoomCategoryMatch = booking.roomCategoryId === category.id;
+            const isActiveStatus = booking.status !== 'cancelled' && booking.status !== 'checked_out';
+            
+            // Room is unavailable if:
+            // - Currently occupying (checkin <= today < checkout)
+            // - OR booking is for today (checkin = today)
+            // - OR status is checked_in (regardless of dates)
+            const isCurrentlyOccupying = checkin <= today && checkout > today;
+            const isBookingForToday = checkin.getTime() === today.getTime();
+            const isCheckedIn = booking.status === 'checked_in';
+            
+            const isUnavailable = isCurrentlyOccupying || isBookingForToday || isCheckedIn;
+            
+
+            
+            return isRoomCategoryMatch && isActiveStatus && isUnavailable;
+          })
           .reduce((sum, booking) => sum + (booking.roomsBooked || 1), 0);
 
         availability[category.id] = {
@@ -158,6 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booked: bookedRooms
         };
       }
+
 
       res.json(availability);
     } catch (error) {
