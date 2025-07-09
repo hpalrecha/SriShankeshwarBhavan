@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { User, Mail, Phone, Calendar, CreditCard, UserCheck, Users } from "lucide-react";
-import type { User as UserType, RoomBooking } from "@shared/schema";
+import { User, Mail, Phone, Calendar, CreditCard, UserCheck, Users, Settings } from "lucide-react";
+import type { User as UserType, RoomBooking, RoomCategory } from "@shared/schema";
 
 interface UserWithBookings extends UserType {
   totalBookings?: number;
@@ -32,14 +34,27 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showTrusteeSettings, setShowTrusteeSettings] = useState(false);
+  const [trusteeAutoBookDates, setTrusteeAutoBookDates] = useState(user?.trusteeAutoBookDates || "");
+  const [trusteeRoomCategoryId, setTrusteeRoomCategoryId] = useState(user?.trusteeRoomCategoryId?.toString() || "");
 
   const { data: userBookings = [] } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/user-bookings", user?.id],
     enabled: !!user?.id,
   });
 
+  const { data: roomCategories = [] } = useQuery<RoomCategory[]>({
+    queryKey: ["/api/room-categories"],
+    enabled: showTrusteeSettings,
+  });
+
   const updateUserMutation = useMutation({
-    mutationFn: async (data: { isTrustee: boolean; trusteeStatus?: string }) => {
+    mutationFn: async (data: { 
+      isTrustee?: boolean; 
+      trusteeStatus?: string;
+      trusteeAutoBookDates?: string;
+      trusteeRoomCategoryId?: number;
+    }) => {
       if (!user) throw new Error("No user selected");
       
       const response = await apiRequest("PATCH", `/api/admin/users/${user.id}`, data);
@@ -48,15 +63,17 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
     onSuccess: () => {
       toast({
         title: "User Updated",
-        description: "User account type has been updated successfully.",
+        description: "User settings have been updated successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      onClose();
+      if (!showTrusteeSettings) {
+        onClose();
+      }
     },
     onError: (error) => {
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update user account type.",
+        description: error.message || "Failed to update user settings.",
         variant: "destructive",
       });
     },
@@ -81,6 +98,16 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
         trusteeStatus: undefined
       });
     }
+  };
+
+  const handleTrusteeSettingsUpdate = () => {
+    if (!user) return;
+    
+    setIsUpdating(true);
+    updateUserMutation.mutate({
+      trusteeAutoBookDates,
+      trusteeRoomCategoryId: trusteeRoomCategoryId ? parseInt(trusteeRoomCategoryId) : undefined
+    });
   };
 
   if (!user) return null;
@@ -304,10 +331,12 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
                     variant="outline" 
                     className="w-full"
                     onClick={() => {
-                      // Manage trustee settings
-                      console.log("Manage trustee settings:", user.id);
+                      setTrusteeAutoBookDates(user.trusteeAutoBookDates || "");
+                      setTrusteeRoomCategoryId(user.trusteeRoomCategoryId?.toString() || "");
+                      setShowTrusteeSettings(true);
                     }}
                   >
+                    <Settings className="h-4 w-4 mr-2" />
                     Trustee Settings
                   </Button>
                 )}
@@ -315,6 +344,76 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
             </Card>
           </div>
         </div>
+
+        {/* Trustee Settings Modal */}
+        {showTrusteeSettings && user?.isTrustee && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Trustee Auto-Booking Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="autoBookDates">Auto-Book Dates (2 days per month)</Label>
+                <Input
+                  id="autoBookDates"
+                  placeholder="e.g., 15,30 (for 15th and 30th of each month)"
+                  value={trusteeAutoBookDates}
+                  onChange={(e) => setTrusteeAutoBookDates(e.target.value)}
+                />
+                <p className="text-xs text-gray-500">
+                  Enter 2 dates separated by comma (e.g., "15,30" for 15th and 30th of each month)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="roomCategory">Preferred Room Category</Label>
+                <Select value={trusteeRoomCategoryId} onValueChange={setTrusteeRoomCategoryId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select room category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roomCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name} - ₹{category.price}/night
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+                <p className="font-medium mb-1">Auto-Booking Information:</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Trustees get automatic bookings for 2 days per month</li>
+                  <li>• Specify dates like "15,30" for 15th and 30th of each month</li>
+                  <li>• Choose preferred room category for auto-bookings</li>
+                  <li>• Trustees can opt-out of individual auto-bookings if needed</li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowTrusteeSettings(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleTrusteeSettingsUpdate}
+                  disabled={isUpdating}
+                >
+                  {isUpdating && (
+                    <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                  )}
+                  Save Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex justify-end pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
