@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Room availability check
   app.get("/api/rooms/availability", async (req, res) => {
     try {
-      const { checkinDate, checkoutDate, roomCategoryId } = req.query;
+      const { checkinDate, checkoutDate, roomCategoryId, guests } = req.query;
       
       if (!checkinDate || !checkoutDate || !roomCategoryId) {
         return res.status(400).json({ message: "Missing required parameters" });
@@ -236,6 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = new Date(checkinDate as string);
       const endDate = new Date(checkoutDate as string);
       const categoryId = parseInt(roomCategoryId as string);
+      const guestCount = parseInt(guests as string) || 1;
 
       // Get bookings in the date range for this room category
       const bookings = await storage.getBookingsByDateRange(startDate, endDate);
@@ -244,19 +245,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         booking.status !== "cancelled"
       );
 
-      // Get room category to check total units
+      // Get room category to check total units and capacity
       const category = await storage.getRoomCategory(categoryId);
       if (!category) {
         return res.status(404).json({ message: "Room category not found" });
       }
 
       const availableUnits = category.totalUnits - categoryBookings.length;
+      const roomsNeeded = Math.ceil(guestCount / category.maxOccupancy);
       
       res.json({
-        available: availableUnits > 0,
+        available: availableUnits >= roomsNeeded,
         availableUnits,
         totalUnits: category.totalUnits,
-        category
+        category,
+        roomsNeeded,
+        guestsPerRoom: category.maxOccupancy,
+        canAccommodateGuests: availableUnits >= roomsNeeded
       });
     } catch (error) {
       console.error("Error checking availability:", error);
@@ -296,6 +301,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const roomCategory = await storage.getRoomCategory(selection.categoryId);
           if (!roomCategory) {
             return res.status(400).json({ message: `Invalid room category: ${selection.categoryId}` });
+          }
+
+          // Validate room capacity vs guests for each room type
+          const totalCapacity = roomCategory.maxOccupancy * selection.quantity;
+          
+          if (bookingData.guests > totalCapacity) {
+            const minRoomsNeeded = Math.ceil(bookingData.guests / roomCategory.maxOccupancy);
+            return res.status(400).json({ 
+              message: `Insufficient capacity for ${roomCategory.name}. ${bookingData.guests} guests need at least ${minRoomsNeeded} rooms (max ${roomCategory.maxOccupancy} guests per room). Currently selecting ${selection.quantity} rooms.`
+            });
           }
 
           const selectionAmount = nights * roomCategory.price * selection.quantity;
@@ -349,6 +364,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { user: userData, booking: bookingData } = bookingSchema.parse(req.body);
 
+      // Get room category to check capacity
+      const category = await storage.getRoomCategory(bookingData.roomCategoryId);
+      if (!category) {
+        return res.status(404).json({ message: "Room category not found" });
+      }
+
+      // Validate room capacity vs guests
+      const roomsBooked = bookingData.roomsBooked || 1;
+      const totalCapacity = category.maxOccupancy * roomsBooked;
+      
+      if (bookingData.guests > totalCapacity) {
+        const minRoomsNeeded = Math.ceil(bookingData.guests / category.maxOccupancy);
+        return res.status(400).json({ 
+          message: `Insufficient room capacity. ${bookingData.guests} guests need at least ${minRoomsNeeded} rooms of ${category.name} (max ${category.maxOccupancy} guests per room). Currently booking ${roomsBooked} rooms.`,
+          suggestedRooms: minRoomsNeeded,
+          roomCapacity: category.maxOccupancy,
+          totalGuests: bookingData.guests
+        });
+      }
+
       // Check if user exists or create new user
       let user = await storage.getUserByEmail(userData.email);
       if (!user) {
@@ -363,16 +398,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate booking ID
       const bookingId = `SSH-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-      // Calculate total amount
-      const category = await storage.getRoomCategory(bookingData.roomCategoryId);
-      if (!category) {
-        return res.status(404).json({ message: "Room category not found" });
-      }
-
       const checkinDate = new Date(bookingData.checkinDate);
       const checkoutDate = new Date(bookingData.checkoutDate);
       const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
-      const totalAmount = parseFloat(category.price) * nights;
+      const totalAmount = parseFloat(category.price) * nights * roomsBooked;
 
       const booking = await storage.createRoomBooking({
         ...bookingData,

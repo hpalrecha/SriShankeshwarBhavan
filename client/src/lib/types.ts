@@ -23,6 +23,7 @@ export interface RoomAvailability {
   guestsPerRoom?: number;
   availableRooms?: RoomAvailability[];
   totalGuests?: number;
+  canAccommodateGuests?: boolean;
 }
 
 export interface BookingWithDetails {

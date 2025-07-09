@@ -56,7 +56,7 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
       }
 
       const response = await fetch(
-        `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${bestCategory.id}`
+        `/api/rooms/availability?checkinDate=${values.checkinDate}&checkoutDate=${values.checkoutDate}&roomCategoryId=${bestCategory.id}&guests=${values.guests}`
       );
       
       if (!response.ok) {
@@ -74,18 +74,27 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
         return;
       }
 
+      if (!availability.canAccommodateGuests) {
+        toast({
+          title: "Insufficient Room Capacity",
+          description: `${values.guests} guests need ${availability.roomsNeeded} rooms, but only ${availability.availableUnits} rooms are available. Each ${availability.category.name} accommodates ${availability.guestsPerRoom} guests.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       onSearch(
         {
           checkinDate: values.checkinDate,
           checkoutDate: values.checkoutDate,
-          roomCategoryId: parseInt(values.roomCategoryId),
+          guests: values.guests,
         },
         availability
       );
 
       toast({
         title: "Rooms found!",
-        description: `${availability.availableUnits} rooms available for your dates.`,
+        description: `${availability.availableUnits} rooms available. ${availability.roomsNeeded} rooms needed for ${values.guests} guests.`,
       });
     } catch (error) {
       console.error("Search error:", error);
@@ -139,24 +148,19 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
             
             <FormField
               control={form.control}
-              name="roomCategoryId"
+              name="guests"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Room Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Room Type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {roomCategories?.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name} - ₹{category.price}/night
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Number of Guests</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={field.value}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
