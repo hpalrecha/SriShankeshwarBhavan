@@ -8,6 +8,7 @@ import CheckinCheckout from "@/components/admin/checkin-checkout";
 import InventoryManagement from "@/components/admin/inventory-management";
 import AdminBookingForm from "@/components/admin/admin-booking-form";
 import UsersTable from "@/components/admin/users-table";
+import TrusteeManagement from "@/components/admin/trustee-management";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,8 @@ export default function Admin() {
             onCreateBooking={handleCreateBookingForUser}
           />
         );
+      case "trustees":
+        return <TrusteeManagement />;
       default:
         return <DashboardStats />;
     }
@@ -117,6 +120,7 @@ export default function Admin() {
                 { id: "create-booking", label: "New Booking" },
                 { id: "checkin", label: "Check-in/out" },
                 { id: "users", label: "Users" },
+                { id: "trustees", label: "Trustees" },
               ].map((tab) => (
                 <button
                   key={tab.id}

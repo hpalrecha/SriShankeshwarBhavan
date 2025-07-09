@@ -589,6 +589,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all trustees
+  app.get("/api/admin/trustees", async (req, res) => {
+    try {
+      const trustees = await storage.getTrustees();
+      
+      // Add booking statistics for each trustee
+      const trusteesWithStats = await Promise.all(
+        trustees.map(async (trustee) => {
+          const bookings = await storage.getRoomBookings();
+          const trusteeBookings = bookings.filter(b => b.userId === trustee.id);
+          
+          return {
+            ...trustee,
+            totalBookings: trusteeBookings.length,
+            lastBooking: trusteeBookings.length > 0 
+              ? trusteeBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+              : null
+          };
+        })
+      );
+      
+      res.json(trusteesWithStats);
+    } catch (error) {
+      console.error("Error fetching trustees:", error);
+      res.status(500).json({ message: "Failed to fetch trustees" });
+    }
+  });
+
   // Users management route
   app.get("/api/admin/users", async (req, res) => {
     try {
