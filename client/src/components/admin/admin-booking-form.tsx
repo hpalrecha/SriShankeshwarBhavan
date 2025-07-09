@@ -159,6 +159,31 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
     }, 0);
   };
 
+  const validateRoomCapacity = (guests: number) => {
+    const totalCapacity = Object.entries(roomSelections).reduce((total, [categoryId, quantity]) => {
+      const category = roomCategories.find(cat => cat.id === parseInt(categoryId));
+      return total + (category ? (category.maxOccupancy || 2) * quantity : 0);
+    }, 0);
+    
+    if (guests > totalCapacity) {
+      const selectedRooms = Object.entries(roomSelections)
+        .filter(([_, quantity]) => quantity > 0)
+        .map(([categoryId, quantity]) => {
+          const category = roomCategories.find(cat => cat.id === parseInt(categoryId));
+          return `${quantity} x ${category?.name} (${category?.maxOccupancy || 2} guests each)`;
+        })
+        .join(', ');
+      
+      toast({
+        title: "Insufficient Room Capacity",
+        description: `${guests} guests cannot fit in selected rooms. Current capacity: ${totalCapacity} guests. Selected: ${selectedRooms}`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const onSubmit = (data: AdminBookingFormData) => {
     if (getTotalRooms() === 0) {
       toast({
@@ -166,6 +191,11 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
         description: "Please select at least one room to proceed.",
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Validate room capacity vs guests
+    if (!validateRoomCapacity(data.guests)) {
       return;
     }
     
@@ -243,6 +273,23 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
               {form.formState.errors.guests && (
                 <p className="text-sm text-red-600">{form.formState.errors.guests.message}</p>
               )}
+              {/* Show capacity warning */}
+              {(() => {
+                const guests = form.watch("guests");
+                const totalCapacity = Object.entries(roomSelections).reduce((total, [categoryId, quantity]) => {
+                  const category = roomCategories.find(cat => cat.id === parseInt(categoryId));
+                  return total + (category ? (category.maxOccupancy || 2) * quantity : 0);
+                }, 0);
+                
+                if (guests > totalCapacity && totalCapacity > 0) {
+                  return (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      ⚠️ {guests} guests exceed room capacity of {totalCapacity}. Please select more rooms.
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
 
@@ -279,9 +326,22 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-lg font-semibold">Room Selection</Label>
-              <div className="text-sm text-gray-600">
-                Total Rooms: {getTotalRooms()} | Total Amount: ₹{getTotalAmount().toLocaleString()}
-              </div>
+              {(() => {
+                const totalRooms = getTotalRooms();
+                const totalCapacity = Object.entries(roomSelections).reduce((total, [categoryId, quantity]) => {
+                  const category = roomCategories.find(cat => cat.id === parseInt(categoryId));
+                  return total + (category ? (category.maxOccupancy || 2) * quantity : 0);
+                }, 0);
+                const guests = form.watch("guests");
+                const isCapacityExceeded = guests > totalCapacity && totalCapacity > 0;
+                
+                return (
+                  <div className={`text-sm ${isCapacityExceeded ? 'text-red-600' : 'text-gray-600'}`}>
+                    Total Rooms: {totalRooms} | Total Capacity: {totalCapacity} guests | Total Amount: ₹{getTotalAmount().toLocaleString()}
+                    {isCapacityExceeded && <span className="block text-red-600 font-medium">⚠️ Insufficient capacity for {guests} guests!</span>}
+                  </div>
+                );
+              })()}
             </div>
             
             <div className="grid gap-4">
