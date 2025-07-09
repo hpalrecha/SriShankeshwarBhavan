@@ -589,6 +589,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trustee auto-booking management
+  app.get("/api/admin/trustee-auto-bookings", async (req, res) => {
+    try {
+      const { year, month } = req.query;
+      if (!year || !month) {
+        return res.status(400).json({ message: "Year and month are required" });
+      }
+      
+      const autoBookings = await storage.getTrusteeAutoBookingsByMonth(
+        parseInt(year as string), 
+        parseInt(month as string)
+      );
+      res.json(autoBookings);
+    } catch (error) {
+      console.error("Error fetching trustee auto-bookings:", error);
+      res.status(500).json({ message: "Failed to fetch trustee auto-bookings" });
+    }
+  });
+
+  app.post("/api/admin/trustee-auto-bookings", async (req, res) => {
+    try {
+      const { year, month, dates, roomCategoryId } = req.body;
+      
+      const autoBooking = await storage.createTrusteeAutoBooking({
+        year,
+        month,
+        autoBookDates: dates,
+        roomCategoryId,
+        status: "active"
+      });
+      
+      res.status(201).json(autoBooking);
+    } catch (error) {
+      console.error("Error creating trustee auto-booking:", error);
+      res.status(500).json({ message: "Failed to create trustee auto-booking" });
+    }
+  });
+
   // Get all trustees
   app.get("/api/admin/trustees", async (req, res) => {
     try {

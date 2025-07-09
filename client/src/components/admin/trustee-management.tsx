@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Settings, Users, Calendar, Crown, Plus, Edit, Trash2 } from "lucide-react";
-import type { User, RoomCategory } from "@shared/schema";
+import { Settings, Users, Calendar, Crown, Plus, Edit, Trash2, CalendarDays, Save } from "lucide-react";
+import type { User, RoomCategory, TrusteeAutoBooking } from "@shared/schema";
 
 interface TrusteeWithSettings extends User {
   totalBookings?: number;
@@ -19,9 +19,16 @@ interface TrusteeWithSettings extends User {
 export default function TrusteeManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"trustees" | "calendar">("trustees");
   const [editingTrustee, setEditingTrustee] = useState<TrusteeWithSettings | null>(null);
   const [autoBookDates, setAutoBookDates] = useState("");
   const [roomCategoryId, setRoomCategoryId] = useState("");
+  
+  // Calendar management state
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [monthlyDates, setMonthlyDates] = useState("");
+  const [monthlyRoomCategory, setMonthlyRoomCategory] = useState("");
 
   const { data: trustees = [], isLoading: trusteesLoading } = useQuery<TrusteeWithSettings[]>({
     queryKey: ["/api/admin/trustees"],
@@ -29,6 +36,11 @@ export default function TrusteeManagement() {
 
   const { data: roomCategories = [] } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
+  });
+
+  const { data: autoBookings = [] } = useQuery<TrusteeAutoBooking[]>({
+    queryKey: ["/api/admin/trustee-auto-bookings", selectedYear, selectedMonth],
+    enabled: activeTab === "calendar",
   });
 
   const updateTrusteeMutation = useMutation({
@@ -63,6 +75,36 @@ export default function TrusteeManagement() {
     },
   });
 
+  const createAutoBookingMutation = useMutation({
+    mutationFn: async (data: {
+      year: number;
+      month: number;
+      dates: string;
+      roomCategoryId: number;
+    }) => {
+      const response = await apiRequest("POST", "/api/admin/trustee-auto-bookings", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Auto-Booking Schedule Created",
+        description: "Monthly auto-booking dates have been set for all trustees.",
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/admin/trustee-auto-bookings", selectedYear, selectedMonth] 
+      });
+      setMonthlyDates("");
+      setMonthlyRoomCategory("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Schedule Failed",
+        description: error.message || "Failed to create auto-booking schedule.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditTrustee = (trustee: TrusteeWithSettings) => {
     setEditingTrustee(trustee);
     setAutoBookDates(trustee.trusteeAutoBookDates || "");
@@ -91,6 +133,32 @@ export default function TrusteeManagement() {
     return category ? category.name : "Unknown";
   };
 
+  const handleCreateMonthlySchedule = () => {
+    if (!monthlyDates || !monthlyRoomCategory) {
+      toast({
+        title: "Missing Information",
+        description: "Please select dates and room category for the monthly schedule.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createAutoBookingMutation.mutate({
+      year: selectedYear,
+      month: selectedMonth,
+      dates: monthlyDates,
+      roomCategoryId: parseInt(monthlyRoomCategory)
+    });
+  };
+
+  const getMonthName = (month: number) => {
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return monthNames[month - 1];
+  };
+
   if (trusteesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -109,13 +177,177 @@ export default function TrusteeManagement() {
             Trustee Management
           </CardTitle>
           <p className="text-gray-600">
-            Manage trustee auto-booking settings and privileges. Trustees get 2 automatic bookings per month.
+            Manage trustee auto-booking settings and monthly booking schedules for all trustees.
           </p>
         </CardHeader>
       </Card>
 
+      {/* Tab Navigation */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex space-x-6">
+            <button
+              onClick={() => setActiveTab("trustees")}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                activeTab === "trustees"
+                  ? "bg-brand-orange text-white"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <Users className="h-4 w-4 inline mr-2" />
+              Trustees ({trustees.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("calendar")}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                activeTab === "calendar"
+                  ? "bg-brand-orange text-white"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <CalendarDays className="h-4 w-4 inline mr-2" />
+              Monthly Schedule
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Schedule Tab */}
+      {activeTab === "calendar" && (
+        <div className="space-y-6">
+          {/* Month/Year Selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" />
+                Monthly Auto-Booking Schedule
+              </CardTitle>
+              <p className="text-gray-600">
+                Set auto-booking dates for all trustees on a monthly basis. All trustees will automatically get rooms booked on the specified dates.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Year</Label>
+                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026].map(year => (
+                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Month</Label>
+                  <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({length: 12}, (_, i) => i + 1).map(month => (
+                        <SelectItem key={month} value={month.toString()}>
+                          {getMonthName(month)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Auto-Book Dates</Label>
+                  <Input
+                    placeholder="e.g., 15,30"
+                    value={monthlyDates}
+                    onChange={(e) => setMonthlyDates(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Room Category</Label>
+                  <Select value={monthlyRoomCategory} onValueChange={setMonthlyRoomCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select room category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roomCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name} - ₹{category.price}/night
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end">
+                  <Button 
+                    onClick={handleCreateMonthlySchedule}
+                    disabled={createAutoBookingMutation.isPending}
+                    className="w-full"
+                  >
+                    {createAutoBookingMutation.isPending && (
+                      <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                    )}
+                    <Save className="h-4 w-4 mr-2" />
+                    Set Monthly Schedule
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+                <p className="font-medium mb-1">How Monthly Auto-Booking Works:</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Set specific dates for {getMonthName(selectedMonth)} {selectedYear} (e.g., "15,30" for 15th and 30th)</li>
+                  <li>• All active trustees will automatically get rooms booked on these dates</li>
+                  <li>• Choose the room category that will be booked for all trustees</li>
+                  <li>• System will create bookings automatically for all trustees</li>
+                  <li>• Trustees can still opt-out of individual bookings if needed</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Current Month Schedule */}
+          {autoBookings.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  Current Schedule for {getMonthName(selectedMonth)} {selectedYear}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {autoBookings.map((booking) => (
+                    <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">Dates: {booking.autoBookDates}</p>
+                        <p className="text-sm text-gray-600">
+                          Room: {getRoomCategoryName(booking.roomCategoryId)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Applies to all {trustees.length} trustees
+                        </p>
+                      </div>
+                      <Badge variant={booking.status === "active" ? "default" : "secondary"}>
+                        {booking.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Edit Form */}
-      {editingTrustee && (
+      {activeTab === "trustees" && editingTrustee && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -184,6 +416,7 @@ export default function TrusteeManagement() {
       )}
 
       {/* Trustees List */}
+      {activeTab === "trustees" && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -282,6 +515,7 @@ export default function TrusteeManagement() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Auto-Booking Info */}
       <Card>
@@ -294,21 +528,21 @@ export default function TrusteeManagement() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium mb-2">How Auto-Booking Works</h4>
+              <h4 className="font-medium mb-2">Monthly Schedule System</h4>
               <ul className="space-y-1 text-sm text-gray-600">
-                <li>• Trustees get 2 automatic bookings per month</li>
-                <li>• Admin sets specific dates (e.g., 15th and 30th)</li>
-                <li>• System books rooms automatically on those dates</li>
-                <li>• Trustees receive email notifications</li>
-                <li>• Trustees can opt-out if needed</li>
+                <li>• Admin sets monthly auto-booking dates for ALL trustees</li>
+                <li>• All active trustees get automatic bookings on the same dates</li>
+                <li>• Dates can vary month by month as needed</li>
+                <li>• System books rooms automatically for all trustees</li>
+                <li>• Individual trustees can opt-out if needed</li>
               </ul>
             </div>
             <div>
               <h4 className="font-medium mb-2">Date Format Examples</h4>
               <ul className="space-y-1 text-sm text-gray-600">
-                <li>• "15,30" - Books 15th and 30th of each month</li>
-                <li>• "1,16" - Books 1st and 16th of each month</li>
-                <li>• "10,25" - Books 10th and 25th of each month</li>
+                <li>• "15,30" - Books 15th and 30th for all trustees</li>
+                <li>• "1,16" - Books 1st and 16th for all trustees</li>
+                <li>• "10,25" - Books 10th and 25th for all trustees</li>
               </ul>
             </div>
           </div>
