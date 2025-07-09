@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, Mail, Phone, Calendar, UserCheck } from "lucide-react";
 import { useState } from "react";
+import UserDetailsModal from "./user-details-modal";
 import type { User } from "@shared/schema";
 
 interface UserWithBookings extends User {
@@ -14,6 +15,8 @@ interface UserWithBookings extends User {
 
 export default function UsersTable() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserWithBookings | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: users = [], isLoading } = useQuery<UserWithBookings[]>({
     queryKey: ["/api/admin/users"],
@@ -150,8 +153,8 @@ export default function UsersTable() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              // View user details action
-                              console.log("View user:", user.id);
+                              setSelectedUser(user);
+                              setIsModalOpen(true);
                             }}
                           >
                             View Details
@@ -248,6 +251,16 @@ export default function UsersTable() {
           </CardContent>
         </Card>
       </div>
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        user={selectedUser}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />
     </div>
   );
 }

@@ -617,6 +617,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user route
+  app.patch("/api/admin/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const updatedUser = await storage.updateUser(id, updates);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Get user bookings route
+  app.get("/api/admin/user-bookings/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const bookings = await storage.getRoomBookings();
+      const userBookings = bookings.filter(b => b.userId === userId);
+      
+      const bookingsWithDetails = await Promise.all(
+        userBookings.map(async (booking) => {
+          const category = await storage.getRoomCategory(booking.roomCategoryId);
+          return { booking, category };
+        })
+      );
+      
+      res.json(bookingsWithDetails);
+    } catch (error) {
+      console.error("Error fetching user bookings:", error);
+      res.status(500).json({ message: "Failed to fetch user bookings" });
+    }
+  });
+
   // Update booking status
   app.patch("/api/admin/bookings/:id", async (req, res) => {
     try {
