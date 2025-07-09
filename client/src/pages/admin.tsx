@@ -12,10 +12,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+interface UserWithBookings {
+  id: number;
+  name: string;
+  email: string;
+  mobile?: string;
+  isTrustee: boolean;
+  totalBookings?: number;
+  lastBooking?: string;
+}
+
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [selectedUserForBooking, setSelectedUserForBooking] = useState<UserWithBookings | null>(null);
+  const [userBookingsFilter, setUserBookingsFilter] = useState<number | null>(null);
 
   useEffect(() => {
     const isAdminLoggedIn = localStorage.getItem("admin_logged_in");
@@ -35,6 +47,16 @@ export default function Admin() {
     return null; // Will redirect in useEffect
   }
 
+  const handleViewUserBookings = (userId: number) => {
+    setUserBookingsFilter(userId);
+    setActiveTab("bookings");
+  };
+
+  const handleCreateBookingForUser = (user: UserWithBookings) => {
+    setSelectedUserForBooking(user);
+    setActiveTab("create-booking");
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "dashboard":
@@ -42,13 +64,18 @@ export default function Admin() {
       case "inventory":
         return <InventoryManagement />;
       case "bookings":
-        return <BookingsTable />;
+        return <BookingsTable userFilter={userBookingsFilter} />;
       case "create-booking":
-        return <AdminBookingForm />;
+        return <AdminBookingForm preselectedUser={selectedUserForBooking} />;
       case "checkin":
         return <CheckinCheckout />;
       case "users":
-        return <UsersTable />;
+        return (
+          <UsersTable 
+            onViewBookings={handleViewUserBookings}
+            onCreateBooking={handleCreateBookingForUser}
+          />
+        );
       default:
         return <DashboardStats />;
     }

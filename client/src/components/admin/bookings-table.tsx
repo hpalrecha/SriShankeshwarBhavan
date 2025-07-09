@@ -9,15 +9,24 @@ import { apiRequest } from "@/lib/queryClient";
 import BookingDetailsModal from "./booking-details-modal";
 import type { BookingWithDetails } from "@/lib/types";
 
-export default function BookingsTable() {
+interface BookingsTableProps {
+  userFilter?: number | null;
+}
+
+export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: bookings, isLoading } = useQuery<BookingWithDetails[]>({
+  const { data: bookings = [], isLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/recent-bookings"],
   });
+
+  // Filter bookings by user if userFilter is provided
+  const filteredBookings = userFilter 
+    ? bookings.filter(({ user }) => user.id === userFilter)
+    : bookings;
 
   const updateBookingMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
@@ -106,7 +115,10 @@ export default function BookingsTable() {
     <>
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Recent Bookings</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5" />
+          {userFilter ? `User Bookings (${filteredBookings.length})` : `Recent Bookings (${filteredBookings.length})`}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -122,7 +134,7 @@ export default function BookingsTable() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bookings.map(({ booking, user, category }) => (
+              {filteredBookings.map(({ booking, user, category }) => (
                 <tr key={booking.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{user.name}</div>

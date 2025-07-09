@@ -13,7 +13,12 @@ interface UserWithBookings extends User {
   lastBooking?: string;
 }
 
-export default function UsersTable() {
+interface UsersTableProps {
+  onViewBookings?: (userId: number) => void;
+  onCreateBooking?: (user: UserWithBookings) => void;
+}
+
+export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTableProps = {}) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithBookings | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -260,6 +265,8 @@ export default function UsersTable() {
           setIsModalOpen(false);
           setSelectedUser(null);
         }}
+        onViewBookings={onViewBookings}
+        onCreateBooking={onCreateBooking}
       />
     </div>
   );

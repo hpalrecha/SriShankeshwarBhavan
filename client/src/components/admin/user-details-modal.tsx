@@ -19,6 +19,8 @@ interface UserDetailsModalProps {
   user: UserWithBookings | null;
   isOpen: boolean;
   onClose: () => void;
+  onViewBookings?: (userId: number) => void;
+  onCreateBooking?: (user: UserWithBookings) => void;
 }
 
 interface BookingWithDetails {
@@ -26,7 +28,7 @@ interface BookingWithDetails {
   category: { name: string; price: string };
 }
 
-export default function UserDetailsModal({ user, isOpen, onClose }: UserDetailsModalProps) {
+export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings, onCreateBooking }: UserDetailsModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isUpdating, setIsUpdating] = useState(false);
@@ -275,8 +277,10 @@ export default function UserDetailsModal({ user, isOpen, onClose }: UserDetailsM
                   variant="outline" 
                   className="w-full"
                   onClick={() => {
-                    // Navigate to bookings with user filter
-                    console.log("Filter bookings for user:", user.id);
+                    if (onViewBookings) {
+                      onViewBookings(user.id);
+                      onClose();
+                    }
                   }}
                 >
                   View All Bookings
@@ -286,8 +290,10 @@ export default function UserDetailsModal({ user, isOpen, onClose }: UserDetailsM
                   variant="outline" 
                   className="w-full"
                   onClick={() => {
-                    // Create new booking for this user
-                    console.log("Create booking for user:", user.id);
+                    if (onCreateBooking) {
+                      onCreateBooking(user);
+                      onClose();
+                    }
                   }}
                 >
                   Create Booking

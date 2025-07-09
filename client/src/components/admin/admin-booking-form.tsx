@@ -34,7 +34,16 @@ const adminBookingSchema = z.object({
 
 type AdminBookingFormData = z.infer<typeof adminBookingSchema>;
 
-export default function AdminBookingForm() {
+interface AdminBookingFormProps {
+  preselectedUser?: {
+    id: number;
+    name: string;
+    email: string;
+    mobile?: string;
+  } | null;
+}
+
+export default function AdminBookingForm({ preselectedUser }: AdminBookingFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,9 +67,9 @@ export default function AdminBookingForm() {
   const form = useForm<AdminBookingFormData>({
     resolver: zodResolver(adminBookingSchema),
     defaultValues: {
-      guestName: "",
-      guestEmail: "",
-      guestMobile: "",
+      guestName: preselectedUser?.name || "",
+      guestEmail: preselectedUser?.email || "",
+      guestMobile: preselectedUser?.mobile || "",
       checkinDate: "",
       checkoutDate: "",
       guests: 2,
@@ -68,6 +77,17 @@ export default function AdminBookingForm() {
       paymentMethod: "cash",
     },
   });
+
+  // Update form when preselected user changes
+  useEffect(() => {
+    if (preselectedUser) {
+      form.setValue("guestName", preselectedUser.name);
+      form.setValue("guestEmail", preselectedUser.email);
+      if (preselectedUser.mobile) {
+        form.setValue("guestMobile", preselectedUser.mobile);
+      }
+    }
+  }, [preselectedUser, form]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: AdminBookingFormData) => {
@@ -159,7 +179,7 @@ export default function AdminBookingForm() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
-          Create New Booking
+          {preselectedUser ? `Create Booking for ${preselectedUser.name}` : "Create New Booking"}
         </CardTitle>
       </CardHeader>
       <CardContent>
