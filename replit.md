@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a comprehensive hotel room booking platform built for Sri Shankeshwar Bengaluru Bhavan. The system supports a single-property hotel with two room categories, accommodating both regular customers and privileged trustees with auto-booking capabilities. The platform features a customer-facing booking interface, admin dashboard for complete management, and trustee management system.
+This is a comprehensive hotel room booking platform built for Sri Shankeshwar Bengaluru Bhavan, located in Shankheshwar, Gujarat (near the sacred Parshwanath Temple). The system supports a single-property hotel with two room categories, accommodating both regular customers and privileged trustees with auto-booking capabilities. The platform features a customer-facing booking interface, admin dashboard for complete management, and trustee management system.
 
 ## System Architecture
 
@@ -103,6 +103,9 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 09, 2025: Updated property location details throughout the application to reflect actual Gujarat location (Shankheshwar, Patan District) with correct contact information, transportation details, and local landmarks
+- July 09, 2025: Fixed admin booking button submission and added payment reference field for UPI/Card/Bank Transfer payments with dynamic labels and database storage
+- July 09, 2025: Enhanced admin booking form with real-time room capacity validation, preventing bookings with insufficient room capacity for guest count
 - July 08, 2025: Fixed real-time inventory updates - rooms now properly show reduced availability after bookings
 - July 08, 2025: Enhanced admin dashboard with detailed booking modal, ID proof uploads, and payment management
 - July 08, 2025: Added comprehensive booking details modal with guest info, room assignment, and status controls

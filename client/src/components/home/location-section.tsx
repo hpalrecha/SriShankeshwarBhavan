@@ -4,34 +4,34 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function LocationSection() {
   const landmarks = [
     {
-      name: "Bengaluru Palace",
-      distance: "5.2 km",
-      time: "15 min drive"
+      name: "Shankheshwar Parshwanath Temple",
+      distance: "0.2 km",
+      time: "2 min walk"
     },
     {
-      name: "Lalbagh Botanical Garden",
-      distance: "3.8 km", 
-      time: "12 min drive"
+      name: "Patan Railway Station",
+      distance: "42 km", 
+      time: "1 hour drive"
     },
     {
-      name: "Commercial Street",
-      distance: "2.1 km",
-      time: "8 min drive"
+      name: "Ahmedabad Airport",
+      distance: "132 km",
+      time: "2.5 hours drive"
     },
     {
-      name: "MG Road Metro Station",
-      distance: "1.5 km",
-      time: "5 min walk"
-    },
-    {
-      name: "Kempegowda International Airport",
-      distance: "38 km",
+      name: "Mehsana Bus Stand",
+      distance: "35 km",
       time: "45 min drive"
     },
     {
-      name: "Bengaluru City Railway Station",
-      distance: "6.2 km",
-      time: "20 min drive"
+      name: "Unjha Railway Station",
+      distance: "28 km",
+      time: "35 min drive"
+    },
+    {
+      name: "Local Market Area",
+      distance: "0.5 km",
+      time: "5 min walk"
     }
   ];
 
@@ -39,9 +39,9 @@ export default function LocationSection() {
     <section id="location" className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Prime Location</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Sacred Location</h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Strategically located in the heart of Bengaluru with easy access to major attractions and transport hubs
+            Located in Shankheshwar, Gujarat - steps away from the revered Parshwanath Temple with convenient access to major transport hubs
           </p>
         </div>
 
@@ -50,8 +50,8 @@ export default function LocationSection() {
           <div className="relative">
             <div className="bg-gray-200 rounded-xl h-96 flex items-center justify-center mb-4">
               <img
-                src="https://images.unsplash.com/photo-1577495508048-b635879837f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
-                alt="Bengaluru city view with modern buildings"
+                src="https://images.unsplash.com/photo-1582510003544-4d00b7f74220?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
+                alt="Shankheshwar temple and surrounding area in Gujarat"
                 className="w-full h-full object-cover rounded-xl"
               />
             </div>
@@ -60,7 +60,7 @@ export default function LocationSection() {
                 <MapPin className="w-5 h-5 text-brand-orange" />
                 <div>
                   <p className="font-semibold text-sm">Sri Shankeshwar Bengaluru Bhavan</p>
-                  <p className="text-xs text-gray-600">Central Bengaluru</p>
+                  <p className="text-xs text-gray-600">Shankheshwar, Gujarat</p>
                 </div>
               </div>
             </div>
@@ -100,9 +100,9 @@ export default function LocationSection() {
                   <h4 className="font-semibold text-gray-900">Transportation Tips</h4>
                 </div>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Metro connectivity available via MG Road Station (Purple & Blue Lines)</li>
-                  <li>• Airport shuttle service can be arranged upon request</li>
-                  <li>• Taxi and auto-rickshaw services readily available</li>
+                  <li>• Railway connectivity via Patan & Unjha stations with connecting buses</li>
+                  <li>• Airport transfers from Ahmedabad can be arranged upon request</li>
+                  <li>• Local taxi and auto-rickshaw services available</li>
                   <li>• Free parking available for guests with vehicles</li>
                 </ul>
               </CardContent>
@@ -114,9 +114,9 @@ export default function LocationSection() {
                 <h4 className="font-semibold text-gray-900 mb-3">Our Address</h4>
                 <p className="text-gray-700 leading-relaxed">
                   Sri Shankeshwar Bengaluru Bhavan<br />
-                  Central Business District<br />
-                  Bengaluru, Karnataka 560001<br />
-                  India
+                  Near Parshwanath Temple<br />
+                  Shankheshwar, Patan District<br />
+                  Gujarat 384246, India
                 </p>
               </CardContent>
             </Card>

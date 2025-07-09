@@ -7,13 +7,13 @@ export default function ContactSection() {
     {
       icon: Phone,
       title: "Phone",
-      details: ["+91 80 2234 5678", "+91 80 2234 5679"],
+      details: ["+91 2733 273342", "+91 2733 273514"],
       subtext: "24/7 Booking & Support"
     },
     {
       icon: Mail,
       title: "Email",
-      details: ["bookings@ssh-bhavan.com", "info@ssh-bhavan.com"],
+      details: ["bookings@shankheshwar-bhavan.com", "info@shankheshwar-bhavan.com"],
       subtext: "Quick Response within 2 hours"
     },
     {
@@ -25,7 +25,7 @@ export default function ContactSection() {
     {
       icon: MessageSquare,
       title: "WhatsApp",
-      details: ["+91 98765 43210"],
+      details: ["+91 98250 73342"],
       subtext: "Instant booking assistance"
     }
   ];
@@ -66,7 +66,7 @@ export default function ContactSection() {
               <h3 className="text-xl font-bold mb-4">Emergency Contact</h3>
               <p className="mb-4">For urgent matters or late-night assistance:</p>
               <div className="space-y-2">
-                <p className="text-lg font-semibold">+91 98765 43210</p>
+                <p className="text-lg font-semibold">+91 98250 73342</p>
                 <p className="text-sm opacity-90">Available 24/7 for emergencies</p>
               </div>
             </CardContent>
@@ -78,7 +78,7 @@ export default function ContactSection() {
               <div className="space-y-3">
                 <Button 
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => window.open('https://wa.me/919876543210', '_blank')}
+                  onClick={() => window.open('https://wa.me/919825073342', '_blank')}
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Chat on WhatsApp
@@ -86,7 +86,7 @@ export default function ContactSection() {
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.location.href = 'tel:+918022345678'}
+                  onClick={() => window.location.href = 'tel:+912733273342'}
                 >
                   <Phone className="w-4 h-4 mr-2" />
                   Call Now
@@ -94,7 +94,7 @@ export default function ContactSection() {
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.location.href = 'mailto:bookings@ssh-bhavan.com'}
+                  onClick={() => window.location.href = 'mailto:bookings@shankheshwar-bhavan.com'}
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send Email
@@ -127,7 +127,7 @@ export default function ContactSection() {
                 <Phone className="w-8 h-8 text-brand-orange" />
               </div>
               <h4 className="font-semibold text-gray-900 mb-2">Multilingual Support</h4>
-              <p className="text-gray-600">English, Hindi, Kannada, and more languages</p>
+              <p className="text-gray-600">English, Hindi, Gujarati, and more languages</p>
             </div>
           </div>
         </div>

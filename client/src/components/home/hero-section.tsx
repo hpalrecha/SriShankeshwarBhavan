@@ -29,14 +29,14 @@ export default function HeroSection() {
 
           {/* Tagline */}
           <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-2xl mx-auto">
-            Experience spiritual comfort and modern hospitality in the heart of Bengaluru
+            Experience spiritual comfort and modern hospitality in the sacred town of Shankheshwar, Gujarat
           </p>
 
           {/* Features */}
           <div className="flex flex-wrap justify-center gap-8 mb-12 text-sm md:text-base">
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5 text-brand-orange" />
-              <span>Prime Location</span>
+              <span>Sacred Location</span>
             </div>
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5 text-brand-orange" />
