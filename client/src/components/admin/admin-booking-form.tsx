@@ -30,6 +30,7 @@ const adminBookingSchema = z.object({
     "At least one room must be selected"
   ),
   paymentMethod: z.enum(["upi", "cash", "card", "bank_transfer", "checkin"]),
+  paymentReference: z.string().optional(),
 });
 
 type AdminBookingFormData = z.infer<typeof adminBookingSchema>;
@@ -75,6 +76,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
       guests: 2,
       roomSelections: [],
       paymentMethod: "cash",
+      paymentReference: "",
     },
   });
 
@@ -111,21 +113,27 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
           guests: data.guests,
           roomSelections: roomSelectionArray,
           paymentMethod: data.paymentMethod,
+          paymentReference: data.paymentReference,
           status: "confirmed",
         },
       });
       return await response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
       form.reset();
+      setRoomSelections({});
+      setIsSubmitting(false);
       toast({
         title: "Booking created successfully",
-        description: `Booking ID: ${data.bookingId}`,
+        description: `Created ${data.bookings?.length || 1} booking(s). Total amount: ₹${data.totalAmount}`,
       });
     },
     onError: (error) => {
       console.error("Booking error:", error);
+      setIsSubmitting(false);
       toast({
         title: "Booking failed",
         description: error.message || "Failed to create booking. Please try again.",
@@ -201,7 +209,6 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
     
     setIsSubmitting(true);
     createBookingMutation.mutate(data);
-    setIsSubmitting(false);
   };
 
   return (
@@ -390,7 +397,6 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method</Label>
               <Select onValueChange={(value) => form.setValue("paymentMethod", value as "upi" | "cash" | "card" | "bank_transfer" | "checkin")}>
@@ -409,14 +415,41 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 <p className="text-sm text-red-600">{form.formState.errors.paymentMethod.message}</p>
               )}
             </div>
+
+            {/* Payment Reference Field - Show for digital payments */}
+            {(() => {
+              const paymentMethod = form.watch("paymentMethod");
+              const needsReference = ["upi", "card", "bank_transfer"].includes(paymentMethod);
+              
+              if (!needsReference) return null;
+              
+              return (
+                <div className="space-y-2">
+                  <Label htmlFor="paymentReference">Payment Reference ID</Label>
+                  <Input
+                    id="paymentReference"
+                    {...form.register("paymentReference")}
+                    placeholder={
+                      paymentMethod === "upi" ? "UPI Transaction ID" :
+                      paymentMethod === "card" ? "Card Transaction ID" :
+                      paymentMethod === "bank_transfer" ? "Bank Reference Number" :
+                      "Reference ID"
+                    }
+                  />
+                  {form.formState.errors.paymentReference && (
+                    <p className="text-sm text-red-600">{form.formState.errors.paymentReference.message}</p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <Button 
             type="submit" 
             className="w-full bg-brand-orange hover:bg-orange-600"
-            disabled={isSubmitting || createBookingMutation.isPending}
+            disabled={createBookingMutation.isPending || isSubmitting}
           >
-            {isSubmitting || createBookingMutation.isPending ? "Creating Booking..." : "Create Booking"}
+            {createBookingMutation.isPending || isSubmitting ? "Creating Booking..." : "Create Booking"}
           </Button>
         </form>
       </CardContent>

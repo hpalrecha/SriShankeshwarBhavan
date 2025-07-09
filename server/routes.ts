@@ -332,6 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentMethod: bookingData.paymentMethod || "cash",
             paymentStatus: bookingData.paymentMethod === "cash" ? "paid" : "pending",
             status: bookingData.status || "confirmed",
+            paymentReference: bookingData.paymentReference,
           });
 
           createdBookings.push(booking);
