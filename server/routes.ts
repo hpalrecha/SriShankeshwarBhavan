@@ -589,6 +589,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Users management route
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      
+      // Add booking statistics for each user
+      const usersWithStats = await Promise.all(
+        users.map(async (user) => {
+          const bookings = await storage.getRoomBookings();
+          const userBookings = bookings.filter(b => b.userId === user.id);
+          
+          return {
+            ...user,
+            totalBookings: userBookings.length,
+            lastBooking: userBookings.length > 0 
+              ? userBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+              : null
+          };
+        })
+      );
+      
+      res.json(usersWithStats);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   // Update booking status
   app.patch("/api/admin/bookings/:id", async (req, res) => {
     try {

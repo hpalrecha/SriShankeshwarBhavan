@@ -7,6 +7,7 @@ import BookingsTable from "@/components/admin/bookings-table";
 import CheckinCheckout from "@/components/admin/checkin-checkout";
 import InventoryManagement from "@/components/admin/inventory-management";
 import AdminBookingForm from "@/components/admin/admin-booking-form";
+import UsersTable from "@/components/admin/users-table";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,8 @@ export default function Admin() {
         return <AdminBookingForm />;
       case "checkin":
         return <CheckinCheckout />;
+      case "users":
+        return <UsersTable />;
       default:
         return <DashboardStats />;
     }
@@ -86,6 +89,7 @@ export default function Admin() {
                 { id: "bookings", label: "Bookings" },
                 { id: "create-booking", label: "New Booking" },
                 { id: "checkin", label: "Check-in/out" },
+                { id: "users", label: "Users" },
               ].map((tab) => (
                 <button
                   key={tab.id}
