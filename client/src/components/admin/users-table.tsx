@@ -1,11 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Mail, Phone, Calendar, UserCheck } from "lucide-react";
+import { Users, Mail, Phone, Calendar, UserCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import UserDetailsModal from "./user-details-modal";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 
 interface UserWithBookings extends User {
@@ -19,6 +21,8 @@ interface UsersTableProps {
 }
 
 export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTableProps = {}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithBookings | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,6 +30,38 @@ export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTab
   const { data: users = [], isLoading } = useQuery<UserWithBookings[]>({
     queryKey: ["/api/admin/users"],
   });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User Deleted",
+        description: "User and all related data have been permanently deleted.",
+      });
+    },
+    onError: (error) => {
+      console.error("Delete error:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteUser = (user: UserWithBookings) => {
+    const hasBookings = user.totalBookings && user.totalBookings > 0;
+    const warningMessage = hasBookings 
+      ? `Are you sure you want to delete "${user.name}"? This will permanently delete:\n\n• User account\n• ${user.totalBookings} booking${user.totalBookings > 1 ? 's' : ''}\n• All ID proofs and related documents\n\nThis action cannot be undone.`
+      : `Are you sure you want to delete "${user.name}"? This action cannot be undone.`;
+      
+    if (confirm(warningMessage)) {
+      deleteUserMutation.mutate(user.id);
+    }
+  };
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -176,6 +212,15 @@ export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTab
                               <UserCheck className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={deleteUserMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>

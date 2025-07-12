@@ -35,6 +35,7 @@ export interface IStorage {
   getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: number): Promise<void>;
   getTrustees(): Promise<User[]>;
 
   // Room Bookings
@@ -116,6 +117,22 @@ export class DatabaseStorage implements IStorage {
   async updateUser(id: number, user: Partial<InsertUser>): Promise<User> {
     const [updatedUser] = await db.update(users).set(user).where(eq(users.id, id)).returning();
     return updatedUser;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    // First delete all related bookings and ID proofs
+    const userBookings = await db.select().from(roomBookings).where(eq(roomBookings.userId, id));
+    
+    for (const booking of userBookings) {
+      // Delete ID proofs for each booking
+      await db.delete(idProofs).where(eq(idProofs.bookingId, booking.id));
+    }
+    
+    // Delete all bookings for the user
+    await db.delete(roomBookings).where(eq(roomBookings.userId, id));
+    
+    // Finally delete the user
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async getTrustees(): Promise<User[]> {

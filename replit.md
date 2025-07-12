@@ -103,6 +103,8 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 12, 2025: Added camera functionality for Aadhaar uploads with live camera feed, positioning guide, capture/review process, and auto-upload
+- July 12, 2025: Implemented user deletion functionality with cascading delete for bookings and ID proofs, including confirmation dialog with booking count warnings
 - July 09, 2025: Updated property location details throughout the application to reflect actual Gujarat location (Shankheshwar, Patan District) with correct contact information, transportation details, and local landmarks
 - July 09, 2025: Fixed admin booking button submission and added payment reference field for UPI/Card/Bank Transfer payments with dynamic labels and database storage
 - July 09, 2025: Enhanced admin booking form with real-time room capacity validation, preventing bookings with insufficient room capacity for guest count
