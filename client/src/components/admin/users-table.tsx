@@ -38,8 +38,8 @@ export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTab
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
-        title: "User Deleted",
-        description: "User and all related data have been permanently deleted.",
+        title: "User Account Deleted",
+        description: "User account removed. Bookings and transaction history preserved.",
       });
     },
     onError: (error) => {
@@ -55,8 +55,8 @@ export default function UsersTable({ onViewBookings, onCreateBooking }: UsersTab
   const handleDeleteUser = (user: UserWithBookings) => {
     const hasBookings = user.totalBookings && user.totalBookings > 0;
     const warningMessage = hasBookings 
-      ? `Are you sure you want to delete "${user.name}"? This will permanently delete:\n\n• User account\n• ${user.totalBookings} booking${user.totalBookings > 1 ? 's' : ''}\n• All ID proofs and related documents\n\nThis action cannot be undone.`
-      : `Are you sure you want to delete "${user.name}"? This action cannot be undone.`;
+      ? `Are you sure you want to delete user "${user.name}"?\n\nThis will:\n• Remove the user account\n• Preserve ${user.totalBookings} booking${user.totalBookings > 1 ? 's' : ''} as guest records\n• Keep all payment and transaction history\n• Maintain ID proofs and documents\n\nBookings will remain in the system for record keeping. This action cannot be undone.`
+      : `Are you sure you want to delete "${user.name}"?\n\nThis will remove the user account permanently. This action cannot be undone.`;
       
     if (confirm(warningMessage)) {
       deleteUserMutation.mutate(user.id);

@@ -120,18 +120,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    // First delete all related bookings and ID proofs
-    const userBookings = await db.select().from(roomBookings).where(eq(roomBookings.userId, id));
-    
-    for (const booking of userBookings) {
-      // Delete ID proofs for each booking
-      await db.delete(idProofs).where(eq(idProofs.bookingId, booking.id));
+    // Get user details before deletion for backup reference
+    const user = await this.getUser(id);
+    if (!user) {
+      throw new Error("User not found");
     }
     
-    // Delete all bookings for the user
-    await db.delete(roomBookings).where(eq(roomBookings.userId, id));
+    // Update all user's bookings to preserve them with guest info
+    // Set userId to null and update guest name/email for record keeping
+    await db
+      .update(roomBookings)
+      .set({
+        userId: null,
+        guestName: user.name,
+        guestEmail: user.email,
+        guestMobile: user.mobile || "",
+      })
+      .where(eq(roomBookings.userId, id));
     
-    // Finally delete the user
+    // Keep ID proofs - they remain linked to bookings
+    // No need to delete ID proofs as they're linked to bookings, not users directly
+    
+    // Finally delete only the user account
     await db.delete(users).where(eq(users.id, id));
   }
 
