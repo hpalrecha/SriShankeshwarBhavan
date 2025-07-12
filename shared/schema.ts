@@ -54,7 +54,8 @@ export const idProofs = pgTable("id_proofs", {
   id: serial("id").primaryKey(),
   bookingId: integer("booking_id").references(() => roomBookings.id).notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
-  fileUrl: text("file_url").notNull(),
+  fileType: varchar("file_type", { length: 100 }).notNull().default("image/jpeg"),
+  filePath: text("file_path").notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 

@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle } from "lucide-react";
+import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
+import CameraCapture from "@/components/ui/camera-capture";
 
 interface BookingDetailsModalProps {
   booking: BookingWithDetails | null;
@@ -26,6 +27,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [paymentStatus, setPaymentStatus] = useState("");
   const [status, setStatus] = useState("");
   const [idProofFile, setIdProofFile] = useState<File | null>(null);
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
 
   const { data: idProofs } = useQuery({
     queryKey: ["/api/admin/id-proofs", booking?.booking.id],
@@ -90,6 +92,13 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     if (idProofFile) {
       uploadIdProofMutation.mutate(idProofFile);
     }
+  };
+
+  const handleCameraCapture = (file: File) => {
+    setIdProofFile(file);
+    setShowCameraCapture(false);
+    // Auto-upload the captured photo
+    uploadIdProofMutation.mutate(file);
   };
 
   const getStatusBadge = (status: string) => {
@@ -297,23 +306,37 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="idProof">Upload Guest ID Proof</Label>
+                <Label htmlFor="idProof">Upload Guest ID Proof (Aadhaar Card)</Label>
                 <div className="flex gap-2">
                   <Input
                     id="idProof"
                     type="file"
                     accept="image/*,.pdf"
                     onChange={(e) => setIdProofFile(e.target.files?.[0] || null)}
+                    className="flex-1"
                   />
                   <Button 
                     onClick={handleIdProofUpload}
                     disabled={!idProofFile || uploadIdProofMutation.isPending}
                     size="sm"
+                    variant="outline"
                   >
                     <Upload className="h-4 w-4 mr-1" />
                     Upload
                   </Button>
+                  <Button 
+                    onClick={() => setShowCameraCapture(true)}
+                    disabled={uploadIdProofMutation.isPending}
+                    size="sm"
+                    className="bg-brand-orange hover:bg-brand-orange/90"
+                  >
+                    <Camera className="h-4 w-4 mr-1" />
+                    Camera
+                  </Button>
                 </div>
+                <p className="text-xs text-gray-500">
+                  Click "Camera" to capture Aadhaar photo directly or "Upload" to select from files
+                </p>
               </div>
 
               {idProofs && idProofs.length > 0 && (
@@ -370,6 +393,14 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
             Close
           </Button>
         </div>
+
+        {/* Camera Capture Modal */}
+        <CameraCapture
+          isOpen={showCameraCapture}
+          onClose={() => setShowCameraCapture(false)}
+          onCapture={handleCameraCapture}
+          title="Capture Aadhaar Card"
+        />
       </DialogContent>
     </Dialog>
   );
