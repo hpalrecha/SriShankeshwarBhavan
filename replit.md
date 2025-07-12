@@ -103,6 +103,7 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 12, 2025: Implemented comprehensive AWS SES email notification system with booking confirmations, cancellation notices, pre-check-in reminders, and check-out notifications using scheduled cron jobs
 - July 12, 2025: Added camera functionality for Aadhaar uploads with live camera feed, positioning guide, capture/review process, and auto-upload
 - July 12, 2025: Implemented user deletion functionality that preserves bookings and transaction history while removing user accounts, with smart confirmation dialogs
 - July 09, 2025: Updated property location details throughout the application to reflect actual Gujarat location (Shankheshwar, Patan District) with correct contact information, transportation details, and local landmarks

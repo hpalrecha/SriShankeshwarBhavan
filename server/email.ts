@@ -1,0 +1,441 @@
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import type { RoomBooking, User, RoomCategory } from "@shared/schema";
+
+// Check if AWS SES is configured
+const isAwsSesConfigured = process.env.AWS_REGION && 
+                          process.env.AWS_ACCESS_KEY_ID && 
+                          process.env.AWS_SECRET_ACCESS_KEY && 
+                          process.env.FROM_EMAIL;
+
+if (!isAwsSesConfigured) {
+  console.warn("AWS SES not configured. Email notifications will be disabled. Please add AWS credentials to enable email features.");
+}
+
+const sesClient = isAwsSesConfigured ? new SESClient({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+}) : null;
+
+interface BookingEmailData {
+  booking: RoomBooking;
+  user?: User | null;
+  category: RoomCategory;
+  guestName?: string;
+  guestEmail?: string;
+}
+
+export async function sendBookingConfirmationEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping booking confirmation email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for booking confirmation");
+      return false;
+    }
+
+    const checkinDate = new Date(booking.checkinDate).toLocaleDateString('en-IN');
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Booking Confirmation - Sri Shankeshwar Bengaluru Bhavan - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6b35, #f7931e); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Booking Confirmation</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>Thank you for your booking! Your reservation has been confirmed.</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #ff6b35;">Booking Details</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Check-in Date:</strong> ${checkinDate}</p>
+            <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
+            <p><strong>Guests:</strong> ${booking.guests}</p>
+            <p><strong>Total Amount:</strong> ₹${booking.totalAmount}</p>
+            <p><strong>Payment Status:</strong> ${booking.paymentStatus}</p>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #ff6b35;">Property Information</h3>
+            <p><strong>Address:</strong> Near Parshwanath Temple, Shankheshwar, Patan District, Gujarat 384246</p>
+            <p><strong>Contact:</strong> +91 9876543210</p>
+            <p><strong>Check-in Time:</strong> 2:00 PM onwards</p>
+            <p><strong>Check-out Time:</strong> 11:00 AM</p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <h4 style="margin-top: 0; color: #856404;">Important Instructions</h4>
+            <ul style="color: #856404; margin: 0; padding-left: 20px;">
+              <li>Please carry a valid government-issued photo ID for check-in</li>
+              <li>ID proof upload will be required during check-in process</li>
+              <li>Contact us for any special requirements or assistance</li>
+            </ul>
+          </div>
+          
+          <p style="text-align: center; margin-top: 30px;">
+            We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textBody = `
+Dear ${recipientName},
+
+Thank you for your booking! Your reservation has been confirmed.
+
+Booking Details:
+- Booking ID: ${booking.bookingId}
+- Room Category: ${category.name}
+- Check-in Date: ${checkinDate}
+- Check-out Date: ${checkoutDate}
+- Guests: ${booking.guests}
+- Total Amount: ₹${booking.totalAmount}
+- Payment Status: ${booking.paymentStatus}
+
+Property Information:
+- Address: Near Parshwanath Temple, Shankheshwar, Patan District, Gujarat 384246
+- Contact: +91 9876543210
+- Check-in Time: 2:00 PM onwards
+- Check-out Time: 11:00 AM
+
+Important Instructions:
+- Please carry a valid government-issued photo ID for check-in
+- ID proof upload will be required during check-in process
+- Contact us for any special requirements or assistance
+
+We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
+
+© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+          Text: {
+            Data: textBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Booking confirmation email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending booking confirmation email:", error);
+    return false;
+  }
+}
+
+export async function sendBookingCancellationEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping booking cancellation email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for booking cancellation");
+      return false;
+    }
+
+    const checkinDate = new Date(booking.checkinDate).toLocaleDateString('en-IN');
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Booking Cancelled - Sri Shankeshwar Bengaluru Bhavan - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #dc3545, #c82333); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Booking Cancellation</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>Your booking has been cancelled as requested.</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #dc3545;">Cancelled Booking Details</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Check-in Date:</strong> ${checkinDate}</p>
+            <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
+            <p><strong>Guests:</strong> ${booking.guests}</p>
+            <p><strong>Total Amount:</strong> ₹${booking.totalAmount}</p>
+          </div>
+          
+          <div style="background: #f8d7da; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc3545;">
+            <h4 style="margin-top: 0; color: #721c24;">Refund Information</h4>
+            <p style="color: #721c24; margin: 0;">
+              If you made an online payment, the refund will be processed within 3-5 business days. 
+              For any queries regarding refunds, please contact us at +91 9876543210.
+            </p>
+          </div>
+          
+          <p style="text-align: center; margin-top: 30px;">
+            We hope to serve you in the future. Thank you for considering Sri Shankeshwar Bengaluru Bhavan.
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Booking cancellation email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending booking cancellation email:", error);
+    return false;
+  }
+}
+
+export async function sendPreCheckinReminderEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping pre-checkin reminder email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for pre-checkin reminder");
+      return false;
+    }
+
+    const checkinDate = new Date(booking.checkinDate).toLocaleDateString('en-IN');
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Check-in Reminder - Tomorrow - Sri Shankeshwar Bengaluru Bhavan - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #28a745, #20c997); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Check-in Reminder</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>This is a friendly reminder that your check-in is scheduled for tomorrow!</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #28a745;">Your Booking Details</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Check-in Date:</strong> ${checkinDate}</p>
+            <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
+            <p><strong>Guests:</strong> ${booking.guests}</p>
+          </div>
+          
+          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #bee5eb;">
+            <h4 style="margin-top: 0; color: #0c5460;">Check-in Preparation</h4>
+            <ul style="color: #0c5460; margin: 0; padding-left: 20px;">
+              <li>Check-in time: 2:00 PM onwards</li>
+              <li>Bring valid government-issued photo ID (Aadhaar, Passport, Driver's License)</li>
+              <li>Have your booking confirmation ready</li>
+              <li>Contact us at +91 9876543210 for any assistance</li>
+            </ul>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #28a745;">Directions</h3>
+            <p><strong>Address:</strong> Near Parshwanath Temple, Shankheshwar, Patan District, Gujarat 384246</p>
+            <p><strong>Landmark:</strong> Walking distance from the sacred Parshwanath Temple</p>
+            <p><strong>Contact:</strong> +91 9876543210</p>
+          </div>
+          
+          <p style="text-align: center; margin-top: 30px;">
+            We're excited to welcome you tomorrow!
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Pre-checkin reminder email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending pre-checkin reminder email:", error);
+    return false;
+  }
+}
+
+export async function sendCheckoutReminderEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping checkout reminder email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for checkout reminder");
+      return false;
+    }
+
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Check-out Reminder - Today - Sri Shankeshwar Bengaluru Bhavan - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ffc107, #fd7e14); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Check-out Reminder</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>Thank you for staying with us! This is a reminder that your check-out is scheduled for today.</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #ffc107;">Your Booking Details</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <h4 style="margin-top: 0; color: #856404;">Check-out Information</h4>
+            <ul style="color: #856404; margin: 0; padding-left: 20px;">
+              <li>Check-out time: 11:00 AM</li>
+              <li>Please ensure all personal belongings are collected</li>
+              <li>Return room keys at the front desk</li>
+              <li>Feedback is appreciated to help us improve our services</li>
+            </ul>
+          </div>
+          
+          <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <h4 style="margin-top: 0; color: #155724;">Late Check-out</h4>
+            <p style="color: #155724; margin: 0;">
+              If you need late check-out, please contact the front desk. Additional charges may apply for late check-out beyond 2:00 PM.
+            </p>
+          </div>
+          
+          <p style="text-align: center; margin-top: 30px;">
+            Thank you for choosing Sri Shankeshwar Bengaluru Bhavan! We hope you had a wonderful stay.
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Checkout reminder email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending checkout reminder email:", error);
+    return false;
+  }
+}

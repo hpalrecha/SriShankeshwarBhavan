@@ -5,6 +5,7 @@ import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "./email";
 
 // Session middleware for user authentication
 interface AuthenticatedRequest extends Express.Request {
@@ -336,6 +337,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           createdBookings.push(booking);
+          
+          // Send booking confirmation email for each booking
+          try {
+            await sendBookingConfirmationEmail({
+              booking,
+              user,
+              category: roomCategory,
+            });
+          } catch (error) {
+            console.error(`Error sending booking confirmation email for ${booking.bookingId}:`, error);
+          }
         }
       }
 
@@ -413,6 +425,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: totalAmount.toString(),
       });
 
+      // Send booking confirmation email
+      try {
+        await sendBookingConfirmationEmail({
+          booking,
+          user,
+          category,
+        });
+      } catch (error) {
+        console.error("Error sending booking confirmation email:", error);
+      }
+
       res.json({ booking, user, bookingId });
     } catch (error) {
       console.error("Error creating booking:", error);
@@ -483,6 +506,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.updateRoomBooking(bookingId, { status: "cancelled" });
+      
+      // Send booking cancellation email
+      try {
+        const category = await storage.getRoomCategory(booking.roomCategoryId);
+        const user = await storage.getUser(booking.userId);
+        if (category) {
+          await sendBookingCancellationEmail({
+            booking: { ...booking, status: "cancelled" },
+            user,
+            category,
+          });
+        }
+      } catch (error) {
+        console.error("Error sending booking cancellation email:", error);
+      }
+      
       res.json({ message: "Booking cancelled successfully" });
     } catch (error) {
       console.error("Error cancelling booking:", error);
