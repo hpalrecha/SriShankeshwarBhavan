@@ -50,6 +50,21 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     setViewingProof(null);
   }, [booking?.booking.id]);
 
+  // Handle Escape key to close modal
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && viewingProof) {
+        console.log('Escape pressed, closing modal');
+        setViewingProof(null);
+      }
+    };
+
+    if (viewingProof) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [viewingProof]);
+
   const { data: idProofs, isLoading: idProofsLoading } = useQuery({
     queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
     enabled: !!booking?.booking.id,
@@ -507,14 +522,16 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
         style={{ zIndex: 9999 }}
         onClick={(e) => {
           // Close modal when clicking backdrop
+          console.log('Backdrop clicked');
           if (e.target === e.currentTarget) {
+            console.log('Closing modal from backdrop');
             setViewingProof(null);
           }
         }}
       >
         <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-            <div>
+            <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">{viewingProof.fileName}</h3>
               <p className="text-sm text-gray-600">
                 Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
@@ -523,10 +540,15 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => setViewingProof(null)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Close button clicked');
+                setViewingProof(null);
+              }}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 ml-4 flex-shrink-0 w-8 h-8 p-0 flex items-center justify-center"
             >
-              ✕
+              <span className="text-lg font-bold">×</span>
             </Button>
           </div>
           <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
