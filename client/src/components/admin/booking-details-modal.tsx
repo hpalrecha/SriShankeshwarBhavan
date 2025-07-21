@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
 import CameraCapture from "@/components/ui/camera-capture";
+import SimpleModal from "@/components/ui/simple-modal";
 
 interface BookingDetailsModalProps {
   booking: BookingWithDetails | null;
@@ -31,85 +31,6 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [viewingProof, setViewingProof] = useState<any>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
-
-  // Force close function that bypasses React
-  const forceCloseModal = () => {
-    console.log('Force closing modal');
-    setViewingProof(null);
-  };
-
-  // Setup native event listeners when modal opens
-  useEffect(() => {
-    if (viewingProof) {
-      console.log('Modal opened, setting up native event listeners');
-      
-      // Close on Escape key
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          console.log('Escape key pressed');
-          forceCloseModal();
-        }
-      };
-
-      // Close button click handler
-      const handleCloseClick = (event: Event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        console.log('Native close button clicked');
-        forceCloseModal();
-      };
-
-      // Backdrop click handler
-      const handleBackdropClick = (event: Event) => {
-        if (event.target === backdropRef.current) {
-          console.log('Native backdrop clicked');
-          forceCloseModal();
-        }
-      };
-
-      // Add native event listeners
-      document.addEventListener('keydown', handleKeyDown);
-      
-      // Wait for next tick to ensure refs are available
-      setTimeout(() => {
-        if (closeButtonRef.current) {
-          closeButtonRef.current.addEventListener('click', handleCloseClick);
-          console.log('Added native click listener to close button');
-        }
-        if (backdropRef.current) {
-          backdropRef.current.addEventListener('click', handleBackdropClick);
-          console.log('Added native click listener to backdrop');
-        }
-        
-        // Also add listener to the test button via DOM
-        const testButton = document.getElementById('modal-close-test');
-        if (testButton) {
-          testButton.addEventListener('click', handleCloseClick);
-          console.log('Added native click listener to test button');
-        }
-      }, 0);
-
-      // Prevent page scrolling
-      document.body.style.overflow = 'hidden';
-
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-        if (closeButtonRef.current) {
-          closeButtonRef.current.removeEventListener('click', handleCloseClick);
-        }
-        if (backdropRef.current) {
-          backdropRef.current.removeEventListener('click', handleBackdropClick);
-        }
-        const testButton = document.getElementById('modal-close-test');
-        if (testButton) {
-          testButton.removeEventListener('click', handleCloseClick);
-        }
-        document.body.style.overflow = 'unset';
-      };
-    }
-  }, [viewingProof]);
 
   // Debug logging only when viewingProof changes
   React.useEffect(() => {
@@ -597,74 +518,39 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       </DialogContent>
     </Dialog>
 
-    {/* ID Proof Viewer Modal using Portal with Native Events */}
-    {viewingProof && createPortal(
-      <div 
-        ref={backdropRef}
-        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4"
-        style={{ zIndex: 999999 }}
-      >
-        <div 
-          className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl relative"
-        >
-          {/* Header with close button */}
-          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">{viewingProof.fileName}</h3>
-              <p className="text-sm text-gray-600">
-                Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
-              </p>
-            </div>
-            <button 
-              ref={closeButtonRef}
-              type="button"
-              className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-xl font-bold shadow-lg cursor-pointer"
-              style={{ userSelect: 'none', outline: 'none' }}
-            >
-              ×
-            </button>
+    {/* ID Proof Viewer Modal - Clean Simple Version */}
+    <SimpleModal
+      isOpen={!!viewingProof}
+      onClose={() => setViewingProof(null)}
+      title={viewingProof ? `${viewingProof.fileName} - ${viewingProof.guestName}` : ''}
+    >
+      {viewingProof && (
+        <div className="text-center">
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">
+              Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
+            </p>
           </div>
           
-          {/* Content */}
-          <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
-            <div className="text-center">
-              <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
-                <div className="text-center text-gray-500">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                  <p className="text-sm font-medium">Image Preview</p>
-                  <p className="text-xs">{viewingProof.fileName}</p>
-                </div>
-              </div>
-              <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4">
-                <p className="text-sm text-blue-700">
-                  File stored at: {viewingProof.filePath}
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  In a production app, the actual image would be displayed here
-                </p>
-              </div>
-              
-              {/* Alternative close method */}
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  id="modal-close-test"
-                  className="block w-full px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium cursor-pointer"
-                  dangerouslySetInnerHTML={{ __html: 'Close Modal (Test Button)' }}
-                />
-                
-                <div className="text-sm text-gray-600 mt-2 space-y-1">
-                  <div>Press <kbd className="px-2 py-1 bg-gray-200 rounded">Esc</kbd> to close</div>
-                  <div>Click the red <strong>×</strong> button</div>
-                  <div>Click outside the modal</div>
-                </div>
-              </div>
+          <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300 mx-auto">
+            <div className="text-center text-gray-500">
+              <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+              <p className="text-sm font-medium">Image Preview</p>
+              <p className="text-xs">{viewingProof.fileName}</p>
             </div>
           </div>
+          
+          <div className="bg-blue-50 p-3 rounded border border-blue-200">
+            <p className="text-sm text-blue-700">
+              File stored at: {viewingProof.filePath}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              In a production app, the actual image would be displayed here
+            </p>
+          </div>
         </div>
-      </div>,
-      document.body
-    )}
+      )}
+    </SimpleModal>
     </>
   );
 }
