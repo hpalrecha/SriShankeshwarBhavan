@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -517,27 +518,20 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       </DialogContent>
     </Dialog>
 
-    {/* ID Proof Viewer Modal */}
-    {viewingProof && (
+    {/* ID Proof Viewer Modal using Portal */}
+    {viewingProof && createPortal(
       <div 
-        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4" 
-        style={{ zIndex: 9999 }}
-        onClick={(e) => {
-          // Close modal when clicking backdrop
-          console.log('Backdrop clicked, target:', e.target, 'currentTarget:', e.currentTarget);
-          if (e.target === e.currentTarget) {
-            console.log('Closing modal from backdrop click');
-            setViewingProof(null);
-          }
+        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[10000]"
+        onClick={() => {
+          console.log('Backdrop clicked - closing modal');
+          setViewingProof(null);
         }}
       >
         <div 
-          className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
-          onClick={(e) => {
-            console.log('Modal content clicked - should not close');
-            e.stopPropagation();
-          }}
+          className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl relative"
+          onClick={(e) => e.stopPropagation()}
         >
+          {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">{viewingProof.fileName}</h3>
@@ -545,77 +539,51 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
               </p>
             </div>
-            <div 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Close button clicked - should close modal');
+            <button 
+              onClick={() => {
+                console.log('X button clicked - closing modal');
                 setViewingProof(null);
               }}
-              className="text-gray-500 hover:text-gray-700 hover:bg-red-100 ml-4 flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full border-2 border-red-300 bg-red-50 shadow-lg cursor-pointer transition-all hover:scale-110"
-              style={{ userSelect: 'none' }}
+              className="absolute top-4 right-4 w-8 h-8 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-lg font-bold z-10"
             >
-              <span className="text-xl font-bold leading-none text-red-600">×</span>
+              ×
+            </button>
+          </div>
+          
+          {/* Content */}
+          <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
+            <div className="text-center">
+              <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
+                <div className="text-center text-gray-500">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Image Preview</p>
+                  <p className="text-xs">{viewingProof.fileName}</p>
+                </div>
+              </div>
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <p className="text-sm text-blue-700">
+                  File stored at: {viewingProof.filePath}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  In a production app, the actual image would be displayed here
+                </p>
+              </div>
+              
+              {/* Test close button */}
+              <button
+                onClick={() => {
+                  console.log('TEST: Manual close button clicked');
+                  setViewingProof(null);
+                }}
+                className="mt-4 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+              >
+                Close Modal
+              </button>
             </div>
           </div>
-          <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
-            {viewingProof.fileType && viewingProof.fileType.startsWith('image/') ? (
-              <div className="text-center">
-                <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
-                  <div className="text-center text-gray-500">
-                    <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                    <p className="text-sm font-medium">Image Preview</p>
-                    <p className="text-xs">{viewingProof.fileName}</p>
-                  </div>
-                </div>
-                <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                  <p className="text-sm text-blue-700">
-                    📍 File stored at: {viewingProof.filePath}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    In a production app, the actual image would be displayed here
-                  </p>
-                </div>
-                
-                {/* Test close button */}
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={() => {
-                      console.log('TEST: Manual close button clicked');
-                      setViewingProof(null);
-                    }}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                  >
-                    🔴 Test Close Button
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center">
-                <div className="w-96 h-64 bg-red-50 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-red-200">
-                  <div className="text-center text-red-600">
-                    <div className="h-12 w-12 mx-auto mb-2 text-4xl">📄</div>
-                    <p className="text-sm font-medium">PDF Document</p>
-                    <p className="text-xs">{viewingProof.fileName}</p>
-                  </div>
-                </div>
-                <div className="bg-red-50 p-3 rounded border border-red-200">
-                  <p className="text-sm text-red-700">
-                    📁 File stored at: {viewingProof.filePath}
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-3"
-                    onClick={() => window.open(viewingProof.filePath, '_blank')}
-                  >
-                    📖 Open PDF
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
     </>
   );
