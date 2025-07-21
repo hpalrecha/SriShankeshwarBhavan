@@ -31,6 +31,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [viewingProof, setViewingProof] = useState<any>(null);
 
+  // Debug logging
+  console.log('Current viewingProof state:', viewingProof);
+
   const { data: idProofs, isLoading: idProofsLoading } = useQuery({
     queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
     enabled: !!booking?.booking.id,
@@ -411,7 +414,10 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           variant="outline" 
                           size="sm" 
                           className="ml-2"
-                          onClick={() => setViewingProof(proof)}
+                          onClick={() => {
+                            console.log('Viewing proof:', proof);
+                            setViewingProof(proof);
+                          }}
                         >
                           View
                         </Button>
@@ -478,12 +484,21 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
 
     {/* ID Proof Viewer Modal */}
     {viewingProof && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b">
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4" 
+        style={{ zIndex: 9999 }}
+        onClick={(e) => {
+          // Close modal when clicking backdrop
+          if (e.target === e.currentTarget) {
+            setViewingProof(null);
+          }
+        }}
+      >
+        <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div>
-              <h3 className="text-lg font-semibold">{viewingProof.fileName}</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="text-lg font-semibold text-gray-900">{viewingProof.fileName}</h3>
+              <p className="text-sm text-gray-600">
                 Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
               </p>
             </div>
@@ -491,44 +506,51 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               variant="ghost" 
               size="sm"
               onClick={() => setViewingProof(null)}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200"
             >
               ✕
             </Button>
           </div>
-          <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[400px]">
-            {viewingProof.fileType.startsWith('image/') ? (
+          <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
+            {viewingProof.fileType && viewingProof.fileType.startsWith('image/') ? (
               <div className="text-center">
-                <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
                   <div className="text-center text-gray-500">
                     <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                    <p className="text-sm">Image Preview</p>
+                    <p className="text-sm font-medium">Image Preview</p>
                     <p className="text-xs">{viewingProof.fileName}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  In a real implementation, this would show the actual image from: {viewingProof.filePath}
-                </p>
+                <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                  <p className="text-sm text-blue-700">
+                    📍 File stored at: {viewingProof.filePath}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    In a production app, the actual image would be displayed here
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-96 h-64 bg-red-50 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-96 h-64 bg-red-50 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-red-200">
                   <div className="text-center text-red-600">
                     <div className="h-12 w-12 mx-auto mb-2 text-4xl">📄</div>
-                    <p className="text-sm">PDF Document</p>
+                    <p className="text-sm font-medium">PDF Document</p>
                     <p className="text-xs">{viewingProof.fileName}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  PDF files would open in a new tab or PDF viewer
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={() => window.open(viewingProof.filePath, '_blank')}
-                >
-                  Open PDF
-                </Button>
+                <div className="bg-red-50 p-3 rounded border border-red-200">
+                  <p className="text-sm text-red-700">
+                    📁 File stored at: {viewingProof.filePath}
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-3"
+                    onClick={() => window.open(viewingProof.filePath, '_blank')}
+                  >
+                    📖 Open PDF
+                  </Button>
+                </div>
               </div>
             )}
           </div>
