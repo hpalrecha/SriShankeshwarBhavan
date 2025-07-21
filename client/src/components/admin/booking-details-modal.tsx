@@ -26,8 +26,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [roomNumber, setRoomNumber] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [status, setStatus] = useState("");
-  const [idProofFiles, setIdProofFiles] = useState<FileList | null>(null);
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
 
   const { data: idProofs } = useQuery({
@@ -72,7 +72,6 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/id-proofs", booking?.booking.id] });
-      setIdProofFile(null);
       toast({
         title: "ID Proof Uploaded",
         description: "Guest ID proof has been successfully uploaded.",
@@ -93,32 +92,29 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   };
 
   const handleIdProofUpload = async () => {
-    if (idProofFiles && idProofFiles.length > 0) {
+    if (selectedFiles.length > 0) {
       // Upload all selected files
-      for (let i = 0; i < idProofFiles.length; i++) {
-        const file = idProofFiles[i];
+      for (const file of selectedFiles) {
         try {
           await uploadIdProofMutation.mutateAsync(file);
         } catch (error) {
           console.error(`Error uploading file ${file.name}:`, error);
         }
       }
-      // Clear the file selection
-      setIdProofFiles(null);
-      setIdProofFile(null);
-      // Reset the file input
-      const fileInput = document.getElementById('idProof') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
+      // Clear the file selection after successful upload
+      setSelectedFiles([]);
+      setCurrentFile(null);
     }
   };
 
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleCameraCapture = (file: File) => {
-    setIdProofFile(file);
+    setCurrentFile(file);
+    setSelectedFiles(prev => [...prev, file]);
     setShowCameraCapture(false);
-    // Auto-upload the captured photo
-    uploadIdProofMutation.mutate(file);
   };
 
   const getStatusBadge = (status: string) => {
@@ -334,19 +330,24 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                     accept="image/*,.pdf"
                     multiple
                     onChange={(e) => {
-                      setIdProofFiles(e.target.files);
-                      setIdProofFile(e.target.files?.[0] || null);
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCurrentFile(file);
+                        setSelectedFiles(prev => [...prev, file]);
+                      }
+                      // Clear the input so the same file can be selected again
+                      e.target.value = '';
                     }}
                     className="flex-1"
                   />
                   <Button 
                     onClick={handleIdProofUpload}
-                    disabled={!idProofFiles || idProofFiles.length === 0 || uploadIdProofMutation.isPending}
+                    disabled={selectedFiles.length === 0 || uploadIdProofMutation.isPending}
                     size="sm"
                     variant="outline"
                   >
                     <Upload className="h-4 w-4 mr-1" />
-                    Upload {idProofFiles && idProofFiles.length > 1 ? `(${idProofFiles.length})` : ''}
+                    Upload {selectedFiles.length > 1 ? `(${selectedFiles.length})` : ''}
                   </Button>
                   <Button 
                     onClick={() => setShowCameraCapture(true)}
@@ -359,11 +360,27 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Select multiple files to upload at once. Click "Camera" to capture Aadhaar photo directly or "Upload" to select from files
+                  Select files one by one to add them to the upload queue. Click "Camera" to capture Aadhaar photo directly.
                 </p>
-                {idProofFiles && idProofFiles.length > 0 && (
-                  <div className="text-xs text-blue-600">
-                    {idProofFiles.length} file{idProofFiles.length > 1 ? 's' : ''} selected: {Array.from(idProofFiles).map(f => f.name).join(', ')}
+                
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Files to Upload ({selectedFiles.length})</Label>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-blue-50 rounded text-sm">
+                          <span className="truncate">{file.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveFile(index)}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
