@@ -103,6 +103,10 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 21, 2025: Implemented comprehensive email notification system with four types of automated emails: booking cancellation notifications, pre-check-in reminders (1 day before), check-in day welcome emails, and post-checkout feedback requests with professional HTML templates
+- July 21, 2025: Added complete user password reset flow with secure token-based authentication, forgot password functionality, email verification system, and dedicated reset pages with proper routing
+- July 21, 2025: Enhanced scheduled email tasks with cron jobs running at optimal times: pre-check-in reminders (10 AM), check-in day notifications (8 AM), checkout reminders (9 AM), and feedback requests (6 PM)
+- July 21, 2025: Created professional email templates with branded styling, clear information sections, actionable content, and both HTML and text versions for all notification types
 - July 21, 2025: Added actual check-in and check-out timestamp display throughout admin interface - timestamps now show in booking details and check-in/checkout screens
 - July 21, 2025: Enhanced check-in/checkout functionality with cancel booking option for checked-in guests - admin can now cancel bookings even after guests are checked in
 - July 21, 2025: Added comprehensive Food Settings management interface in admin panel for configurable breakfast, lunch, and dinner donation amounts with real-time updates

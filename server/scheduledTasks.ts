@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { storage } from "./storage";
-import { sendPreCheckinReminderEmail, sendCheckoutReminderEmail } from "./email";
+import { sendPreCheckinReminderEmail, sendCheckoutReminderEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -34,8 +34,8 @@ export function startPreCheckinReminderTask() {
               booking,
               user,
               category,
-              guestName: booking.guestName,
-              guestEmail: booking.guestEmail,
+              guestName: booking.primaryGuestName,
+              guestEmail: booking.primaryGuestEmail,
             });
           }
         } catch (error) {
@@ -81,8 +81,8 @@ export function startCheckoutReminderTask() {
               booking,
               user,
               category,
-              guestName: booking.guestName,
-              guestEmail: booking.guestEmail,
+              guestName: booking.primaryGuestName,
+              guestEmail: booking.primaryGuestEmail,
             });
           }
         } catch (error) {
@@ -97,9 +97,106 @@ export function startCheckoutReminderTask() {
   console.log("Checkout reminder task scheduled for 9:00 AM daily");
 }
 
+// Send check-in day reminders at 8:00 AM daily for today's check-ins
+export function startCheckinDayReminderTask() {
+  cron.schedule("0 8 * * *", async () => {
+    console.log("Running check-in day reminder task...");
+    
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      // Get bookings checking in today
+      const bookings = await storage.getBookingsByDateRange(today, tomorrow);
+      const todayCheckins = bookings.filter(booking => 
+        booking.status === "confirmed" && 
+        new Date(booking.checkinDate).toDateString() === today.toDateString()
+      );
+      
+      console.log(`Found ${todayCheckins.length} check-ins for today`);
+      
+      for (const booking of todayCheckins) {
+        try {
+          const user = booking.userId ? await storage.getUser(booking.userId) : null;
+          const category = await storage.getRoomCategory(booking.roomCategoryId);
+          
+          if (category) {
+            await sendCheckInDayReminderEmail({
+              booking,
+              user,
+              category,
+              guestName: booking.primaryGuestName,
+              guestEmail: booking.primaryGuestEmail,
+            });
+          }
+        } catch (error) {
+          console.error(`Error sending check-in day reminder for booking ${booking.bookingId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in check-in day reminder task:", error);
+    }
+  });
+  
+  console.log("Check-in day reminder task scheduled for 8:00 AM daily");
+}
+
+// Send post-checkout feedback requests at 6:00 PM daily for yesterday's check-outs
+export function startPostCheckoutFeedbackTask() {
+  cron.schedule("0 18 * * *", async () => {
+    console.log("Running post-checkout feedback task...");
+    
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const today = new Date(yesterday);
+      today.setDate(today.getDate() + 1);
+      
+      // Get bookings that checked out yesterday
+      const bookings = await storage.getBookingsByDateRange(yesterday, today);
+      const yesterdayCheckouts = bookings.filter(booking => 
+        booking.status === "checked_out" && 
+        new Date(booking.checkoutDate).toDateString() === yesterday.toDateString()
+      );
+      
+      console.log(`Found ${yesterdayCheckouts.length} check-outs from yesterday for feedback`);
+      
+      for (const booking of yesterdayCheckouts) {
+        try {
+          const user = booking.userId ? await storage.getUser(booking.userId) : null;
+          const category = await storage.getRoomCategory(booking.roomCategoryId);
+          
+          if (category) {
+            await sendPostCheckoutFeedbackEmail({
+              booking,
+              user,
+              category,
+              guestName: booking.primaryGuestName,
+              guestEmail: booking.primaryGuestEmail,
+            });
+          }
+        } catch (error) {
+          console.error(`Error sending post-checkout feedback for booking ${booking.bookingId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in post-checkout feedback task:", error);
+    }
+  });
+  
+  console.log("Post-checkout feedback task scheduled for 6:00 PM daily");
+}
+
 // Start all scheduled tasks
 export function initializeScheduledTasks() {
   startPreCheckinReminderTask();
+  startCheckinDayReminderTask();
   startCheckoutReminderTask();
+  startPostCheckoutFeedbackTask();
   console.log("All email notification tasks initialized");
 }

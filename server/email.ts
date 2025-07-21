@@ -551,3 +551,283 @@ export async function sendCheckoutReminderEmail(data: BookingEmailData): Promise
     return false;
   }
 }
+
+export async function sendCheckInDayReminderEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping check-in day reminder email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for check-in day reminder");
+      return false;
+    }
+
+    const checkinDate = new Date(booking.checkinDate).toLocaleDateString('en-IN');
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Today is Check-in Day! - Sri Shankeshwar Bengaluru Bhavan - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6b35, #f7931e); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Today is Your Check-in Day!</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>Welcome! Today is your check-in day at Sri Shankeshwar Bengaluru Bhavan. We're excited to host you!</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #ff6b35;">Your Booking Details</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Check-in Date:</strong> ${checkinDate} (Today)</p>
+            <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
+            <p><strong>Guests:</strong> ${booking.guests}</p>
+          </div>
+          
+          <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <h4 style="margin-top: 0; color: #155724;">Check-in Information</h4>
+            <ul style="color: #155724; margin: 0; padding-left: 20px;">
+              <li><strong>Check-in time:</strong> 2:00 PM onwards</li>
+              <li><strong>Location:</strong> Reception Desk at Main Entrance</li>
+              <li><strong>Required Documents:</strong> Valid Government ID (Aadhaar, Passport, Driver's License)</li>
+              <li><strong>Contact:</strong> +91 9876543210 for any assistance</li>
+            </ul>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #ff6b35;">Directions</h3>
+            <p><strong>Address:</strong> Near Parshwanath Temple, Shankheshwar, Patan District, Gujarat 384246</p>
+            <p><strong>Landmark:</strong> Adjacent to the sacred Parshwanath Temple</p>
+            <p><strong>Transportation:</strong> Local buses available from Patan. Auto-rickshaws from Shankheshwar Bus Stand.</p>
+          </div>
+          
+          <p style="text-align: center; margin-top: 30px; color: #ff6b35; font-weight: bold;">
+            We look forward to welcoming you today!
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textBody = `
+Today is Check-in Day! - Sri Shankeshwar Bengaluru Bhavan
+
+Dear ${recipientName},
+
+Welcome! Today is your check-in day at Sri Shankeshwar Bengaluru Bhavan. We're excited to host you!
+
+Booking Details:
+- Booking ID: ${booking.bookingId}
+- Room Category: ${category.name}
+- Check-in Date: ${checkinDate} (Today)
+- Check-out Date: ${checkoutDate}
+- Guests: ${booking.guests}
+
+Check-in Information:
+- Check-in time: 2:00 PM onwards
+- Location: Reception Desk at Main Entrance
+- Required Documents: Valid Government ID (Aadhaar, Passport, Driver's License)
+- Contact: +91 9876543210 for any assistance
+
+Address: Near Parshwanath Temple, Shankheshwar, Patan District, Gujarat 384246
+Landmark: Adjacent to the sacred Parshwanath Temple
+Transportation: Local buses available from Patan. Auto-rickshaws from Shankheshwar Bus Stand.
+
+We look forward to welcoming you today!
+
+Best regards,
+Sri Shankeshwar Bengaluru Bhavan Team
+
+© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+          Text: {
+            Data: textBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Check-in day reminder email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending check-in day reminder email:", error);
+    return false;
+  }
+}
+
+export async function sendPostCheckoutFeedbackEmail(data: BookingEmailData): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping post-checkout feedback email");
+    return false;
+  }
+  
+  try {
+    const { booking, user, category, guestName, guestEmail } = data;
+    const recipientEmail = user?.email || guestEmail || booking.guestEmail;
+    const recipientName = user?.name || guestName || booking.guestName;
+    
+    if (!recipientEmail) {
+      console.error("No recipient email found for post-checkout feedback");
+      return false;
+    }
+
+    const checkinDate = new Date(booking.checkinDate).toLocaleDateString('en-IN');
+    const checkoutDate = new Date(booking.checkoutDate).toLocaleDateString('en-IN');
+    
+    const subject = `Thank You for Staying with Us! Share Your Feedback - ${booking.bookingId}`;
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #28a745, #20c997); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Thank You for Your Stay!</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${recipientName},</h2>
+          <p>Thank you for choosing Sri Shankeshwar Bengaluru Bhavan for your stay. We hope you had a wonderful and peaceful experience with us!</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #28a745;">Your Stay Summary</h3>
+            <p><strong>Booking ID:</strong> ${booking.bookingId}</p>
+            <p><strong>Room Category:</strong> ${category.name}</p>
+            <p><strong>Stay Duration:</strong> ${checkinDate} to ${checkoutDate}</p>
+            <p><strong>Guests:</strong> ${booking.guests}</p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border-left: 4px solid #ffc107;">
+            <h3 style="margin-top: 0; color: #856404;">We Value Your Feedback!</h3>
+            <p style="color: #856404; margin-bottom: 15px;">
+              Your experience matters to us. Please take a moment to share your feedback about your stay.
+            </p>
+            
+            <div style="margin: 20px 0;">
+              <p style="color: #856404; margin: 5px 0;"><strong>How was your stay?</strong></p>
+              <p style="color: #856404; margin: 5px 0;"><strong>What did you like most?</strong></p>
+              <p style="color: #856404; margin: 5px 0;"><strong>Any suggestions for improvement?</strong></p>
+            </div>
+            
+            <p style="color: #856404; font-size: 12px; margin-top: 15px;">
+              Please reply to this email with your feedback or call us at +91 9876543210
+            </p>
+          </div>
+          
+          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #bee5eb;">
+            <h4 style="margin-top: 0; color: #0c5460;">Visit Us Again!</h4>
+            <p style="color: #0c5460; margin: 0;">
+              We would be delighted to welcome you back to Sri Shankeshwar Bengaluru Bhavan. 
+              For future bookings, please visit our website or contact us directly.
+            </p>
+          </div>
+          
+          <p style="margin-top: 30px;">
+            Thank you once again for choosing us. We hope to see you soon!
+          </p>
+          
+          <p style="margin-top: 20px;">
+            With warm regards,<br>
+            Sri Shankeshwar Bengaluru Bhavan Team
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textBody = `
+Thank You for Your Stay! - Sri Shankeshwar Bengaluru Bhavan
+
+Dear ${recipientName},
+
+Thank you for choosing Sri Shankeshwar Bengaluru Bhavan for your stay. We hope you had a wonderful and peaceful experience with us!
+
+Your Stay Summary:
+- Booking ID: ${booking.bookingId}
+- Room Category: ${category.name}
+- Stay Duration: ${checkinDate} to ${checkoutDate}
+- Guests: ${booking.guests}
+
+We Value Your Feedback!
+Your experience matters to us. Please take a moment to share your feedback about your stay.
+
+How was your stay?
+What did you like most?
+Any suggestions for improvement?
+
+Please reply to this email with your feedback or call us at +91 9876543210
+
+Visit Us Again!
+We would be delighted to welcome you back to Sri Shankeshwar Bengaluru Bhavan. 
+For future bookings, please visit our website or contact us directly.
+
+Thank you once again for choosing us. We hope to see you soon!
+
+With warm regards,
+Sri Shankeshwar Bengaluru Bhavan Team
+
+© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [recipientEmail],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+          Text: {
+            Data: textBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Post-checkout feedback email sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending post-checkout feedback email:", error);
+    return false;
+  }
+}

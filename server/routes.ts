@@ -5,7 +5,7 @@ import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail } from "./email";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
