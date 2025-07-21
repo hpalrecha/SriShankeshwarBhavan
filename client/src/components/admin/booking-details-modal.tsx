@@ -21,6 +21,49 @@ interface BookingDetailsModalProps {
   onClose: () => void;
 }
 
+interface IDProofViewerProps {
+  proof: any;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function IDProofViewer({ proof, isOpen, onClose }: IDProofViewerProps) {
+  return (
+    <SimpleModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={proof ? `${proof.fileName} - ${proof.guestName}` : ''}
+    >
+      {proof && (
+        <div className="text-center">
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">
+              Uploaded: {new Date(proof.uploadedAt).toLocaleString()}
+            </p>
+          </div>
+          
+          <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300 mx-auto">
+            <div className="text-center text-gray-500">
+              <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+              <p className="text-sm font-medium">Image Preview</p>
+              <p className="text-xs">{proof.fileName}</p>
+            </div>
+          </div>
+          
+          <div className="bg-blue-50 p-3 rounded border border-blue-200">
+            <p className="text-sm text-blue-700">
+              File stored at: {proof.filePath}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              In a production app, the actual image would be displayed here
+            </p>
+          </div>
+        </div>
+      )}
+    </SimpleModal>
+  );
+}
+
 export default function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -518,39 +561,12 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       </DialogContent>
     </Dialog>
 
-    {/* ID Proof Viewer Modal - Clean Simple Version */}
-    <SimpleModal
-      isOpen={!!viewingProof}
-      onClose={() => setViewingProof(null)}
-      title={viewingProof ? `${viewingProof.fileName} - ${viewingProof.guestName}` : ''}
-    >
-      {viewingProof && (
-        <div className="text-center">
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
-            </p>
-          </div>
-          
-          <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300 mx-auto">
-            <div className="text-center text-gray-500">
-              <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-              <p className="text-sm font-medium">Image Preview</p>
-              <p className="text-xs">{viewingProof.fileName}</p>
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 p-3 rounded border border-blue-200">
-            <p className="text-sm text-blue-700">
-              File stored at: {viewingProof.filePath}
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              In a production app, the actual image would be displayed here
-            </p>
-          </div>
-        </div>
-      )}
-    </SimpleModal>
+      {/* ID Proof Viewer - Outside the main modal */}
+      <IDProofViewer 
+        proof={viewingProof}
+        isOpen={!!viewingProof}
+        onClose={() => setViewingProof(null)}
+      />
     </>
   );
 }
