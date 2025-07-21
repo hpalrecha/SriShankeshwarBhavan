@@ -5,10 +5,11 @@ import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "./email";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail } from "./email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 
 // Session middleware for user authentication
 interface AuthenticatedRequest extends Express.Request {
@@ -136,6 +137,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ message: "Logout successful" });
     });
+  });
+
+  // Forgot Password endpoint
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+      }
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      // Save reset token
+      await storage.createPasswordResetToken(user.id, resetToken, expiresAt);
+
+      // Send password reset email
+      const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+      res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+    } catch (error) {
+      console.error("Error in forgot password:", error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+
+  // Reset Password endpoint
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+
+      // Find and validate reset token
+      const resetTokenData = await storage.getPasswordResetToken(token);
+      if (!resetTokenData || resetTokenData.used || new Date() > new Date(resetTokenData.expiresAt)) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user password
+      await storage.updateUserPassword(resetTokenData.userId, hashedPassword);
+
+      // Mark token as used
+      await storage.markPasswordResetTokenAsUsed(resetTokenData.id);
+
+      res.json({ message: "Password has been reset successfully" });
+    } catch (error) {
+      console.error("Error in reset password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Verify Reset Token endpoint
+  app.get("/api/auth/verify-reset-token/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      const resetTokenData = await storage.getPasswordResetToken(token);
+      if (!resetTokenData || resetTokenData.used || new Date() > new Date(resetTokenData.expiresAt)) {
+        return res.status(400).json({ message: "Invalid or expired reset token", valid: false });
+      }
+
+      res.json({ message: "Token is valid", valid: true });
+    } catch (error) {
+      console.error("Error verifying reset token:", error);
+      res.status(500).json({ message: "Failed to verify token", valid: false });
+    }
   });
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {

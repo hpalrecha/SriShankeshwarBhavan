@@ -249,6 +249,118 @@ export async function sendBookingCancellationEmail(data: BookingEmailData): Prom
   }
 }
 
+export async function sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<boolean> {
+  if (!isAwsSesConfigured || !sesClient) {
+    console.log("AWS SES not configured, skipping password reset email");
+    return false;
+  }
+  
+  try {
+    const subject = "Password Reset - Sri Shankeshwar Bengaluru Bhavan";
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6b35, #f7931e); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Password Reset Request</p>
+        </div>
+        
+        <div style="padding: 20px; background: #f9f9f9;">
+          <h2 style="color: #333;">Dear ${name},</h2>
+          <p>We received a request to reset your password for your Sri Shankeshwar Bengaluru Bhavan account.</p>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <h3 style="margin-top: 0; color: #ff6b35;">Reset Your Password</h3>
+            <p>Click the button below to reset your password. This link will expire in 1 hour.</p>
+            
+            <a href="${resetUrl}" style="display: inline-block; background: #ff6b35; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">
+              Reset Password
+            </a>
+            
+            <p style="font-size: 12px; color: #666; margin-top: 15px;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <span style="word-break: break-all;">${resetUrl}</span>
+            </p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <h4 style="margin-top: 0; color: #856404;">Security Notice</h4>
+            <p style="color: #856404; margin: 0;">
+              If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+              For security reasons, this reset link will expire in 1 hour.
+            </p>
+          </div>
+          
+          <p style="margin-top: 30px;">
+            If you're having trouble with the reset process, please contact us at +91 9876543210 or reply to this email.
+          </p>
+          
+          <p style="margin-top: 20px;">
+            Best regards,<br>
+            Sri Shankeshwar Bengaluru Bhavan Team
+          </p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textBody = `
+Password Reset Request - Sri Shankeshwar Bengaluru Bhavan
+
+Dear ${name},
+
+We received a request to reset your password for your Sri Shankeshwar Bengaluru Bhavan account.
+
+To reset your password, please click on the following link:
+${resetUrl}
+
+This link will expire in 1 hour for security reasons.
+
+If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+
+If you're having trouble with the reset process, please contact us at +91 9876543210.
+
+Best regards,
+Sri Shankeshwar Bengaluru Bhavan Team
+
+© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
+    `;
+
+    const command = new SendEmailCommand({
+      Source: process.env.FROM_EMAIL,
+      Destination: {
+        ToAddresses: [email],
+      },
+      Message: {
+        Subject: {
+          Data: subject,
+          Charset: "UTF-8",
+        },
+        Body: {
+          Html: {
+            Data: htmlBody,
+            Charset: "UTF-8",
+          },
+          Text: {
+            Data: textBody,
+            Charset: "UTF-8",
+          },
+        },
+      },
+    });
+
+    await sesClient.send(command);
+    console.log(`Password reset email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    return false;
+  }
+}
+
 export async function sendPreCheckinReminderEmail(data: BookingEmailData): Promise<boolean> {
   if (!isAwsSesConfigured || !sesClient) {
     console.log("AWS SES not configured, skipping pre-checkin reminder email");

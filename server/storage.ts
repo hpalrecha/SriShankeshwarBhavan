@@ -6,6 +6,7 @@ import {
   adminUsers,
   trusteeAutoBookings,
   foodSettings,
+  passwordResetTokens,
   type RoomCategory,
   type User,
   type RoomBooking,
@@ -70,6 +71,12 @@ export interface IStorage {
   // Food Settings
   getFoodSettings(): Promise<FoodSettings | undefined>;
   updateFoodSettings(settings: Partial<InsertFoodSettings>): Promise<FoodSettings>;
+
+  // Password Reset Tokens
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ id: number; userId: number; used: boolean; expiresAt: string } | undefined>;
+  markPasswordResetTokenAsUsed(tokenId: number): Promise<void>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -331,6 +338,39 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Password Reset Tokens
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt,
+      used: false,
+    });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ id: number; userId: number; used: boolean; expiresAt: string } | undefined> {
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token))
+      .limit(1);
+    return resetToken;
+  }
+
+  async markPasswordResetTokenAsUsed(tokenId: number): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.id, tokenId));
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, userId));
   }
 }
 
