@@ -208,14 +208,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/id-proofs", async (req, res) => {
     try {
-      // Note: In a real implementation, you'd handle file upload with multer or similar
-      const { bookingId, fileName, fileType } = req.body;
+      // Simple implementation without actual file storage
+      // In a real app, you'd use multer for file handling
+      const { bookingId, fileName, fileType, guestName, idType } = req.body;
+      
+      if (!bookingId) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safeFileName = fileName || `id_proof_${timestamp}.jpg`;
       
       const idProof = await storage.createIdProof({
         bookingId: parseInt(bookingId),
-        fileName: fileName || "id_proof.jpg",
+        fileName: safeFileName,
         fileType: fileType || "image/jpeg",
-        filePath: `/uploads/${bookingId}/${fileName || "id_proof.jpg"}`,
+        filePath: `/uploads/${bookingId}/${safeFileName}`,
+        idType: idType || "government_id",
+        guestName: guestName || null,
       });
       
       res.status(201).json(idProof);

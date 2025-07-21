@@ -26,6 +26,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [roomNumber, setRoomNumber] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [status, setStatus] = useState("");
+  const [idProofFiles, setIdProofFiles] = useState<FileList | null>(null);
   const [idProofFile, setIdProofFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
 
@@ -60,11 +61,14 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
 
   const uploadIdProofMutation = useMutation({
     mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("idProof", file);
-      formData.append("bookingId", booking?.booking.id.toString() || "");
-      
-      return await apiRequest("POST", "/api/admin/id-proofs", formData);
+      // For now, we'll send the file info as JSON since we're not implementing actual file storage
+      return await apiRequest("POST", "/api/admin/id-proofs", {
+        bookingId: booking?.booking.id,
+        fileName: file.name,
+        fileType: file.type,
+        idType: "government_id",
+        guestName: booking?.user.name
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/id-proofs", booking?.booking.id] });
@@ -88,9 +92,25 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     updateBookingMutation.mutate({ [field]: value });
   };
 
-  const handleIdProofUpload = () => {
-    if (idProofFile) {
-      uploadIdProofMutation.mutate(idProofFile);
+  const handleIdProofUpload = async () => {
+    if (idProofFiles && idProofFiles.length > 0) {
+      // Upload all selected files
+      for (let i = 0; i < idProofFiles.length; i++) {
+        const file = idProofFiles[i];
+        try {
+          await uploadIdProofMutation.mutateAsync(file);
+        } catch (error) {
+          console.error(`Error uploading file ${file.name}:`, error);
+        }
+      }
+      // Clear the file selection
+      setIdProofFiles(null);
+      setIdProofFile(null);
+      // Reset the file input
+      const fileInput = document.getElementById('idProof') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
     }
   };
 
@@ -312,17 +332,21 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                     id="idProof"
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(e) => setIdProofFile(e.target.files?.[0] || null)}
+                    multiple
+                    onChange={(e) => {
+                      setIdProofFiles(e.target.files);
+                      setIdProofFile(e.target.files?.[0] || null);
+                    }}
                     className="flex-1"
                   />
                   <Button 
                     onClick={handleIdProofUpload}
-                    disabled={!idProofFile || uploadIdProofMutation.isPending}
+                    disabled={!idProofFiles || idProofFiles.length === 0 || uploadIdProofMutation.isPending}
                     size="sm"
                     variant="outline"
                   >
                     <Upload className="h-4 w-4 mr-1" />
-                    Upload
+                    Upload {idProofFiles && idProofFiles.length > 1 ? `(${idProofFiles.length})` : ''}
                   </Button>
                   <Button 
                     onClick={() => setShowCameraCapture(true)}
@@ -335,8 +359,13 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Click "Camera" to capture Aadhaar photo directly or "Upload" to select from files
+                  Select multiple files to upload at once. Click "Camera" to capture Aadhaar photo directly or "Upload" to select from files
                 </p>
+                {idProofFiles && idProofFiles.length > 0 && (
+                  <div className="text-xs text-blue-600">
+                    {idProofFiles.length} file{idProofFiles.length > 1 ? 's' : ''} selected: {Array.from(idProofFiles).map(f => f.name).join(', ')}
+                  </div>
+                )}
               </div>
 
               {idProofs && idProofs.length > 0 && (
