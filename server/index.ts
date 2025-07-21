@@ -38,6 +38,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Serve uploaded files statically
+  const path = await import("path");
+  app.use('/uploads', (await import("express")).static(path.join(process.cwd(), 'uploads')));
+  
   const server = await registerRoutes(app);
   
   // Initialize scheduled email tasks

@@ -6,6 +6,9 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "./email";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 // Session middleware for user authentication
 interface AuthenticatedRequest extends Express.Request {
@@ -18,6 +21,36 @@ const requireAuth = (req: any, res: any, next: any) => {
   }
   next();
 };
+
+// Configure multer for file uploads
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const bookingId = req.body.bookingId || req.params.bookingId;
+    const uploadDir = path.join(process.cwd(), 'uploads', bookingId.toString());
+    
+    // Create directory if it doesn't exist
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeFileName = `${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}_${timestamp}${path.extname(file.originalname)}`;
+    cb(null, safeFileName);
+  }
+});
+
+const upload = multer({ 
+  storage: storage_multer,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Accept images and PDFs
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and PDF files are allowed'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure session middleware
@@ -206,31 +239,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/id-proofs", async (req, res) => {
+  // Updated endpoint for actual file uploads
+  app.post("/api/admin/id-proofs", upload.single('file'), async (req, res) => {
     try {
-      // Simple implementation without actual file storage
-      // In a real app, you'd use multer for file handling
-      const { bookingId, fileName, fileType, guestName, idType } = req.body;
+      const { bookingId, guestName, idType } = req.body;
+      const file = req.file;
       
       if (!bookingId) {
         return res.status(400).json({ message: "Booking ID is required" });
       }
 
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const safeFileName = fileName || `id_proof_${timestamp}.jpg`;
+      if (!file) {
+        return res.status(400).json({ message: "File is required" });
+      }
       
       const idProof = await storage.createIdProof({
         bookingId: parseInt(bookingId),
-        fileName: safeFileName,
-        fileType: fileType || "image/jpeg",
-        filePath: `/uploads/${bookingId}/${safeFileName}`,
+        fileName: file.filename,
+        fileType: file.mimetype,
+        filePath: `/uploads/${bookingId}/${file.filename}`,
         idType: idType || "government_id",
         guestName: guestName || null,
       });
       
       res.status(201).json(idProof);
     } catch (error) {
-      console.error("Error creating ID proof:", error);
+      console.error("Error uploading ID proof:", error);
       res.status(500).json({ message: "Failed to upload ID proof" });
     }
   });

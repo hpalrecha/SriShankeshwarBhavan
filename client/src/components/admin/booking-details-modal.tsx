@@ -70,14 +70,25 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
 
   const uploadIdProofMutation = useMutation({
     mutationFn: async (file: File) => {
-      // For now, we'll send the file info as JSON since we're not implementing actual file storage
-      return await apiRequest("POST", "/api/admin/id-proofs", {
-        bookingId: booking?.booking.id,
-        fileName: file.name,
-        fileType: file.type,
-        idType: "government_id",
-        guestName: booking?.user.name
+      // Create FormData for actual file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bookingId', booking?.booking.id?.toString() || '');
+      formData.append('idType', 'government_id');
+      formData.append('guestName', booking?.user.name || '');
+
+      // Use fetch directly for file uploads
+      const response = await fetch("/api/admin/id-proofs", {
+        method: "POST",
+        body: formData, // Don't set Content-Type header - let browser set it with boundary
       });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Upload failed" }));
+        throw new Error(error.message || "Upload failed");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`] });
@@ -90,7 +101,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       console.error("Upload error:", error);
       toast({
         title: "Upload Failed",
-        description: "Failed to upload ID proof. Please try again.",
+        description: error.message || "Failed to upload ID proof. Please try again.",
         variant: "destructive",
       });
     },
