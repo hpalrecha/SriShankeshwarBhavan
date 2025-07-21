@@ -4,13 +4,36 @@ export interface BookingFormData {
   checkinDate: string;
   checkoutDate: string;
   guests: number;
+  // Travel details
+  arrivingFrom?: string;
+  goingTo?: string;
+  estimatedArrivalTime?: string;
+  estimatedDepartureTime?: string;
+  // Food options
+  breakfastDays?: number;
+  lunchDays?: number;
+  dinnerDays?: number;
 }
 
 export interface GuestFormData {
   name: string;
   email: string;
   mobile: string;
+  // Full address
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  country?: string;
   paymentMethod: "online" | "checkin";
+}
+
+export interface FoodSettings {
+  id?: number;
+  breakfastPrice: string;
+  lunchPrice: string;
+  dinnerPrice: string;
+  updatedAt?: string;
 }
 
 export interface RoomAvailability {

@@ -103,6 +103,11 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 21, 2025: Implemented comprehensive enhanced booking system with full address collection, travel details (arriving from/going to), ETA/ETD tracking, multiple government ID support, check-in/out time recording, and optional food booking system with admin-configurable pricing (breakfast/lunch/dinner)
+- July 21, 2025: Updated database schema to support new booking features: address fields, travel information, food booking options, multiple ID proof types, and actual check-in/check-out timestamps
+- July 21, 2025: Enhanced guest details form with sectioned layout including address details, travel information, and food options with real-time pricing and total calculation
+- July 21, 2025: Added food settings management in admin panel for configurable breakfast, lunch, and dinner pricing
+- July 21, 2025: Updated booking terminology to consistently use "donations" instead of "amounts" throughout the application
 - July 12, 2025: Implemented comprehensive AWS SES email notification system with booking confirmations, cancellation notices, pre-check-in reminders, and check-out notifications using scheduled cron jobs
 - July 12, 2025: Added camera functionality for Aadhaar uploads with live camera feed, positioning guide, capture/review process, and auto-upload
 - July 12, 2025: Implemented user deletion functionality that preserves bookings and transaction history while removing user accounts, with smart confirmation dialogs

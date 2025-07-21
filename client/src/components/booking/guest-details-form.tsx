@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,18 +7,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, User, MapPin, Plane, Utensils, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import type { BookingFormData, RoomAvailability, GuestFormData } from "@/lib/types";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
 
 const guestSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Valid email is required"),
   mobile: z.string().min(10, "Valid mobile number is required"),
+  // Address fields
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  country: z.string().default("India"),
+  // Travel details
+  arrivingFrom: z.string().optional(),
+  goingTo: z.string().optional(),
+  estimatedArrivalTime: z.string().optional(),
+  estimatedDepartureTime: z.string().optional(),
+  // Food options
+  breakfastDays: z.number().default(0),
+  lunchDays: z.number().default(0),
+  dinnerDays: z.number().default(0),
   paymentMethod: z.enum(["online", "checkin"], {
     required_error: "Please select a payment method",
   }),
@@ -35,12 +52,30 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
 
+  // Fetch food settings for pricing
+  const { data: foodSettings } = useQuery<FoodSettings>({
+    queryKey: ["/api/admin/food-settings"],
+    retry: false,
+  });
+
   const form = useForm<z.infer<typeof guestSchema>>({
     resolver: zodResolver(guestSchema),
     defaultValues: {
       name: "",
       email: "",
       mobile: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: "India",
+      arrivingFrom: "",
+      goingTo: "",
+      estimatedArrivalTime: "",
+      estimatedDepartureTime: "",
+      breakfastDays: 0,
+      lunchDays: 0,
+      dinnerDays: 0,
       paymentMethod: "checkin",
     },
   });
@@ -86,6 +121,18 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
   const onSubmit = (values: z.infer<typeof guestSchema>) => {
+    // Calculate food costs
+    const breakfastPrice = parseFloat(foodSettings?.breakfastPrice || "50");
+    const lunchPrice = parseFloat(foodSettings?.lunchPrice || "100");
+    const dinnerPrice = parseFloat(foodSettings?.dinnerPrice || "100");
+    
+    const foodAmount = (values.breakfastDays * breakfastPrice) + 
+                      (values.lunchDays * lunchPrice) + 
+                      (values.dinnerDays * dinnerPrice);
+    
+    const roomAmount = totalAmount;
+    const finalTotalAmount = roomAmount + foodAmount;
+
     createBookingMutation.mutate({
       user: values,
       booking: {
@@ -93,9 +140,18 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         checkinDate: bookingData.checkinDate,
         checkoutDate: bookingData.checkoutDate,
         guests: bookingData.guests,
+        // Travel details
+        arrivingFrom: values.arrivingFrom,
+        goingTo: values.goingTo,
+        estimatedArrivalTime: values.estimatedArrivalTime,
+        estimatedDepartureTime: values.estimatedDepartureTime,
+        // Food options
+        breakfastDays: values.breakfastDays,
+        lunchDays: values.lunchDays,
+        dinnerDays: values.dinnerDays,
         paymentMethod: values.paymentMethod,
         paymentStatus: values.paymentMethod === "online" ? "pending" : "unpaid",
-        totalAmount: totalAmount.toString(),
+        totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
         roomsBooked: availabilityData.totalRoomsSelected || availabilityData.roomsNeeded || 1,
@@ -159,6 +215,222 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   </FormItem>
                 )}
               />
+
+              {/* Address Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <MapPin className="h-4 w-4" />
+                  <h4>Address Details</h4>
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Address</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter complete address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pincode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Pincode" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Travel Details Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <Plane className="h-4 w-4" />
+                  <h4>Travel Details</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="arrivingFrom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Arriving From</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City/Location" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="goingTo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Going To (Next Destination)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City/Location" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="estimatedArrivalTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Arrival Time</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="estimatedDepartureTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Departure Time</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Food Options Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <Utensils className="h-4 w-4" />
+                  <h4>Food Options (Optional)</h4>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Select the number of days you would like meals. Food donations will be added to your total.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="breakfastDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Breakfast Days 
+                          <span className="text-sm text-gray-500 ml-1">
+                            (₹{foodSettings?.breakfastPrice || "50"}/day)
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            max={nights}
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lunchDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Lunch Days 
+                          <span className="text-sm text-gray-500 ml-1">
+                            (₹{foodSettings?.lunchPrice || "100"}/day)
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            max={nights}
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dinnerDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Dinner Days 
+                          <span className="text-sm text-gray-500 ml-1">
+                            (₹{foodSettings?.dinnerPrice || "100"}/day)
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            max={nights}
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
               
               <FormField
                 control={form.control}
@@ -228,9 +500,42 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     <span>Number of nights:</span>
                     <span>{nights}</span>
                   </div>
+                  {/* Food Summary */}
+                  {(form.watch('breakfastDays') > 0 || form.watch('lunchDays') > 0 || form.watch('dinnerDays') > 0) && (
+                    <div className="border-t pt-2 space-y-1">
+                      <div className="font-medium text-gray-900">Food Options:</div>
+                      {form.watch('breakfastDays') > 0 && (
+                        <div className="flex justify-between text-sm pl-4">
+                          <span>Breakfast × {form.watch('breakfastDays')} days</span>
+                          <span>₹{(form.watch('breakfastDays') * parseFloat(foodSettings?.breakfastPrice || "50")).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {form.watch('lunchDays') > 0 && (
+                        <div className="flex justify-between text-sm pl-4">
+                          <span>Lunch × {form.watch('lunchDays')} days</span>
+                          <span>₹{(form.watch('lunchDays') * parseFloat(foodSettings?.lunchPrice || "100")).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {form.watch('dinnerDays') > 0 && (
+                        <div className="flex justify-between text-sm pl-4">
+                          <span>Dinner × {form.watch('dinnerDays')} days</span>
+                          <span>₹{(form.watch('dinnerDays') * parseFloat(foodSettings?.dinnerPrice || "100")).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="border-t pt-2 flex justify-between font-semibold text-lg">
-                    <span>Total Amount:</span>
-                    <span className="text-brand-orange">₹{totalAmount.toLocaleString()}</span>
+                    <span>Total Donation:</span>
+                    <span className="text-brand-orange">
+                      ₹{(() => {
+                        const roomAmount = totalAmount;
+                        const foodAmount = (form.watch('breakfastDays') * parseFloat(foodSettings?.breakfastPrice || "50")) + 
+                                          (form.watch('lunchDays') * parseFloat(foodSettings?.lunchPrice || "100")) + 
+                                          (form.watch('dinnerDays') * parseFloat(foodSettings?.dinnerPrice || "100"));
+                        return (roomAmount + foodAmount).toLocaleString();
+                      })()}
+                    </span>
                   </div>
                 </div>
               </div>

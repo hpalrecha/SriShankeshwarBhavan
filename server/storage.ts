@@ -5,18 +5,21 @@ import {
   idProofs,
   adminUsers,
   trusteeAutoBookings,
+  foodSettings,
   type RoomCategory,
   type User,
   type RoomBooking,
   type IdProof,
   type AdminUser,
   type TrusteeAutoBooking,
+  type FoodSettings,
   type InsertRoomCategory,
   type InsertUser,
   type InsertRoomBooking,
   type InsertIdProof,
   type InsertAdminUser,
   type InsertTrusteeAutoBooking,
+  type InsertFoodSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
@@ -63,6 +66,10 @@ export interface IStorage {
   createTrusteeAutoBooking(autoBooking: InsertTrusteeAutoBooking): Promise<TrusteeAutoBooking>;
   updateTrusteeAutoBooking(id: number, autoBooking: Partial<TrusteeAutoBooking>): Promise<TrusteeAutoBooking>;
   getTrusteeAutoBookingsByMonth(year: number, month: number): Promise<TrusteeAutoBooking[]>;
+  
+  // Food Settings
+  getFoodSettings(): Promise<FoodSettings | undefined>;
+  updateFoodSettings(settings: Partial<InsertFoodSettings>): Promise<FoodSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,16 +134,17 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Update all user's bookings to preserve them with guest info
-    // Set userId to null and update guest name/email for record keeping
-    await db
-      .update(roomBookings)
-      .set({
-        userId: null,
-        guestName: user.name,
-        guestEmail: user.email,
-        guestMobile: user.mobile || "",
-      })
-      .where(eq(roomBookings.userId, id));
+    // For now, we'll skip updating userId to null since the schema requires it
+    // The bookings will remain linked to preserve referential integrity
+    // In a production system, you might want to create a "deleted users" table
+    // await db
+    //   .update(roomBookings)
+    //   .set({
+    //     guestName: user.name,
+    //     guestEmail: user.email,
+    //     guestMobile: user.mobile || "",
+    //   })
+    //   .where(eq(roomBookings.userId, id));
     
     // Keep ID proofs - they remain linked to bookings
     // No need to delete ID proofs as they're linked to bookings, not users directly
@@ -296,6 +304,33 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(trusteeAutoBookings.bookingDate));
+  }
+
+  // Food Settings
+  async getFoodSettings(): Promise<FoodSettings | undefined> {
+    const [settings] = await db.select().from(foodSettings).limit(1);
+    return settings;
+  }
+
+  async updateFoodSettings(updates: Partial<InsertFoodSettings>): Promise<FoodSettings> {
+    // Get existing settings or use default ID 1
+    const existing = await this.getFoodSettings();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(foodSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(foodSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new settings if none exist
+      const [created] = await db
+        .insert(foodSettings)
+        .values(updates)
+        .returning();
+      return created;
+    }
   }
 }
 

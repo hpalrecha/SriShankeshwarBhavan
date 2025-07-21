@@ -22,6 +22,12 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   mobile: varchar("mobile", { length: 20 }).notNull(),
   password: varchar("password", { length: 255 }).notNull(),
+  // Full Address fields
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  pincode: varchar("pincode", { length: 20 }),
+  country: varchar("country", { length: 100 }).default("India"),
   isTrustee: boolean("is_trustee").default(false),
   trusteeAutoBookDates: varchar("trustee_auto_book_dates", { length: 100 }), // e.g., "1,15"
   trusteeRoomCategoryId: integer("trustee_room_category_id").references(() => roomCategories.id),
@@ -46,16 +52,31 @@ export const roomBookings = pgTable("room_bookings", {
   roomNumber: varchar("room_number", { length: 20 }),
   roomsBooked: integer("rooms_booked").default(1),
   paymentReference: varchar("payment_reference", { length: 100 }),
+  // Travel Details
+  arrivingFrom: varchar("arriving_from", { length: 255 }),
+  goingTo: varchar("going_to", { length: 255 }),
+  estimatedArrivalTime: timestamp("estimated_arrival_time"),
+  estimatedDepartureTime: timestamp("estimated_departure_time"),
+  // Check-in/out actual times
+  actualCheckinTime: timestamp("actual_checkin_time"),
+  actualCheckoutTime: timestamp("actual_checkout_time"),
+  // Food booking
+  breakfastDays: integer("breakfast_days").default(0),
+  lunchDays: integer("lunch_days").default(0),
+  dinnerDays: integer("dinner_days").default(0),
+  foodAmount: decimal("food_amount", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// ID Proofs
+// ID Proofs (now supports multiple IDs per booking)
 export const idProofs = pgTable("id_proofs", {
   id: serial("id").primaryKey(),
   bookingId: integer("booking_id").references(() => roomBookings.id).notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
   fileType: varchar("file_type", { length: 100 }).notNull().default("image/jpeg"),
   filePath: text("file_path").notNull(),
+  idType: varchar("id_type", { length: 50 }).notNull().default("government_id"), // aadhaar, passport, driving_license, voter_id, pan_card, government_id
+  guestName: varchar("guest_name", { length: 255 }), // Which guest this ID belongs to
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 
@@ -70,6 +91,15 @@ export const adminUsers = pgTable("admin_users", {
 });
 
 // Trustee Auto Bookings
+// Food Settings (Admin configurable food prices)
+export const foodSettings = pgTable("food_settings", {
+  id: serial("id").primaryKey(),
+  breakfastPrice: decimal("breakfast_price", { precision: 10, scale: 2 }).notNull().default("50"),
+  lunchPrice: decimal("lunch_price", { precision: 10, scale: 2 }).notNull().default("100"),
+  dinnerPrice: decimal("dinner_price", { precision: 10, scale: 2 }).notNull().default("100"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const trusteeAutoBookings = pgTable("trustee_auto_bookings", {
   id: serial("id").primaryKey(),
   trusteeId: integer("trustee_id").references(() => users.id).notNull(),
@@ -158,6 +188,11 @@ export const insertAdminUserSchema = createInsertSchema(adminUsers).omit({
   createdAt: true,
 });
 
+export const insertFoodSettingsSchema = createInsertSchema(foodSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export const insertTrusteeAutoBookingSchema = createInsertSchema(trusteeAutoBookings).omit({
   id: true,
   createdAt: true,
@@ -178,6 +213,9 @@ export type InsertIdProof = z.infer<typeof insertIdProofSchema>;
 
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
+
+export type FoodSettings = typeof foodSettings.$inferSelect;
+export type InsertFoodSettings = z.infer<typeof insertFoodSettingsSchema>;
 
 export type TrusteeAutoBooking = typeof trusteeAutoBookings.$inferSelect;
 export type InsertTrusteeAutoBooking = z.infer<typeof insertTrusteeAutoBookingSchema>;

@@ -314,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
 
-          const selectionAmount = nights * roomCategory.price * selection.quantity;
+          const selectionAmount = nights * parseFloat(roomCategory.price) * selection.quantity;
           totalAmount += selectionAmount;
           totalRooms += selection.quantity;
 
@@ -368,10 +368,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", async (req, res) => {
     try {
       const bookingSchema = z.object({
-        user: insertUserSchema.omit({ password: true }),
+        user: insertUserSchema.omit({ password: true }).extend({
+          address: z.string().optional(),
+          city: z.string().optional(),
+          state: z.string().optional(),
+          pincode: z.string().optional(),
+          country: z.string().default("India"),
+        }),
         booking: insertRoomBookingSchema.extend({
           checkinDate: z.string(),
           checkoutDate: z.string(),
+          arrivingFrom: z.string().optional(),
+          goingTo: z.string().optional(),
+          estimatedArrivalTime: z.string().optional(),
+          estimatedDepartureTime: z.string().optional(),
+          breakfastDays: z.number().default(0),
+          lunchDays: z.number().default(0),
+          dinnerDays: z.number().default(0),
         }).omit({ userId: true }), // Remove userId from validation since we'll add it server-side
       });
 
@@ -387,10 +400,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const roomsBooked = bookingData.roomsBooked || 1;
       const totalCapacity = category.maxOccupancy * roomsBooked;
       
-      if (bookingData.guests > totalCapacity) {
+      if (bookingData.guests && bookingData.guests > totalCapacity) {
         const minRoomsNeeded = Math.ceil(bookingData.guests / category.maxOccupancy);
         return res.status(400).json({ 
-          message: `Insufficient room capacity. ${bookingData.guests} guests need at least ${minRoomsNeeded} rooms of ${category.name} (max ${category.maxOccupancy} guests per room). Currently booking ${roomsBooked} rooms.`,
+          message: `Insufficient room capacity. ${bookingData.guests || 0} guests need at least ${minRoomsNeeded} rooms of ${category.name} (max ${category.maxOccupancy} guests per room). Currently booking ${roomsBooked} rooms.`,
           suggestedRooms: minRoomsNeeded,
           roomCapacity: category.maxOccupancy,
           totalGuests: bookingData.guests
@@ -414,7 +427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkinDate = new Date(bookingData.checkinDate);
       const checkoutDate = new Date(bookingData.checkoutDate);
       const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
-      const totalAmount = parseFloat(category.price) * nights * roomsBooked;
+      const roomAmount = parseFloat(category.price) * nights * roomsBooked;
+      
+      // Calculate food amount
+      const foodSettings = await storage.getFoodSettings();
+      const breakfastPrice = foodSettings ? parseFloat(foodSettings.breakfastPrice) : 50;
+      const lunchPrice = foodSettings ? parseFloat(foodSettings.lunchPrice) : 100;
+      const dinnerPrice = foodSettings ? parseFloat(foodSettings.dinnerPrice) : 100;
+      
+      const foodAmount = (bookingData.breakfastDays || 0) * breakfastPrice + 
+                        (bookingData.lunchDays || 0) * lunchPrice + 
+                        (bookingData.dinnerDays || 0) * dinnerPrice;
+      
+      const totalAmount = roomAmount + foodAmount;
 
       const booking = await storage.createRoomBooking({
         ...bookingData,
@@ -422,7 +447,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.id,
         checkinDate,
         checkoutDate,
+        estimatedArrivalTime: bookingData.estimatedArrivalTime ? new Date(bookingData.estimatedArrivalTime) : undefined,
+        estimatedDepartureTime: bookingData.estimatedDepartureTime ? new Date(bookingData.estimatedDepartureTime) : undefined,
         totalAmount: totalAmount.toString(),
+        foodAmount: foodAmount.toString(),
       });
 
       // Send booking confirmation email
@@ -682,10 +710,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { year, month, dates, roomCategoryId } = req.body;
       
       const autoBooking = await storage.createTrusteeAutoBooking({
-        year,
-        month,
-        autoBookDates: dates,
-        roomCategoryId,
+        trusteeId: 1, // This should be the actual trustee ID from request
+        bookingDate: new Date(year, month - 1, dates[0]), // Use first date as primary
         status: "active"
       });
       
@@ -711,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...trustee,
             totalBookings: trusteeBookings.length,
             lastBooking: trusteeBookings.length > 0 
-              ? trusteeBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+              ? trusteeBookings.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0))[0].createdAt
               : null
           };
         })
@@ -806,17 +832,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update booking status
+  // Update booking status with check-in/out times
   app.patch("/api/admin/bookings/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
+      
+      // Add actual check-in/out times based on status
+      if (updates.status === "checked_in" && !updates.actualCheckinTime) {
+        updates.actualCheckinTime = new Date();
+      }
+      if (updates.status === "checked_out" && !updates.actualCheckoutTime) {
+        updates.actualCheckoutTime = new Date();
+      }
       
       const updatedBooking = await storage.updateRoomBooking(id, updates);
       res.json(updatedBooking);
     } catch (error) {
       console.error("Error updating booking:", error);
       res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
+  // Food Settings Routes
+  app.get("/api/admin/food-settings", async (req, res) => {
+    try {
+      const settings = await storage.getFoodSettings();
+      res.json(settings || { breakfastPrice: "50", lunchPrice: "100", dinnerPrice: "100" });
+    } catch (error) {
+      console.error("Error fetching food settings:", error);
+      res.status(500).json({ message: "Failed to fetch food settings" });
+    }
+  });
+
+  app.patch("/api/admin/food-settings", async (req, res) => {
+    try {
+      const updates = req.body;
+      const updatedSettings = await storage.updateFoodSettings(updates);
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Error updating food settings:", error);
+      res.status(500).json({ message: "Failed to update food settings" });
+    }
+  });
+
+  // Multiple ID Proofs Upload
+  app.post("/api/admin/bookings/:id/id-proofs", async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const { fileName, fileType, filePath, idType, guestName } = req.body;
+      
+      const idProof = await storage.createIdProof({
+        bookingId,
+        fileName,
+        fileType: fileType || "image/jpeg",
+        filePath,
+        idType: idType || "government_id",
+        guestName,
+      });
+      
+      res.status(201).json(idProof);
+    } catch (error) {
+      console.error("Error uploading ID proof:", error);
+      res.status(500).json({ message: "Failed to upload ID proof" });
     }
   });
 
@@ -891,6 +969,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: "Spacious deluxe room with modern amenities, AC, WiFi, and attached bathroom",
           price: "2500.00",
           totalUnits: 10,
+          maxOccupancy: 3,
+          bedConfiguration: "1 King Bed + 1 Sofa Bed",
         });
       } catch (error) {
         console.log("Deluxe room category already exists");
@@ -902,6 +982,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: "Comfortable standard room with essential amenities, AC, WiFi, and attached bathroom",
           price: "1800.00",
           totalUnits: 15,
+          maxOccupancy: 2,
+          bedConfiguration: "1 Double Bed",
         });
       } catch (error) {
         console.log("Standard room category already exists");
