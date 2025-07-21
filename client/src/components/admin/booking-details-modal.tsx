@@ -29,6 +29,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
+  const [viewingProof, setViewingProof] = useState<any>(null);
 
   const { data: idProofs, isLoading: idProofsLoading } = useQuery({
     queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
@@ -146,6 +147,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -290,8 +292,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 </Select>
               </div>
 
-              {/* Cancel Booking Section - Only show for checked out bookings */}
-              {booking.booking.status === 'checked_out' && booking.booking.status !== 'cancelled' && (
+              {/* Cancel Booking Section - Only show for non-cancelled bookings */}
+              {booking.booking.status !== 'cancelled' && (
                 <div className="space-y-2 pt-4 border-t">
                   <Label className="text-red-600 font-medium">Booking Actions</Label>
                   <Button 
@@ -389,14 +391,14 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               </div>
 
               <div className="space-y-2">
-                <Label>Uploaded ID Proofs {idProofs ? `(${idProofs.length})` : ''}</Label>
+                <Label>Uploaded ID Proofs {Array.isArray(idProofs) ? `(${idProofs.length})` : ''}</Label>
                 {idProofsLoading ? (
                   <div className="text-center py-4 text-gray-500 text-sm">
                     Loading ID proofs...
                   </div>
-                ) : idProofs && idProofs.length > 0 ? (
+                ) : Array.isArray(idProofs) && idProofs.length > 0 ? (
                   <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {idProofs.map((proof: any) => (
+                    {(idProofs as any[]).map((proof: any) => (
                       <div key={proof.id} className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
                         <div className="flex-1">
                           <div className="text-sm font-medium">{proof.fileName}</div>
@@ -405,7 +407,12 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                             {proof.uploadedAt && ` • ${new Date(proof.uploadedAt).toLocaleString()}`}
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" className="ml-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="ml-2"
+                          onClick={() => setViewingProof(proof)}
+                        >
                           View
                         </Button>
                       </div>
@@ -468,5 +475,66 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
         />
       </DialogContent>
     </Dialog>
+
+    {/* ID Proof Viewer Modal */}
+    {viewingProof && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b">
+            <div>
+              <h3 className="text-lg font-semibold">{viewingProof.fileName}</h3>
+              <p className="text-sm text-gray-500">
+                Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
+              </p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setViewingProof(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </Button>
+          </div>
+          <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[400px]">
+            {viewingProof.fileType.startsWith('image/') ? (
+              <div className="text-center">
+                <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                  <div className="text-center text-gray-500">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                    <p className="text-sm">Image Preview</p>
+                    <p className="text-xs">{viewingProof.fileName}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  In a real implementation, this would show the actual image from: {viewingProof.filePath}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="w-96 h-64 bg-red-50 rounded-lg flex items-center justify-center mb-4">
+                  <div className="text-center text-red-600">
+                    <div className="h-12 w-12 mx-auto mb-2 text-4xl">📄</div>
+                    <p className="text-sm">PDF Document</p>
+                    <p className="text-xs">{viewingProof.fileName}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  PDF files would open in a new tab or PDF viewer
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => window.open(viewingProof.filePath, '_blank')}
+                >
+                  Open PDF
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
