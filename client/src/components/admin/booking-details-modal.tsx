@@ -30,10 +30,13 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
 
-  const { data: idProofs } = useQuery({
-    queryKey: ["/api/admin/id-proofs", booking?.booking.id],
-    enabled: !!booking,
+  const { data: idProofs, isLoading: idProofsLoading } = useQuery({
+    queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
+    enabled: !!booking?.booking.id,
+    refetchOnWindowFocus: false,
   });
+
+
 
   const updateBookingMutation = useMutation({
     mutationFn: async (updates: any) => {
@@ -71,7 +74,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/id-proofs", booking?.booking.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`] });
       toast({
         title: "ID Proof Uploaded",
         description: "Guest ID proof has been successfully uploaded.",
@@ -385,19 +388,35 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 )}
               </div>
 
-              {idProofs && idProofs.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Uploaded ID Proofs</Label>
-                  <div className="space-y-1">
+              <div className="space-y-2">
+                <Label>Uploaded ID Proofs {idProofs ? `(${idProofs.length})` : ''}</Label>
+                {idProofsLoading ? (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    Loading ID proofs...
+                  </div>
+                ) : idProofs && idProofs.length > 0 ? (
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
                     {idProofs.map((proof: any) => (
-                      <div key={proof.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="text-sm">{proof.fileName}</span>
-                        <Button variant="outline" size="sm">View</Button>
+                      <div key={proof.id} className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{proof.fileName}</div>
+                          <div className="text-xs text-gray-500">
+                            {proof.guestName && `Guest: ${proof.guestName}`}
+                            {proof.uploadedAt && ` • ${new Date(proof.uploadedAt).toLocaleString()}`}
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" className="ml-2">
+                          View
+                        </Button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-4 text-gray-500 text-sm border-2 border-dashed border-gray-200 rounded">
+                    No ID proofs uploaded yet
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
