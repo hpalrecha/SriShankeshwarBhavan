@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
 import CameraCapture from "@/components/ui/camera-capture";
-import SimpleModal from "@/components/ui/simple-modal";
+// Removed SimpleModal import - no longer needed
 
 interface BookingDetailsModalProps {
   booking: BookingWithDetails | null;
@@ -21,48 +21,7 @@ interface BookingDetailsModalProps {
   onClose: () => void;
 }
 
-interface IDProofViewerProps {
-  proof: any;
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-function IDProofViewer({ proof, isOpen, onClose }: IDProofViewerProps) {
-  return (
-    <SimpleModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={proof ? `${proof.fileName} - ${proof.guestName}` : ''}
-    >
-      {proof && (
-        <div className="text-center">
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Uploaded: {new Date(proof.uploadedAt).toLocaleString()}
-            </p>
-          </div>
-          
-          <div className="w-96 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4 border-2 border-dashed border-gray-300 mx-auto">
-            <div className="text-center text-gray-500">
-              <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-              <p className="text-sm font-medium">Image Preview</p>
-              <p className="text-xs">{proof.fileName}</p>
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 p-3 rounded border border-blue-200">
-            <p className="text-sm text-blue-700">
-              File stored at: {proof.filePath}
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              In a production app, the actual image would be displayed here
-            </p>
-          </div>
-        </div>
-      )}
-    </SimpleModal>
-  );
-}
+// Removed IDProofViewer component - now opening images directly in new tab
 
 export default function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
   const { toast } = useToast();
@@ -73,43 +32,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
-  const [viewingProof, setViewingProof] = useState<any>(null);
+  // Removed viewingProof state - now opening images in new tab
 
-  // Debug logging only when viewingProof changes
-  React.useEffect(() => {
-    if (viewingProof) {
-      console.log('ID Proof viewer opened:', viewingProof);
-    } else {
-      console.log('ID Proof viewer closed');
-    }
-  }, [viewingProof]);
-  
-  // Reset viewingProof when modal opens/closes or booking changes
-  React.useEffect(() => {
-    if (!isOpen) {
-      setViewingProof(null);
-    }
-  }, [isOpen]);
-
-  // Reset viewingProof when booking changes
-  React.useEffect(() => {
-    setViewingProof(null);
-  }, [booking?.booking.id]);
-
-  // Handle Escape key to close modal
-  React.useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && viewingProof) {
-        console.log('Escape pressed, closing modal');
-        setViewingProof(null);
-      }
-    };
-
-    if (viewingProof) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [viewingProof]);
+  // Removed all viewingProof-related code since images now open in new tabs
 
   const { data: idProofs, isLoading: idProofsLoading } = useQuery({
     queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
@@ -494,8 +419,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('View button clicked for proof:', proof);
-                            setViewingProof(proof);
+                            console.log('Opening image in new tab:', proof.filePath);
+                            window.open(proof.filePath, '_blank');
                           }}
                         >
                           View
@@ -561,12 +486,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       </DialogContent>
     </Dialog>
 
-      {/* ID Proof Viewer - Outside the main modal */}
-      <IDProofViewer 
-        proof={viewingProof}
-        isOpen={!!viewingProof}
-        onClose={() => setViewingProof(null)}
-      />
+      {/* ID Proof images now open in new tab - no modal needed */}
     </>
   );
 }
