@@ -353,7 +353,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   <h4>Food Options (Optional)</h4>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Select the number of days you would like meals. Food donations will be added to your total.
+                  Select the number of meal coupons you would like to purchase. You can order any quantity. Food donations will be added to your total.
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -363,16 +363,16 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Breakfast Days 
+                          Breakfast Coupons 
                           <span className="text-sm text-gray-500 ml-1">
-                            (₹{foodSettings?.breakfastPrice || "50"}/day)
+                            (₹{foodSettings?.breakfastPrice || "50"}/coupon)
                           </span>
                         </FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             min="0" 
-                            max={nights}
+                            placeholder="Enter number of breakfast coupons"
                             {...field} 
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           />
@@ -387,16 +387,16 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Lunch Days 
+                          Lunch Coupons 
                           <span className="text-sm text-gray-500 ml-1">
-                            (₹{foodSettings?.lunchPrice || "100"}/day)
+                            (₹{foodSettings?.lunchPrice || "100"}/coupon)
                           </span>
                         </FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             min="0" 
-                            max={nights}
+                            placeholder="Enter number of lunch coupons"
                             {...field} 
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           />
@@ -411,16 +411,16 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Dinner Days 
+                          Dinner Coupons 
                           <span className="text-sm text-gray-500 ml-1">
-                            (₹{foodSettings?.dinnerPrice || "100"}/day)
+                            (₹{foodSettings?.dinnerPrice || "100"}/coupon)
                           </span>
                         </FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             min="0" 
-                            max={nights}
+                            placeholder="Enter number of dinner coupons"
                             {...field} 
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           />
@@ -506,19 +506,19 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                       <div className="font-medium text-gray-900">Food Options:</div>
                       {form.watch('breakfastDays') > 0 && (
                         <div className="flex justify-between text-sm pl-4">
-                          <span>Breakfast × {form.watch('breakfastDays')} days</span>
+                          <span>Breakfast × {form.watch('breakfastDays')} coupons</span>
                           <span>₹{(form.watch('breakfastDays') * parseFloat(foodSettings?.breakfastPrice || "50")).toLocaleString()}</span>
                         </div>
                       )}
                       {form.watch('lunchDays') > 0 && (
                         <div className="flex justify-between text-sm pl-4">
-                          <span>Lunch × {form.watch('lunchDays')} days</span>
+                          <span>Lunch × {form.watch('lunchDays')} coupons</span>
                           <span>₹{(form.watch('lunchDays') * parseFloat(foodSettings?.lunchPrice || "100")).toLocaleString()}</span>
                         </div>
                       )}
                       {form.watch('dinnerDays') > 0 && (
                         <div className="flex justify-between text-sm pl-4">
-                          <span>Dinner × {form.watch('dinnerDays')} days</span>
+                          <span>Dinner × {form.watch('dinnerDays')} coupons</span>
                           <span>₹{(form.watch('dinnerDays') * parseFloat(foodSettings?.dinnerPrice || "100")).toLocaleString()}</span>
                         </div>
                       )}
