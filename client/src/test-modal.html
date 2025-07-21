@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Test</title>
+    <style>
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        }
+        
+        .test-btn {
+            background: red;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Modal Test</h1>
+    <button onclick="showModal()">Show Modal</button>
+    
+    <div id="modal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="hideModal()">×</button>
+            <h2>Test Modal</h2>
+            <p>This is a simple test modal to verify basic functionality.</p>
+            <button class="test-btn" onclick="hideModal()">Close Modal</button>
+            <button class="test-btn" onclick="console.log('Test button clicked')">Test Button</button>
+        </div>
+    </div>
+
+    <script>
+        function showModal() {
+            console.log('Showing modal');
+            document.getElementById('modal').style.display = 'flex';
+        }
+        
+        function hideModal() {
+            console.log('Hiding modal');
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        // Close on backdrop click
+        document.getElementById('modal').onclick = function(e) {
+            if (e.target === this) {
+                console.log('Backdrop clicked');
+                hideModal();
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,6 +31,27 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [viewingProof, setViewingProof] = useState<any>(null);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && viewingProof) {
+        console.log('Escape pressed - closing modal');
+        setViewingProof(null);
+      }
+    };
+
+    if (viewingProof) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent page scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [viewingProof]);
 
   // Debug logging only when viewingProof changes
   React.useEffect(() => {
@@ -521,15 +542,18 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     {/* ID Proof Viewer Modal using Portal */}
     {viewingProof && createPortal(
       <div 
-        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[10000]"
-        onClick={() => {
-          console.log('Backdrop clicked - closing modal');
-          setViewingProof(null);
+        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4"
+        style={{ zIndex: 999999 }}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) {
+            console.log('Backdrop mousedown - closing modal');
+            setViewingProof(null);
+          }
         }}
       >
         <div 
           className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl relative"
-          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
@@ -540,11 +564,15 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               </p>
             </div>
             <button 
-              onClick={() => {
-                console.log('X button clicked - closing modal');
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('X button mousedown - closing modal');
                 setViewingProof(null);
               }}
-              className="absolute top-4 right-4 w-8 h-8 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-lg font-bold z-10"
+              className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-xl font-bold shadow-lg"
+              style={{ userSelect: 'none', outline: 'none' }}
             >
               ×
             </button>
@@ -560,7 +588,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   <p className="text-xs">{viewingProof.fileName}</p>
                 </div>
               </div>
-              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+              <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4">
                 <p className="text-sm text-blue-700">
                   File stored at: {viewingProof.filePath}
                 </p>
@@ -569,16 +597,50 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 </p>
               </div>
               
-              {/* Test close button */}
-              <button
-                onClick={() => {
-                  console.log('TEST: Manual close button clicked');
-                  setViewingProof(null);
-                }}
-                className="mt-4 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
-              >
-                Close Modal
-              </button>
+              {/* Multiple close options */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('CLOSE BUTTON 1: mousedown');
+                    setViewingProof(null);
+                  }}
+                  className="block w-full px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                >
+                  Close Modal (Button 1)
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('CLOSE BUTTON 2: onclick');
+                    setViewingProof(null);
+                  }}
+                  className="block w-full px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                >
+                  Close Modal (Button 2)
+                </button>
+                
+                <div 
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('DIV CLOSE: mousedown');
+                    setViewingProof(null);
+                  }}
+                  className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium cursor-pointer"
+                >
+                  Close Modal (Div)
+                </div>
+                
+                <div className="text-sm text-gray-600 mt-2">
+                  Press <kbd className="px-2 py-1 bg-gray-200 rounded">Esc</kbd> to close
+                </div>
+              </div>
             </div>
           </div>
         </div>
