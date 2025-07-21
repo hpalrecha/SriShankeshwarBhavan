@@ -531,7 +531,13 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
           }
         }}
       >
-        <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl">
+        <div 
+          className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+          onClick={(e) => {
+            console.log('Modal content clicked - should not close');
+            e.stopPropagation();
+          }}
+        >
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">{viewingProof.fileName}</h3>
@@ -539,18 +545,18 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
               </p>
             </div>
-            <button 
+            <div 
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Close button clicked - should close modal');
                 setViewingProof(null);
               }}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 ml-4 flex-shrink-0 w-8 h-8 p-0 flex items-center justify-center rounded border border-gray-300 bg-white shadow-sm cursor-pointer"
-              type="button"
+              className="text-gray-500 hover:text-gray-700 hover:bg-red-100 ml-4 flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full border-2 border-red-300 bg-red-50 shadow-lg cursor-pointer transition-all hover:scale-110"
+              style={{ userSelect: 'none' }}
             >
-              <span className="text-lg font-bold leading-none">×</span>
-            </button>
+              <span className="text-xl font-bold leading-none text-red-600">×</span>
+            </div>
           </div>
           <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
             {viewingProof.fileType && viewingProof.fileType.startsWith('image/') ? (
@@ -569,6 +575,19 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   <p className="text-xs text-blue-600 mt-1">
                     In a production app, the actual image would be displayed here
                   </p>
+                </div>
+                
+                {/* Test close button */}
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => {
+                      console.log('TEST: Manual close button clicked');
+                      setViewingProof(null);
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                  >
+                    🔴 Test Close Button
+                  </button>
                 </div>
               </div>
             ) : (
