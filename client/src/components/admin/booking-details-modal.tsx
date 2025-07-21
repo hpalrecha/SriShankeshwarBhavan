@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,24 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [viewingProof, setViewingProof] = useState<any>(null);
 
-  // Debug logging
-  console.log('Current viewingProof state:', viewingProof);
+  // Debug logging only when viewingProof changes
+  React.useEffect(() => {
+    if (viewingProof) {
+      console.log('ID Proof viewer opened:', viewingProof);
+    }
+  }, [viewingProof]);
+  
+  // Reset viewingProof when modal opens/closes or booking changes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setViewingProof(null);
+    }
+  }, [isOpen]);
+
+  // Reset viewingProof when booking changes
+  React.useEffect(() => {
+    setViewingProof(null);
+  }, [booking?.booking.id]);
 
   const { data: idProofs, isLoading: idProofsLoading } = useQuery({
     queryKey: [`/api/admin/id-proofs/${booking?.booking.id}`],
@@ -414,8 +430,10 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           variant="outline" 
                           size="sm" 
                           className="ml-2"
-                          onClick={() => {
-                            console.log('Viewing proof:', proof);
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('View button clicked for proof:', proof);
                             setViewingProof(proof);
                           }}
                         >
