@@ -35,6 +35,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   React.useEffect(() => {
     if (viewingProof) {
       console.log('ID Proof viewer opened:', viewingProof);
+    } else {
+      console.log('ID Proof viewer closed');
     }
   }, [viewingProof]);
   
@@ -522,9 +524,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
         style={{ zIndex: 9999 }}
         onClick={(e) => {
           // Close modal when clicking backdrop
-          console.log('Backdrop clicked');
+          console.log('Backdrop clicked, target:', e.target, 'currentTarget:', e.currentTarget);
           if (e.target === e.currentTarget) {
-            console.log('Closing modal from backdrop');
+            console.log('Closing modal from backdrop click');
             setViewingProof(null);
           }
         }}
@@ -537,19 +539,18 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 Guest: {viewingProof.guestName} • Uploaded: {new Date(viewingProof.uploadedAt).toLocaleString()}
               </p>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
+            <button 
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Close button clicked');
+                console.log('Close button clicked - should close modal');
                 setViewingProof(null);
               }}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 ml-4 flex-shrink-0 w-8 h-8 p-0 flex items-center justify-center"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 ml-4 flex-shrink-0 w-8 h-8 p-0 flex items-center justify-center rounded border border-gray-300 bg-white shadow-sm cursor-pointer"
+              type="button"
             >
-              <span className="text-lg font-bold">×</span>
-            </Button>
+              <span className="text-lg font-bold leading-none">×</span>
+            </button>
           </div>
           <div className="p-6 flex items-center justify-center bg-gray-50 min-h-[400px]">
             {viewingProof.fileType && viewingProof.fileType.startsWith('image/') ? (
