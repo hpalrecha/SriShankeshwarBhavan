@@ -327,8 +327,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 </Select>
               </div>
 
-              {/* Cancel Booking Section - Only show for non-cancelled bookings */}
-              {booking.booking.status !== 'cancelled' && (
+              {/* Cancel Booking Section - Only show for confirmed bookings, not checked-in guests */}
+              {booking.booking.status === 'confirmed' && (
                 <div className="space-y-2 pt-4 border-t">
                   <Label className="text-red-600 font-medium">Booking Actions</Label>
                   <Button 
