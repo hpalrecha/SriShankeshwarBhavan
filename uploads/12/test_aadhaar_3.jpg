@@ -2,7 +2,7 @@
 <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
   <rect width="100%" height="100%" fill="#f0f0f0" stroke="#ccc" stroke-width="2"/>
   <text x="50%" y="50%" text-anchor="middle" dy=".35em" font-family="Arial" font-size="24" fill="#333">
-    Aadhaar Card 1
+    Aadhaar Card 3
   </text>
   <text x="50%" y="70%" text-anchor="middle" dy=".35em" font-family="Arial" font-size="14" fill="#666">
     Government ID Proof
