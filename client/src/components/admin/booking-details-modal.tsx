@@ -236,6 +236,25 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 <p className="text-sm text-gray-600">Payment Method</p>
                 <p className="font-medium">{booking.booking.paymentMethod || 'Not specified'}</p>
               </div>
+              
+              {/* Actual Check-in/Check-out Times */}
+              {booking.booking.actualCheckinTime && (
+                <div>
+                  <p className="text-sm text-gray-600">Actual Check-in Time</p>
+                  <p className="font-medium text-green-600">
+                    {new Date(booking.booking.actualCheckinTime).toLocaleString()}
+                  </p>
+                </div>
+              )}
+              
+              {booking.booking.actualCheckoutTime && (
+                <div>
+                  <p className="text-sm text-gray-600">Actual Check-out Time</p>
+                  <p className="font-medium text-blue-600">
+                    {new Date(booking.booking.actualCheckoutTime).toLocaleString()}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

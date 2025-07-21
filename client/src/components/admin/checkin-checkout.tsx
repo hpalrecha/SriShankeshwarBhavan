@@ -73,21 +73,46 @@ export default function CheckinCheckout() {
             <div className="space-y-4">
               {checkins.map(({ booking, user, category }) => (
                 <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-gray-900">{user.name}</p>
                     <p className="text-sm text-gray-500">
                       {booking.roomNumber ? `Room ${booking.roomNumber}` : "Room TBA"} - {category.name}
                     </p>
+                    {booking.actualCheckinTime && (
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Checked in: {new Date(booking.actualCheckinTime).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                   <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      className="bg-brand-orange hover:bg-brand-orange-light"
-                      onClick={() => handleCheckIn(booking.id)}
-                      disabled={updateBookingMutation.isPending}
-                    >
-                      Check In
-                    </Button>
+                    {booking.status === 'checked_in' ? (
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+                              updateBookingMutation.mutate({
+                                id: booking.id,
+                                updates: { status: "cancelled" },
+                              });
+                            }
+                          }}
+                          disabled={updateBookingMutation.isPending}
+                        >
+                          Cancel Booking
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="bg-brand-orange hover:bg-brand-orange-light"
+                        onClick={() => handleCheckIn(booking.id)}
+                        disabled={updateBookingMutation.isPending}
+                      >
+                        Check In
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -113,22 +138,38 @@ export default function CheckinCheckout() {
             <div className="space-y-4">
               {checkouts.map(({ booking, user, category }) => (
                 <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-gray-900">{user.name}</p>
                     <p className="text-sm text-gray-500">
                       {booking.roomNumber ? `Room ${booking.roomNumber}` : "Room TBA"} - {category.name}
                     </p>
+                    {booking.actualCheckinTime && (
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Checked in: {new Date(booking.actualCheckinTime).toLocaleString()}
+                      </p>
+                    )}
+                    {booking.actualCheckoutTime && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        ✓ Checked out: {new Date(booking.actualCheckoutTime).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                   <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-green-600 text-white hover:bg-green-700"
-                      onClick={() => handleCheckOut(booking.id)}
-                      disabled={updateBookingMutation.isPending}
-                    >
-                      Check Out
-                    </Button>
+                    {booking.status === 'checked_out' ? (
+                      <div className="text-sm text-green-600 font-medium">
+                        Completed
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-green-600 text-white hover:bg-green-700"
+                        onClick={() => handleCheckOut(booking.id)}
+                        disabled={updateBookingMutation.isPending}
+                      >
+                        Check Out
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

@@ -103,6 +103,9 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 21, 2025: Added actual check-in and check-out timestamp display throughout admin interface - timestamps now show in booking details and check-in/checkout screens
+- July 21, 2025: Enhanced check-in/checkout functionality with cancel booking option for checked-in guests - admin can now cancel bookings even after guests are checked in
+- July 21, 2025: Added comprehensive Food Settings management interface in admin panel for configurable breakfast, lunch, and dinner donation amounts with real-time updates
 - July 21, 2025: Fixed ID proof viewer modal issues by replacing complex modal system with simple new tab functionality - ID proof images now open directly in new browser tabs for better user experience
 - July 21, 2025: Implemented complete file upload and serving system with multer middleware for actual image storage and Express static file serving for ID proof images
 - July 21, 2025: Implemented comprehensive enhanced booking system with full address collection, travel details (arriving from/going to), ETA/ETD tracking, multiple government ID support, check-in/out time recording, and optional food booking system with admin-configurable pricing (breakfast/lunch/dinner)
