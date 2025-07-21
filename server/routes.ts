@@ -412,6 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user exists or create new user
       let user = await storage.getUserByEmail(userData.email);
+      let isNewUser = false;
       if (!user) {
         // Create user with a default password for guest bookings
         const hashedPassword = await bcrypt.hash("guest123", 10);
@@ -419,6 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...userData,
           password: hashedPassword,
         });
+        isNewUser = true;
       }
 
       // Generate booking ID
@@ -464,7 +466,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error sending booking confirmation email:", error);
       }
 
-      res.json({ booking, user, bookingId });
+      // Auto-login new users by creating a session
+      if (isNewUser && req.session) {
+        req.session.userId = user.id;
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error saving session for new user:", err);
+          }
+        });
+      }
+
+      res.json({ 
+        booking, 
+        user, 
+        bookingId, 
+        autoLoggedIn: isNewUser,
+        defaultPassword: isNewUser ? "guest123" : undefined
+      });
     } catch (error) {
       console.error("Error creating booking:", error);
       res.status(500).json({ message: "Failed to create booking" });

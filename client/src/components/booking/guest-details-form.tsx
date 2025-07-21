@@ -93,11 +93,21 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       
+      // If user was auto-logged in, invalidate auth cache
+      if (result.autoLoggedIn) {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        toast({
+          title: "Account Created & Booking Confirmed!",
+          description: `Welcome! Your booking ID is ${result.bookingId}. You've been automatically logged in.`,
+        });
+      } else {
+        toast({
+          title: "Booking Confirmed!",
+          description: `Your booking ID is ${result.bookingId}`,
+        });
+      }
+      
       setShowConfirmation(true);
-      toast({
-        title: "Booking Confirmed!",
-        description: `Your booking ID is ${result.bookingId}`,
-      });
     },
     onError: (error) => {
       console.error("Booking error:", error);
@@ -162,6 +172,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const handleCloseModal = () => {
     setShowConfirmation(false);
     onCancel();
+  };
+
+  const navigateToMyBookings = () => {
+    window.location.href = "/my-bookings";
   };
 
   return (
@@ -573,9 +587,14 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
               </p>
               <p className="text-sm text-gray-600 mt-1">Check your email for booking details</p>
             </div>
-            <Button onClick={handleCloseModal} className="w-full bg-brand-orange hover:bg-brand-orange-light">
-              Close
-            </Button>
+            <div className="flex space-x-3">
+              <Button onClick={handleCloseModal} variant="outline" className="flex-1">
+                Close
+              </Button>
+              <Button onClick={navigateToMyBookings} className="flex-1 bg-brand-orange hover:bg-brand-orange-light">
+                View My Bookings
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
