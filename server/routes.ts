@@ -25,8 +25,8 @@ const requireAuth = (req: any, res: any, next: any) => {
 // Configure multer for file uploads
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
-    const bookingId = req.body.bookingId || req.params.bookingId;
-    const uploadDir = path.join(process.cwd(), 'uploads', bookingId.toString());
+    // Create a general uploads directory first, will organize by booking ID in the route handler
+    const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
     
     // Create directory if it doesn't exist
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -252,6 +252,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!file) {
         return res.status(400).json({ message: "File is required" });
       }
+
+      // Move file from temp directory to booking-specific directory
+      const bookingDir = path.join(process.cwd(), 'uploads', bookingId.toString());
+      fs.mkdirSync(bookingDir, { recursive: true });
+      
+      const oldPath = file.path;
+      const newPath = path.join(bookingDir, file.filename);
+      
+      // Move the file to the correct directory
+      fs.renameSync(oldPath, newPath);
       
       const idProof = await storage.createIdProof({
         bookingId: parseInt(bookingId),
