@@ -9,6 +9,7 @@ import InventoryManagement from "@/components/admin/inventory-management";
 import AdminBookingForm from "@/components/admin/admin-booking-form";
 import UsersTable from "@/components/admin/users-table";
 import TrusteeManagement from "@/components/admin/trustee-management";
+import FoodSettings from "@/components/admin/food-settings";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,8 @@ export default function Admin() {
         return <AdminBookingForm preselectedUser={selectedUserForBooking} />;
       case "checkin":
         return <CheckinCheckout />;
+      case "food-settings":
+        return <FoodSettings />;
       case "users":
         return (
           <UsersTable 
@@ -119,6 +122,7 @@ export default function Admin() {
                 { id: "bookings", label: "Bookings" },
                 { id: "create-booking", label: "New Booking" },
                 { id: "checkin", label: "Check-in/out" },
+                { id: "food-settings", label: "Food Settings" },
                 { id: "users", label: "Users" },
                 { id: "trustees", label: "Trustees" },
               ].map((tab) => (
