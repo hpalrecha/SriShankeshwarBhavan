@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,26 +31,84 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [viewingProof, setViewingProof] = useState<any>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
-  // Close modal on Escape key
+  // Force close function that bypasses React
+  const forceCloseModal = () => {
+    console.log('Force closing modal');
+    setViewingProof(null);
+  };
+
+  // Setup native event listeners when modal opens
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && viewingProof) {
-        console.log('Escape pressed - closing modal');
-        setViewingProof(null);
-      }
-    };
-
     if (viewingProof) {
-      document.addEventListener('keydown', handleKeyDown);
-      // Prevent page scrolling when modal is open
-      document.body.style.overflow = 'hidden';
-    }
+      console.log('Modal opened, setting up native event listeners');
+      
+      // Close on Escape key
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          console.log('Escape key pressed');
+          forceCloseModal();
+        }
+      };
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
+      // Close button click handler
+      const handleCloseClick = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        console.log('Native close button clicked');
+        forceCloseModal();
+      };
+
+      // Backdrop click handler
+      const handleBackdropClick = (event: Event) => {
+        if (event.target === backdropRef.current) {
+          console.log('Native backdrop clicked');
+          forceCloseModal();
+        }
+      };
+
+      // Add native event listeners
+      document.addEventListener('keydown', handleKeyDown);
+      
+      // Wait for next tick to ensure refs are available
+      setTimeout(() => {
+        if (closeButtonRef.current) {
+          closeButtonRef.current.addEventListener('click', handleCloseClick);
+          console.log('Added native click listener to close button');
+        }
+        if (backdropRef.current) {
+          backdropRef.current.addEventListener('click', handleBackdropClick);
+          console.log('Added native click listener to backdrop');
+        }
+        
+        // Also add listener to the test button via DOM
+        const testButton = document.getElementById('modal-close-test');
+        if (testButton) {
+          testButton.addEventListener('click', handleCloseClick);
+          console.log('Added native click listener to test button');
+        }
+      }, 0);
+
+      // Prevent page scrolling
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        if (closeButtonRef.current) {
+          closeButtonRef.current.removeEventListener('click', handleCloseClick);
+        }
+        if (backdropRef.current) {
+          backdropRef.current.removeEventListener('click', handleBackdropClick);
+        }
+        const testButton = document.getElementById('modal-close-test');
+        if (testButton) {
+          testButton.removeEventListener('click', handleCloseClick);
+        }
+        document.body.style.overflow = 'unset';
+      };
+    }
   }, [viewingProof]);
 
   // Debug logging only when viewingProof changes
@@ -539,21 +597,15 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       </DialogContent>
     </Dialog>
 
-    {/* ID Proof Viewer Modal using Portal */}
+    {/* ID Proof Viewer Modal using Portal with Native Events */}
     {viewingProof && createPortal(
       <div 
+        ref={backdropRef}
         className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4"
         style={{ zIndex: 999999 }}
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget) {
-            console.log('Backdrop mousedown - closing modal');
-            setViewingProof(null);
-          }
-        }}
       >
         <div 
           className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl relative"
-          onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
@@ -564,14 +616,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               </p>
             </div>
             <button 
+              ref={closeButtonRef}
               type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('X button mousedown - closing modal');
-                setViewingProof(null);
-              }}
-              className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-xl font-bold shadow-lg"
+              className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full hover:bg-red-600 flex items-center justify-center text-xl font-bold shadow-lg cursor-pointer"
               style={{ userSelect: 'none', outline: 'none' }}
             >
               ×
@@ -597,48 +644,19 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 </p>
               </div>
               
-              {/* Multiple close options */}
+              {/* Alternative close method */}
               <div className="space-y-3">
                 <button
                   type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('CLOSE BUTTON 1: mousedown');
-                    setViewingProof(null);
-                  }}
-                  className="block w-full px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
-                >
-                  Close Modal (Button 1)
-                </button>
+                  id="modal-close-test"
+                  className="block w-full px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium cursor-pointer"
+                  dangerouslySetInnerHTML={{ __html: 'Close Modal (Test Button)' }}
+                />
                 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('CLOSE BUTTON 2: onclick');
-                    setViewingProof(null);
-                  }}
-                  className="block w-full px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                >
-                  Close Modal (Button 2)
-                </button>
-                
-                <div 
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('DIV CLOSE: mousedown');
-                    setViewingProof(null);
-                  }}
-                  className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium cursor-pointer"
-                >
-                  Close Modal (Div)
-                </div>
-                
-                <div className="text-sm text-gray-600 mt-2">
-                  Press <kbd className="px-2 py-1 bg-gray-200 rounded">Esc</kbd> to close
+                <div className="text-sm text-gray-600 mt-2 space-y-1">
+                  <div>Press <kbd className="px-2 py-1 bg-gray-200 rounded">Esc</kbd> to close</div>
+                  <div>Click the red <strong>×</strong> button</div>
+                  <div>Click outside the modal</div>
                 </div>
               </div>
             </div>
