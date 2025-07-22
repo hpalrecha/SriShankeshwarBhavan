@@ -202,6 +202,31 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 <p className="text-sm text-gray-600">Total Guests: {booking.booking.guests}</p>
                 <p className="text-sm text-gray-600">Rooms Booked: {booking.booking.roomsBooked || 1}</p>
               </div>
+              
+              {/* Primary Guest Details */}
+              {booking.booking.primaryGuestName && (
+                <div className="border-t pt-3 mt-3">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Primary Guest Details</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-600">Name</p>
+                      <p className="font-medium">{booking.booking.primaryGuestName}</p>
+                    </div>
+                    {booking.booking.primaryGuestEmail && (
+                      <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <p className="font-medium">{booking.booking.primaryGuestEmail}</p>
+                      </div>
+                    )}
+                    {booking.booking.primaryGuestPhone && (
+                      <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="font-medium">{booking.booking.primaryGuestPhone}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -237,6 +262,28 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 <p className="font-medium">{booking.booking.paymentMethod || 'Not specified'}</p>
               </div>
               
+              {/* Payment Reference */}
+              {booking.booking.paymentReference && (
+                <div>
+                  <p className="text-sm text-gray-600">Payment Reference</p>
+                  <p className="font-medium">{booking.booking.paymentReference}</p>
+                </div>
+              )}
+              
+              {/* Total Amount */}
+              <div>
+                <p className="text-sm text-gray-600">Room Donation</p>
+                <p className="font-medium">₹{parseFloat(booking.booking.totalAmount || '0').toFixed(2)}</p>
+              </div>
+              
+              {/* Food Amount */}
+              {booking.booking.foodAmount && parseFloat(booking.booking.foodAmount) > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600">Food Donation</p>
+                  <p className="font-medium">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</p>
+                </div>
+              )}
+              
               {/* Actual Check-in/Check-out Times */}
               {booking.booking.actualCheckinTime && (
                 <div>
@@ -257,6 +304,142 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               )}
             </CardContent>
           </Card>
+
+          {/* Address Information */}
+          {(booking.booking.addressLine1 || booking.booking.city || booking.booking.state) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Address Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {booking.booking.addressLine1 && (
+                  <div>
+                    <p className="text-sm text-gray-600">Address Line 1</p>
+                    <p className="font-medium">{booking.booking.addressLine1}</p>
+                  </div>
+                )}
+                {booking.booking.addressLine2 && (
+                  <div>
+                    <p className="text-sm text-gray-600">Address Line 2</p>
+                    <p className="font-medium">{booking.booking.addressLine2}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  {booking.booking.city && (
+                    <div>
+                      <p className="text-sm text-gray-600">City</p>
+                      <p className="font-medium">{booking.booking.city}</p>
+                    </div>
+                  )}
+                  {booking.booking.state && (
+                    <div>
+                      <p className="text-sm text-gray-600">State</p>
+                      <p className="font-medium">{booking.booking.state}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {booking.booking.pinCode && (
+                    <div>
+                      <p className="text-sm text-gray-600">PIN Code</p>
+                      <p className="font-medium">{booking.booking.pinCode}</p>
+                    </div>
+                  )}
+                  {booking.booking.country && (
+                    <div>
+                      <p className="text-sm text-gray-600">Country</p>
+                      <p className="font-medium">{booking.booking.country}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Travel Information */}
+          {(booking.booking.arrivingFrom || booking.booking.goingTo) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Travel Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {booking.booking.arrivingFrom && (
+                  <div>
+                    <p className="text-sm text-gray-600">Arriving From</p>
+                    <p className="font-medium">{booking.booking.arrivingFrom}</p>
+                  </div>
+                )}
+                {booking.booking.goingTo && (
+                  <div>
+                    <p className="text-sm text-gray-600">Going To</p>
+                    <p className="font-medium">{booking.booking.goingTo}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  {booking.booking.eta && (
+                    <div>
+                      <p className="text-sm text-gray-600">ETA</p>
+                      <p className="font-medium">{booking.booking.eta}</p>
+                    </div>
+                  )}
+                  {booking.booking.etd && (
+                    <div>
+                      <p className="text-sm text-gray-600">ETD</p>
+                      <p className="font-medium">{booking.booking.etd}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Food Booking Information */}
+          {(booking.booking.foodBreakfast || booking.booking.foodLunch || booking.booking.foodDinner) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Food Booking
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  {booking.booking.foodBreakfast && (
+                    <div className="flex justify-between items-center p-2 bg-yellow-50 rounded">
+                      <span className="font-medium">Breakfast</span>
+                      <span className="text-green-600 font-medium">Booked</span>
+                    </div>
+                  )}
+                  {booking.booking.foodLunch && (
+                    <div className="flex justify-between items-center p-2 bg-orange-50 rounded">
+                      <span className="font-medium">Lunch</span>
+                      <span className="text-green-600 font-medium">Booked</span>
+                    </div>
+                  )}
+                  {booking.booking.foodDinner && (
+                    <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                      <span className="font-medium">Dinner</span>
+                      <span className="text-green-600 font-medium">Booked</span>
+                    </div>
+                  )}
+                </div>
+                {booking.booking.foodAmount && parseFloat(booking.booking.foodAmount) > 0 && (
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between items-center font-medium">
+                      <span>Total Food Donation:</span>
+                      <span className="text-green-600">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Admin Controls */}
           <Card>
