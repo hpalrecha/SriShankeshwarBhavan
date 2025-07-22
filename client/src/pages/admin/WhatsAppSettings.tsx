@@ -444,9 +444,9 @@ export default function WhatsAppSettings() {
                         <DialogTitle>Add Template Mapping</DialogTitle>
                         <p className="text-sm text-muted-foreground">
                           Map notification types to your Meta-approved WhatsApp templates
-                          {(!metaTemplates || metaTemplates.length === 0) && (
+                          {(!metaTemplates || metaTemplates.filter((t: any) => t.status === 'APPROVED').length === 0) && (
                             <span className="block mt-1 text-orange-600">
-                              Please fetch templates from Meta first using the "Fetch Templates" button above
+                              {!metaTemplates ? "Please fetch templates from Meta first using the \"Fetch Templates\" button above" : "No approved templates found. Please create and approve templates in Meta Business Manager first."}
                             </span>
                           )}
                         </p>
@@ -500,7 +500,7 @@ export default function WhatsAppSettings() {
                                           </SelectItem>
                                         ))
                                     ) : (
-                                      <SelectItem value="" disabled>
+                                      <SelectItem value="no-templates" disabled>
                                         No approved templates found. Click "Fetch Templates" first.
                                       </SelectItem>
                                     )}
@@ -535,7 +535,7 @@ export default function WhatsAppSettings() {
                           <div className="flex justify-end gap-2">
                             <Button
                               type="submit"
-                              disabled={createTemplateMutation.isPending || !metaTemplates || metaTemplates.length === 0}
+                              disabled={createTemplateMutation.isPending || !metaTemplates || metaTemplates.filter((t: any) => t.status === 'APPROVED').length === 0}
                               className="bg-orange-600 hover:bg-orange-700"
                             >
                               {createTemplateMutation.isPending ? "Creating..." : "Create Template Mapping"}
