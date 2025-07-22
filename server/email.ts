@@ -1,23 +1,28 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import type { RoomBooking, User, RoomCategory } from "@shared/schema";
 
-// Check if AWS SES is configured
-const isAwsSesConfigured = process.env.AWS_REGION && 
-                          process.env.AWS_ACCESS_KEY_ID && 
-                          process.env.AWS_SECRET_ACCESS_KEY && 
-                          process.env.FROM_EMAIL;
-
-if (!isAwsSesConfigured) {
-  console.warn("AWS SES not configured. Email notifications will be disabled. Please add AWS credentials to enable email features.");
+// Check if AWS SES is configured dynamically
+function isAwsSesConfigured(): boolean {
+  return !!(process.env.AWS_REGION && 
+           process.env.AWS_ACCESS_KEY_ID && 
+           process.env.AWS_SECRET_ACCESS_KEY && 
+           process.env.FROM_EMAIL);
 }
 
-const sesClient = isAwsSesConfigured ? new SESClient({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-}) : null;
+// Create SES client dynamically when needed
+function getSesClient(): SESClient | null {
+  if (!isAwsSesConfigured()) {
+    return null;
+  }
+  
+  return new SESClient({
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+}
 
 interface BookingEmailData {
   booking: RoomBooking;
@@ -28,7 +33,8 @@ interface BookingEmailData {
 }
 
 export async function sendBookingConfirmationEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping booking confirmation email");
     return false;
   }
@@ -152,16 +158,18 @@ We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
     });
 
     await sesClient.send(command);
-    console.log(`Booking confirmation email sent to ${recipientEmail}`);
+    console.log(`Booking confirmation email sent successfully to ${recipientEmail}`);
     return true;
   } catch (error) {
     console.error("Error sending booking confirmation email:", error);
+    console.error("AWS SES Error Details:", JSON.stringify(error, null, 2));
     return false;
   }
 }
 
 export async function sendBookingCancellationEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping booking cancellation email");
     return false;
   }
@@ -250,7 +258,8 @@ export async function sendBookingCancellationEmail(data: BookingEmailData): Prom
 }
 
 export async function sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping password reset email");
     return false;
   }
@@ -362,7 +371,8 @@ Sri Shankeshwar Bengaluru Bhavan Team
 }
 
 export async function sendPreCheckinReminderEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping pre-checkin reminder email");
     return false;
   }
@@ -459,7 +469,8 @@ export async function sendPreCheckinReminderEmail(data: BookingEmailData): Promi
 }
 
 export async function sendCheckoutReminderEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping checkout reminder email");
     return false;
   }
@@ -553,7 +564,8 @@ export async function sendCheckoutReminderEmail(data: BookingEmailData): Promise
 }
 
 export async function sendCheckInDayReminderEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping check-in day reminder email");
     return false;
   }
@@ -686,7 +698,8 @@ Sri Shankeshwar Bengaluru Bhavan Team
 }
 
 export async function sendPostCheckoutFeedbackEmail(data: BookingEmailData): Promise<boolean> {
-  if (!isAwsSesConfigured || !sesClient) {
+  const sesClient = getSesClient();
+  if (!sesClient) {
     console.log("AWS SES not configured, skipping post-checkout feedback email");
     return false;
   }

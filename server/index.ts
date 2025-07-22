@@ -3,6 +3,12 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeScheduledTasks } from "./scheduledTasks";
 
+// Set AWS credentials for email functionality
+process.env.AWS_ACCESS_KEY_ID = "AKIA4JRGW6DNR36B6HSG";
+process.env.AWS_SECRET_ACCESS_KEY = "BEhIbMFQqfv8NYUWqWruvE2Za1l0tSCLac2hzM4kaZjY";
+process.env.AWS_REGION = "ap-south-1";
+process.env.FROM_EMAIL = "booking@ssbb.in";
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
