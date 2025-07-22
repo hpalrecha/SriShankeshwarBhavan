@@ -69,7 +69,7 @@ class WhatsAppService {
         template: {
           name: templateMapping.templateName, // Use the actual Meta template name
           language: {
-            code: 'en_US'
+            code: 'en'
           },
           components: parameters.length > 0 ? [{
             type: 'body',
