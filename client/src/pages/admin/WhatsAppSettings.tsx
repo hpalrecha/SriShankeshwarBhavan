@@ -442,6 +442,14 @@ export default function WhatsAppSettings() {
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add Template Mapping</DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                          Map notification types to your Meta-approved WhatsApp templates
+                          {(!metaTemplates || metaTemplates.length === 0) && (
+                            <span className="block mt-1 text-orange-600">
+                              Please fetch templates from Meta first using the "Fetch Templates" button above
+                            </span>
+                          )}
+                        </p>
                       </DialogHeader>
                       <Form {...templateForm}>
                         <form onSubmit={templateForm.handleSubmit(onSubmitTemplate)} className="space-y-4">
@@ -476,12 +484,28 @@ export default function WhatsAppSettings() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Template Name (from Meta)</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    placeholder="Enter Meta-approved template name"
-                                  />
-                                </FormControl>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select Meta template" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {metaTemplates && metaTemplates.length > 0 ? (
+                                      metaTemplates
+                                        .filter((template: any) => template.status === 'APPROVED')
+                                        .map((template: any) => (
+                                          <SelectItem key={template.id} value={template.name}>
+                                            {template.name}
+                                          </SelectItem>
+                                        ))
+                                    ) : (
+                                      <SelectItem value="" disabled>
+                                        No approved templates found. Click "Fetch Templates" first.
+                                      </SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -509,8 +533,12 @@ export default function WhatsAppSettings() {
                           />
 
                           <div className="flex justify-end gap-2">
-                            <Button type="submit" disabled={createTemplateMutation.isPending}>
-                              {createTemplateMutation.isPending ? "Creating..." : "Create Template"}
+                            <Button
+                              type="submit"
+                              disabled={createTemplateMutation.isPending || !metaTemplates || metaTemplates.length === 0}
+                              className="bg-orange-600 hover:bg-orange-700"
+                            >
+                              {createTemplateMutation.isPending ? "Creating..." : "Create Template Mapping"}
                             </Button>
                           </div>
                         </form>
