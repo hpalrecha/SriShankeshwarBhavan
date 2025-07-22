@@ -6,9 +6,9 @@ import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
-import { sendBookingConfirmationEmailSMTP } from "./emailSMTP";
-import { debugEmailConfiguration } from "./debug-email";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail } from "./email";
+import { sendEmailViaSES } from "./emailSES";
+import { debugSESConfiguration } from "./debug-email-ses";
 import { testManualSMTP } from "./test-manual-smtp";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
@@ -1230,15 +1230,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug email configuration endpoint
   app.get("/api/debug-email", async (req, res) => {
     try {
-      const isWorking = await debugEmailConfiguration();
+      const isWorking = await debugSESConfiguration();
       res.json({ 
-        message: "Email configuration debug completed",
+        message: "AWS SES configuration debug completed",
         isWorking,
         checkConsole: "Check console for detailed logs"
       });
     } catch (error) {
-      console.error("Debug email error:", error);
-      res.status(500).json({ message: "Debug email error" });
+      console.error("Debug AWS SES error:", error);
+      res.status(500).json({ message: "Debug AWS SES error" });
     }
   });
 
@@ -1326,16 +1326,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date()
       };
 
-      // Send the test email using SMTP
-      const emailSent = await sendBookingConfirmationEmailSMTP({
-        recipientEmail: email,
-        recipientName: "Test Guest",
-        bookingId: sampleBooking.bookingId,
-        checkInDate: sampleBooking.checkInDate,
-        checkOutDate: sampleBooking.checkOutDate,
-        roomCategory: sampleCategory.name,
-        totalAmount: parseFloat(sampleBooking.totalAmount),
-        guestCount: sampleBooking.guestCount
+      // Send the test email using AWS SES
+      const emailSent = await sendBookingConfirmationEmail({
+        booking: sampleBooking,
+        user: null,
+        category: sampleCategory,
+        guestName: "Test Guest",
+        guestEmail: email
       });
 
       if (emailSent) {

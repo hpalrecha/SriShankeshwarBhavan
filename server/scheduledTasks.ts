@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { storage } from "./storage";
-import { sendPreCheckinReminderEmail, sendCheckoutReminderEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
+import { sendPreCheckinReminderEmail, sendCheckinDayWelcomeEmail, sendPostCheckoutFeedbackEmail } from "./email";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -30,13 +30,7 @@ export function startPreCheckinReminderTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendPreCheckinReminderEmail({
-              booking,
-              user,
-              category,
-              guestName: booking.primaryGuestName,
-              guestEmail: booking.primaryGuestEmail,
-            });
+            await sendPreCheckinReminderEmail(booking, user, category);
           }
         } catch (error) {
           console.error(`Error sending pre-checkin reminder for booking ${booking.bookingId}:`, error);
@@ -77,13 +71,8 @@ export function startCheckoutReminderTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendCheckoutReminderEmail({
-              booking,
-              user,
-              category,
-              guestName: booking.primaryGuestName,
-              guestEmail: booking.primaryGuestEmail,
-            });
+            // Checkout reminders could be implemented later if needed
+            console.log(`Would send checkout reminder for booking ${booking.bookingId}`);
           }
         } catch (error) {
           console.error(`Error sending checkout reminder for booking ${booking.bookingId}:`, error);
@@ -124,13 +113,7 @@ export function startCheckinDayReminderTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendCheckInDayReminderEmail({
-              booking,
-              user,
-              category,
-              guestName: booking.primaryGuestName,
-              guestEmail: booking.primaryGuestEmail,
-            });
+            await sendCheckinDayWelcomeEmail(booking, user, category);
           }
         } catch (error) {
           console.error(`Error sending check-in day reminder for booking ${booking.bookingId}:`, error);
@@ -172,13 +155,7 @@ export function startPostCheckoutFeedbackTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendPostCheckoutFeedbackEmail({
-              booking,
-              user,
-              category,
-              guestName: booking.primaryGuestName,
-              guestEmail: booking.primaryGuestEmail,
-            });
+            await sendPostCheckoutFeedbackEmail(booking, user, category);
           }
         } catch (error) {
           console.error(`Error sending post-checkout feedback for booking ${booking.bookingId}:`, error);
