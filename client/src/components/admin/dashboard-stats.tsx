@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardStats, BookingWithDetails } from "@/lib/types";
 
-export default function DashboardStats() {
+interface DashboardStatsProps {
+  onViewBookingDetails?: (bookingId: number) => void;
+}
+
+export default function DashboardStats({ onViewBookingDetails }: DashboardStatsProps = {}) {
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/admin/dashboard-stats"],
   });
@@ -87,7 +91,7 @@ export default function DashboardStats() {
               </div>
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-gray-900">₹{stats.revenue.toLocaleString()}</h3>
-                <p className="text-sm text-gray-500">Today's Revenue</p>
+                <p className="text-sm text-gray-500">Today's Donations</p>
               </div>
             </div>
           </CardContent>
@@ -164,7 +168,11 @@ export default function DashboardStats() {
                     <p className="text-sm text-gray-500">
                       Booked on {new Date(booking.createdAt).toLocaleDateString()}
                     </p>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onViewBookingDetails?.(booking.id)}
+                    >
                       <Eye className="h-4 w-4 mr-1" />
                       View Details
                     </Button>
@@ -174,7 +182,10 @@ export default function DashboardStats() {
               
               {recentBookings.length > 5 && (
                 <div className="text-center pt-4">
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline"
+                    onClick={() => onViewBookingDetails?.(-1)} // -1 indicates view all bookings
+                  >
                     View All Bookings
                   </Button>
                 </div>

@@ -103,6 +103,8 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 22, 2025: Fixed admin dashboard issues - changed "Today's Revenue" to "Today's Donations" for consistent terminology, made View Details buttons functional in Recent Bookings section with proper navigation to bookings tab
+- July 22, 2025: Fixed room availability calculation - backend now properly counts actual rooms booked instead of just booking count, ensuring accurate inventory display for guest bookings
 - July 22, 2025: Successfully completed WhatsApp template integration - test_bhavan_booking template confirmed working with 7 parameters (name, booking ID, room category, check-in, check-out, guests, total amount), fixed language code format from 'en_US' to 'en' for custom templates, dual notification system now fully operational
 - July 22, 2025: Enhanced email templates with food details - booking confirmation emails now include detailed food breakdown with breakfast/lunch/dinner days and amounts when food is ordered
 - July 22, 2025: Fixed duplicate WhatsApp notifications issue - removed WhatsApp calls from email functions to ensure single notification per booking, WhatsApp integration now sends exactly one message per event

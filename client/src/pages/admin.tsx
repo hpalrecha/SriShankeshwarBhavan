@@ -60,10 +60,23 @@ export default function Admin() {
     setActiveTab("create-booking");
   };
 
+  const handleViewBookingDetails = (bookingId: number) => {
+    if (bookingId === -1) {
+      // View all bookings
+      setUserBookingsFilter(null);
+      setActiveTab("bookings");
+    } else {
+      // For individual booking details, we could implement a modal or navigate to bookings
+      // For now, let's navigate to bookings tab
+      setUserBookingsFilter(null);
+      setActiveTab("bookings");
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <DashboardStats />;
+        return <DashboardStats onViewBookingDetails={handleViewBookingDetails} />;
       case "inventory":
         return <InventoryManagement />;
       case "bookings":
@@ -86,7 +99,7 @@ export default function Admin() {
       case "whatsapp-settings":
         return <WhatsAppSettings />;
       default:
-        return <DashboardStats />;
+        return <DashboardStats onViewBookingDetails={handleViewBookingDetails} />;
     }
   };
 
