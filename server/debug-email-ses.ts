@@ -26,7 +26,7 @@ export async function debugSESConfiguration() {
     try {
       // Test by sending a verification status check (this doesn't send an email, just verifies API access)
       const testCommand = new SendEmailCommand({
-        Source: process.env.FROM_EMAIL!,
+        Source: 'booking@ssbb.in',
         Destination: {
           ToAddresses: ['test@example.com'], // This won't actually send due to dry run
         },

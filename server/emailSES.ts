@@ -22,7 +22,7 @@ export async function sendEmailViaSES(options: EmailOptions): Promise<boolean> {
     console.log(`Subject: ${options.subject}`);
     
     const command = new SendEmailCommand({
-      Source: process.env.FROM_EMAIL!,
+      Source: 'booking@ssbb.in',
       Destination: {
         ToAddresses: [options.to],
       },
