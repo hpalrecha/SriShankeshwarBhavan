@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,13 +61,26 @@ export default function WhatsAppSettings() {
   const configForm = useForm<WhatsAppConfigForm>({
     resolver: zodResolver(whatsAppConfigSchema),
     defaultValues: {
-      accessToken: config?.accessToken || "",
-      phoneNumberId: config?.phoneNumberId || "",
-      businessAccountId: config?.businessAccountId || "",
-      webhookVerifyToken: config?.webhookVerifyToken || "",
-      isEnabled: config?.isEnabled || false,
+      accessToken: "",
+      phoneNumberId: "",
+      businessAccountId: "",
+      webhookVerifyToken: "",
+      isEnabled: false,
     },
   });
+
+  // Update form when config loads
+  useEffect(() => {
+    if (config) {
+      configForm.reset({
+        accessToken: config.accessToken || "",
+        phoneNumberId: config.phoneNumberId || "",
+        businessAccountId: config.businessAccountId || "",
+        webhookVerifyToken: config.webhookVerifyToken || "",
+        isEnabled: config.isEnabled || false,
+      });
+    }
+  }, [config, configForm]);
 
   // Template form
   const templateForm = useForm<TemplateForm>({
@@ -195,17 +208,6 @@ export default function WhatsAppSettings() {
       createTemplateMutation.mutate(data);
     }
   };
-
-  // Set form values when config is loaded
-  if (config && !configForm.formState.isDirty) {
-    configForm.reset({
-      accessToken: config.accessToken || "",
-      phoneNumberId: config.phoneNumberId || "",
-      businessAccountId: config.businessAccountId || "",
-      webhookVerifyToken: config.webhookVerifyToken || "",
-      isEnabled: config.isEnabled || false,
-    });
-  }
 
   if (configLoading || templatesLoading) {
     return (
