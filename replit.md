@@ -103,6 +103,7 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 22, 2025: Successfully implemented WhatsApp WABA integration with Meta-approved templates - fixed API language format from string to JSON object, implemented parameter count matching for different templates (hello_world expects 0 parameters), phone number formatting with country code 91, WhatsApp notifications now fully operational alongside email system
 - July 22, 2025: Successfully implemented hybrid email system with AWS SES and SMTP fallback - email system now fully functional using working SMTP credentials with automatic fallback from AWS SES, all email notifications operational
 - July 21, 2025: Implemented comprehensive email notification system with four types of automated emails: booking cancellation notifications, pre-check-in reminders (1 day before), check-in day welcome emails, and post-checkout feedback requests with professional HTML templates
 - July 21, 2025: Added complete user password reset flow with secure token-based authentication, forgot password functionality, email verification system, and dedicated reset pages with proper routing

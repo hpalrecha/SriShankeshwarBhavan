@@ -11,7 +11,9 @@ interface WhatsAppConfig {
 
 interface WhatsAppTemplate {
   name: string;
-  language: string;
+  language: {
+    code: string;
+  };
   components?: Array<{
     type: 'header' | 'body' | 'footer' | 'button';
     parameters?: Array<{
@@ -66,7 +68,9 @@ class WhatsAppService {
         type: 'template',
         template: {
           name: templateMapping.templateName, // Use the actual Meta template name
-          language: 'en_US',
+          language: {
+            code: 'en_US'
+          },
           components: parameters.length > 0 ? [{
             type: 'body',
             parameters: parameters.map(param => ({
@@ -102,19 +106,45 @@ class WhatsAppService {
   }
 
   async sendBookingConfirmation(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
-    const phoneNumber = this.formatPhoneNumber(booking.phone);
-    if (!phoneNumber) return false;
+    console.log(`🔍 WhatsApp sendBookingConfirmation called for booking: ${booking.bookingId}`);
+    console.log(`📞 Original phone from booking: ${booking.phone}`);
+    console.log(`👤 User mobile: ${user?.mobile}`);
+    
+    const phoneNumber = this.formatPhoneNumber(booking.phone || user?.mobile);
+    console.log(`📱 Formatted phone number: ${phoneNumber}`);
+    
+    if (!phoneNumber) {
+      console.log("❌ No valid phone number found");
+      return false;
+    }
 
-    const parameters = [
-      user?.name || booking.name,
-      booking.bookingId,
-      category.name,
-      new Date(booking.checkinDate).toLocaleDateString('en-IN'),
-      new Date(booking.checkoutDate).toLocaleDateString('en-IN'),
-      booking.guests.toString(),
-      `₹${booking.totalAmount}`
-    ];
+    // Get template mapping to check if parameters are needed
+    const { storage } = await import('./storage');
+    const templates = await storage.getWhatsAppTemplates();
+    const templateMapping = templates.find(t => t.notificationType === 'booking_confirmation' && t.isActive);
+    
+    console.log(`🔍 Template mapping found: ${templateMapping?.templateName}, ID: ${templateMapping?.id}`);
+    
+    // hello_world template doesn't accept parameters, so send empty array
+    let parameters: string[] = [];
+    
+    // Only add parameters if the template supports them (not hello_world)
+    if (templateMapping && templateMapping.templateName !== 'hello_world') {
+      console.log(`📝 Template ${templateMapping.templateName} supports parameters, adding 7 params`);
+      parameters = [
+        user?.name || booking.name,
+        booking.bookingId,
+        category.name,
+        new Date(booking.checkinDate).toLocaleDateString('en-IN'),
+        new Date(booking.checkoutDate).toLocaleDateString('en-IN'),
+        booking.guests.toString(),
+        `₹${booking.totalAmount}`
+      ];
+    } else {
+      console.log(`📝 Template ${templateMapping?.templateName || 'unknown'} does NOT support parameters, using empty array`);
+    }
 
+    console.log(`📋 Final WhatsApp parameters for ${templateMapping?.templateName || 'unknown'}:`, parameters);
     return await this.sendTemplate(phoneNumber, 'booking_confirmation', parameters);
   }
 

@@ -626,8 +626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Send booking confirmation WhatsApp notification
+      console.log("🔄 About to send WhatsApp booking confirmation...");
       try {
-        console.log("🔄 About to send WhatsApp booking confirmation...");
         const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
         console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
       } catch (error) {
