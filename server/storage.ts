@@ -7,6 +7,8 @@ import {
   trusteeAutoBookings,
   foodSettings,
   passwordResetTokens,
+  whatsappConfig,
+  whatsappTemplates,
   type RoomCategory,
   type User,
   type RoomBooking,
@@ -14,6 +16,8 @@ import {
   type AdminUser,
   type TrusteeAutoBooking,
   type FoodSettings,
+  type WhatsAppConfig,
+  type WhatsAppTemplate,
   type InsertRoomCategory,
   type InsertUser,
   type InsertRoomBooking,
@@ -21,6 +25,8 @@ import {
   type InsertAdminUser,
   type InsertTrusteeAutoBooking,
   type InsertFoodSettings,
+  type InsertWhatsAppConfig,
+  type InsertWhatsAppTemplate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
@@ -371,6 +377,70 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ password: hashedPassword })
       .where(eq(users.id, userId));
+  }
+
+  // WhatsApp Configuration operations
+  async getWhatsAppConfig(): Promise<WhatsAppConfig | undefined> {
+    const [config] = await db.select().from(whatsappConfig).limit(1);
+    return config;
+  }
+
+  async createOrUpdateWhatsAppConfig(data: InsertWhatsAppConfig): Promise<WhatsAppConfig> {
+    const existingConfig = await this.getWhatsAppConfig();
+    
+    if (existingConfig) {
+      const [updated] = await db
+        .update(whatsappConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(whatsappConfig.id, existingConfig.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(whatsappConfig)
+        .values(data)
+        .returning();
+      return created;
+    }
+  }
+
+  // WhatsApp Template operations
+  async getWhatsAppTemplates(): Promise<WhatsAppTemplate[]> {
+    return await db.select().from(whatsappTemplates).orderBy(whatsappTemplates.notificationType);
+  }
+
+  async getWhatsAppTemplateByType(notificationType: string): Promise<WhatsAppTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(whatsappTemplates)
+      .where(
+        and(
+          eq(whatsappTemplates.notificationType, notificationType),
+          eq(whatsappTemplates.isActive, true)
+        )
+      );
+    return template;
+  }
+
+  async createWhatsAppTemplate(data: InsertWhatsAppTemplate): Promise<WhatsAppTemplate> {
+    const [template] = await db
+      .insert(whatsappTemplates)
+      .values(data)
+      .returning();
+    return template;
+  }
+
+  async updateWhatsAppTemplate(id: number, data: Partial<InsertWhatsAppTemplate>): Promise<WhatsAppTemplate> {
+    const [updated] = await db
+      .update(whatsappTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(whatsappTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWhatsAppTemplate(id: number): Promise<void> {
+    await db.delete(whatsappTemplates).where(eq(whatsappTemplates.id, id));
   }
 }
 

@@ -246,3 +246,44 @@ export type InsertFoodSettings = z.infer<typeof insertFoodSettingsSchema>;
 
 export type TrusteeAutoBooking = typeof trusteeAutoBookings.$inferSelect;
 export type InsertTrusteeAutoBooking = z.infer<typeof insertTrusteeAutoBookingSchema>;
+
+// WhatsApp configuration table
+export const whatsappConfig = pgTable("whatsapp_config", {
+  id: serial("id").primaryKey(),
+  accessToken: text("access_token").notNull(),
+  phoneNumberId: text("phone_number_id").notNull(),
+  businessAccountId: text("business_account_id").notNull(),
+  webhookVerifyToken: text("webhook_verify_token").notNull(),
+  isEnabled: boolean("is_enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// WhatsApp template mappings
+export const whatsappTemplates = pgTable("whatsapp_templates", {
+  id: serial("id").primaryKey(),
+  notificationType: varchar("notification_type", { length: 50 }).notNull(),
+  templateName: varchar("template_name", { length: 100 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Insert schemas for WhatsApp
+export const insertWhatsAppConfigSchema = createInsertSchema(whatsappConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWhatsAppTemplateSchema = createInsertSchema(whatsappTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for WhatsApp
+export type WhatsAppConfig = typeof whatsappConfig.$inferSelect;
+export type InsertWhatsAppConfig = z.infer<typeof insertWhatsAppConfigSchema>;
+export type WhatsAppTemplate = typeof whatsappTemplates.$inferSelect;
+export type InsertWhatsAppTemplate = z.infer<typeof insertWhatsAppTemplateSchema>;

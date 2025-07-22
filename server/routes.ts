@@ -14,6 +14,8 @@ import { testSimpleSMTP } from "./test-simple-smtp";
 import { checkVerifiedEmails } from "./check-ses-emails";
 import { checkDomainCredentials } from "./check-domain-credentials";
 import { testAllEmailTemplates } from "./test-all-email-templates";
+import { whatsappService } from "./whatsapp";
+import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema } from "@shared/schema";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1328,20 +1330,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: "All email templates sent successfully",
         email: email,
-        templatesCount: 7,
+        templatesCount: 6,
         templates: [
           "Booking Confirmation",
           "Booking Cancellation", 
           "Password Reset",
           "Pre Check-in Reminder",
           "Check-in Day Welcome",
-          "Checkout Reminder",
           "Post Checkout Feedback"
         ]
       });
     } catch (error) {
       console.error("Email templates test error:", error);
       res.status(500).json({ message: "Failed to send email templates" });
+    }
+  });
+
+  // WhatsApp Configuration Routes
+  app.get("/api/whatsapp/config", async (req, res) => {
+    try {
+      const config = await storage.getWhatsAppConfig();
+      res.json(config || {});
+    } catch (error: any) {
+      console.error("Error fetching WhatsApp config:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch WhatsApp configuration" });
+    }
+  });
+
+  app.post("/api/whatsapp/config", async (req, res) => {
+    try {
+      const validatedData = insertWhatsAppConfigSchema.parse(req.body);
+      const config = await storage.createOrUpdateWhatsAppConfig(validatedData);
+      
+      // Initialize WhatsApp service with new config
+      whatsappService.setConfig({
+        ...config,
+        isEnabled: config.isEnabled ?? false,
+      });
+      
+      res.json(config);
+    } catch (error: any) {
+      console.error("Error updating WhatsApp config:", error);
+      res.status(500).json({ error: error.message || "Failed to update WhatsApp configuration" });
+    }
+  });
+
+  // WhatsApp Template Routes
+  app.get("/api/whatsapp/templates", async (req, res) => {
+    try {
+      const templates = await storage.getWhatsAppTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching WhatsApp templates:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch WhatsApp templates" });
+    }
+  });
+
+  app.post("/api/whatsapp/templates", async (req, res) => {
+    try {
+      const validatedData = insertWhatsAppTemplateSchema.parse(req.body);
+      const template = await storage.createWhatsAppTemplate(validatedData);
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error creating WhatsApp template:", error);
+      res.status(500).json({ error: error.message || "Failed to create WhatsApp template" });
+    }
+  });
+
+  app.put("/api/whatsapp/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertWhatsAppTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateWhatsAppTemplate(id, validatedData);
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error updating WhatsApp template:", error);
+      res.status(500).json({ error: error.message || "Failed to update WhatsApp template" });
+    }
+  });
+
+  app.delete("/api/whatsapp/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteWhatsAppTemplate(id);
+      res.json({ message: "Template deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting WhatsApp template:", error);
+      res.status(500).json({ error: error.message || "Failed to delete WhatsApp template" });
+    }
+  });
+
+  // WhatsApp Test Connection Route
+  app.post("/api/whatsapp/test-connection", async (req, res) => {
+    try {
+      const isConnected = await whatsappService.testConnection();
+      
+      res.json({
+        success: isConnected,
+        message: isConnected 
+          ? "WhatsApp connection successful" 
+          : "WhatsApp connection failed - please check your configuration",
+      });
+    } catch (error: any) {
+      console.error("Error testing WhatsApp connection:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to test WhatsApp connection: " + error.message 
+      });
     }
   });
 

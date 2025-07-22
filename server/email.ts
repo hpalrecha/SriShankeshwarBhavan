@@ -1,6 +1,7 @@
 import { sendEmailViaSES } from './emailSES';
 import type { RoomBooking, User, RoomCategory } from "@shared/schema";
 import * as nodemailer from 'nodemailer';
+import { whatsappService } from "./whatsapp";
 
 // Working SMTP transporter using verified credentials
 const createSMTPTransporter = () => {
@@ -152,7 +153,16 @@ We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
 © 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
     `;
 
-    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    
+    // Send WhatsApp notification if enabled and configured
+    try {
+      await whatsappService.sendBookingConfirmation(booking, user, category);
+    } catch (error) {
+      console.error("WhatsApp booking confirmation failed:", error);
+    }
+
+    return emailSent;
   } catch (error) {
     console.error("Error sending booking confirmation email:", error);
     return false;
@@ -222,7 +232,16 @@ Contact us if you have any questions.
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    
+    // Send WhatsApp notification if enabled and configured
+    try {
+      await whatsappService.sendBookingCancellation(booking, user, category);
+    } catch (error) {
+      console.error("WhatsApp booking cancellation failed:", error);
+    }
+
+    return emailSent;
   } catch (error) {
     console.error("Error sending booking cancellation email:", error);
     return false;
@@ -344,7 +363,16 @@ We look forward to welcoming you tomorrow!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    
+    // Send WhatsApp notification if enabled and configured
+    try {
+      await whatsappService.sendPreCheckinReminder(booking, user, category);
+    } catch (error) {
+      console.error("WhatsApp pre-checkin reminder failed:", error);
+    }
+
+    return emailSent;
   } catch (error) {
     console.error("Error sending pre-checkin reminder email:", error);
     return false;
@@ -411,7 +439,16 @@ Looking forward to welcoming you today!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    
+    // Send WhatsApp notification if enabled and configured
+    try {
+      await whatsappService.sendCheckinDayWelcome(booking, user, category);
+    } catch (error) {
+      console.error("WhatsApp checkin day welcome failed:", error);
+    }
+
+    return emailSent;
   } catch (error) {
     console.error("Error sending checkin day welcome email:", error);
     return false;
@@ -477,7 +514,16 @@ We hope to welcome you back soon!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
+    
+    // Send WhatsApp notification if enabled and configured
+    try {
+      await whatsappService.sendPostCheckoutFeedback(booking, user, category);
+    } catch (error) {
+      console.error("WhatsApp post-checkout feedback failed:", error);
+    }
+
+    return emailSent;
   } catch (error) {
     console.error("Error sending post-checkout feedback email:", error);
     return false;

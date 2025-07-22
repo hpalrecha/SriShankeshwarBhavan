@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeScheduledTasks } from "./scheduledTasks";
+import { initializeWhatsApp } from "./init-whatsapp";
 
 // Set AWS credentials for email functionality
 process.env.AWS_ACCESS_KEY_ID = "AKIA4JRGW6DNR36B6HSG";
@@ -49,6 +50,9 @@ app.use((req, res, next) => {
   app.use('/uploads', (await import("express")).static(path.join(process.cwd(), 'uploads')));
   
   const server = await registerRoutes(app);
+  
+  // Initialize WhatsApp service with stored configuration
+  await initializeWhatsApp();
   
   // Initialize scheduled email tasks
   initializeScheduledTasks();

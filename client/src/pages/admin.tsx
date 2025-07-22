@@ -10,6 +10,7 @@ import AdminBookingForm from "@/components/admin/admin-booking-form";
 import UsersTable from "@/components/admin/users-table";
 import TrusteeManagement from "@/components/admin/trustee-management";
 import FoodSettings from "@/components/admin/food-settings";
+import WhatsAppSettings from "./admin/WhatsAppSettings";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,8 @@ export default function Admin() {
         );
       case "trustees":
         return <TrusteeManagement />;
+      case "whatsapp-settings":
+        return <WhatsAppSettings />;
       default:
         return <DashboardStats />;
     }
@@ -123,6 +126,7 @@ export default function Admin() {
                 { id: "create-booking", label: "New Booking" },
                 { id: "checkin", label: "Check-in/out" },
                 { id: "food-settings", label: "Food Settings" },
+                { id: "whatsapp-settings", label: "WhatsApp" },
                 { id: "users", label: "Users" },
                 { id: "trustees", label: "Trustees" },
               ].map((tab) => (
