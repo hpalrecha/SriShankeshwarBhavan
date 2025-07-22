@@ -641,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Auto-login new users by creating a session
       if (isNewUser && req.session) {
-        req.session.userId = user.id;
+        (req.session as any).userId = user.id;
         req.session.save((err) => {
           if (err) {
             console.error("Error saving session for new user:", err);
@@ -934,7 +934,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const autoBooking = await storage.createTrusteeAutoBooking({
         trusteeId: 1, // This should be the actual trustee ID from request
         bookingDate: new Date(year, month - 1, dates[0]), // Use first date as primary
-        status: "active"
       });
       
       res.status(201).json(autoBooking);
@@ -987,7 +986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...user,
             totalBookings: userBookings.length,
             lastBooking: userBookings.length > 0 
-              ? userBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+              ? userBookings.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0))[0].createdAt
               : null
           };
         })
@@ -1387,6 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       whatsappService.setConfig({
         ...config,
         isEnabled: config.isEnabled ?? false,
+        webhookVerifyToken: config.webhookVerifyToken || undefined,
       });
       
       res.json(config);
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual SMTP test endpoint
   app.get("/api/test-manual-smtp", async (req, res) => {
     try {
-      const isWorking = await testManualSMTP();
+      const isWorking = await testSimpleSMTP();
       res.json({ 
         message: "Manual SMTP test completed",
         isWorking,
@@ -1559,7 +1559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send the test email using AWS SES
       const emailSent = await sendBookingConfirmationEmail({
-        booking: sampleBooking,
+        booking: sampleBooking as any,
         user: null,
         category: sampleCategory,
         guestName: "Test Guest",
