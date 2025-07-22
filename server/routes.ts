@@ -1223,6 +1223,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test email endpoint
+  app.post("/api/test-email", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Create a sample booking for testing
+      const sampleBooking = {
+        id: 999,
+        bookingId: "TEST-" + Date.now(),
+        userId: 1,
+        roomCategoryId: 1,
+        guests: 2,
+        checkinDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+        checkoutDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // Day after tomorrow
+        totalAmount: "2700.00",
+        paymentStatus: "pending",
+        paymentMethod: "pay_at_checkin",
+        paymentReference: null,
+        guestName: "Test Guest",
+        guestEmail: email,
+        guestMobile: "9876543210",
+        guestAddress: "Test Address, Gujarat",
+        status: "confirmed",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        actualCheckinTime: null,
+        actualCheckoutTime: null,
+        arrivingFrom: "Test City",
+        goingTo: "Test City",
+        eta: "10:00 AM",
+        etd: "12:00 PM",
+        foodBooking: false,
+        breakfast: false,
+        lunch: false,
+        dinner: false,
+        foodTotal: "0.00"
+      };
+
+      const sampleCategory = {
+        id: 1,
+        name: "Deluxe Room Premium",
+        description: "Spacious deluxe room with modern amenities",
+        price: "2700.00",
+        totalUnits: 8,
+        maxOccupancy: 4,
+        bedConfiguration: "3 Single Beds",
+        imageUrl: null,
+        createdAt: new Date()
+      };
+
+      // Send the test email
+      const emailSent = await sendBookingConfirmationEmail({
+        booking: sampleBooking,
+        category: sampleCategory,
+        guestEmail: email,
+        guestName: "Test Guest"
+      });
+
+      if (emailSent) {
+        res.json({ 
+          message: "Test booking confirmation email sent successfully",
+          email: email,
+          bookingId: sampleBooking.bookingId
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Failed to send email - check AWS SES configuration" 
+        });
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ message: "Failed to send test email" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
