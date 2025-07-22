@@ -5,7 +5,7 @@ interface WhatsAppConfig {
   accessToken: string;
   phoneNumberId: string;
   businessAccountId: string;
-  webhookVerifyToken: string;
+  webhookVerifyToken?: string;
   isEnabled: boolean;
 }
 

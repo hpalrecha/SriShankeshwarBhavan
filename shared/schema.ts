@@ -253,7 +253,7 @@ export const whatsappConfig = pgTable("whatsapp_config", {
   accessToken: text("access_token").notNull(),
   phoneNumberId: text("phone_number_id").notNull(),
   businessAccountId: text("business_account_id").notNull(),
-  webhookVerifyToken: text("webhook_verify_token").notNull(),
+  webhookVerifyToken: text("webhook_verify_token"),
   isEnabled: boolean("is_enabled").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()

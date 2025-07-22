@@ -21,7 +21,7 @@ const whatsAppConfigSchema = z.object({
   accessToken: z.string().min(1, "Access Token is required"),
   phoneNumberId: z.string().min(1, "Phone Number ID is required"),
   businessAccountId: z.string().min(1, "Business Account ID is required"),
-  webhookVerifyToken: z.string().min(1, "Webhook Verify Token is required"),
+  webhookVerifyToken: z.string().optional(),
   isEnabled: z.boolean(),
 });
 
@@ -316,13 +316,16 @@ export default function WhatsAppSettings() {
                       name="webhookVerifyToken"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Webhook Verify Token</FormLabel>
+                          <FormLabel>Webhook Verify Token (Optional)</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
-                              placeholder="Enter webhook verify token"
+                              placeholder="Only needed for receiving messages (optional)"
                             />
                           </FormControl>
+                          <p className="text-sm text-gray-500">
+                            Not required for sending template messages
+                          </p>
                           <FormMessage />
                         </FormItem>
                       )}
