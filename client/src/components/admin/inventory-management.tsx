@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Bed, Users, DollarSign, Trash2 } from "lucide-react";
+import { Plus, Edit, Bed, Users, DollarSign, Trash2, Upload, Image as ImageIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { RoomCategory } from "@shared/schema";
@@ -22,6 +22,7 @@ const categorySchema = z.object({
   totalUnits: z.number().min(1, "Must have at least 1 room"),
   maxOccupancy: z.number().min(1, "At least 1 person capacity required").max(10, "Maximum 10 people allowed"),
   bedConfiguration: z.string().min(1, "Bed configuration is required"),
+  imageUrl: z.string().optional(),
 });
 
 type CategoryFormData = z.infer<typeof categorySchema>;
@@ -31,13 +32,15 @@ export default function InventoryManagement() {
   const queryClient = useQueryClient();
   const [editingCategory, setEditingCategory] = useState<RoomCategory | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
 
-  const { data: categories = [], isLoading } = useQuery({
+  const { data: categories = [], isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
   });
 
   // Get real-time availability for each category
-  const { data: availabilityData } = useQuery({
+  const { data: availabilityData = {} } = useQuery<Record<number, { available: number; booked: number }>>({
     queryKey: ["/api/admin/current-availability"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -51,18 +54,49 @@ export default function InventoryManagement() {
       totalUnits: 1,
       maxOccupancy: 2,
       bedConfiguration: "1 Double Bed",
+      imageUrl: "",
+    },
+  });
+
+  // Image upload mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch("/api/admin/room-category-image", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Upload failed" }));
+        throw new Error(error.message || "Upload failed");
+      }
+      
+      return response.json();
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
-      const response = await apiRequest("POST", "/api/admin/room-categories", data);
+      let finalData = { ...data };
+      
+      // Upload image if selected
+      if (selectedImage) {
+        const imageResult = await uploadImageMutation.mutateAsync(selectedImage);
+        finalData.imageUrl = imageResult.imageUrl;
+      }
+      
+      const response = await apiRequest("POST", "/api/admin/room-categories", finalData);
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/room-categories"] });
       setIsDialogOpen(false);
       form.reset();
+      setSelectedImage(null);
+      setImagePreview("");
       toast({
         title: "Room category created",
         description: "New room category has been added successfully.",
@@ -80,7 +114,15 @@ export default function InventoryManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<CategoryFormData> }) => {
-      const response = await apiRequest("PATCH", `/api/admin/room-categories/${data.id}`, data.updates);
+      let finalUpdates = { ...data.updates };
+      
+      // Upload image if selected
+      if (selectedImage) {
+        const imageResult = await uploadImageMutation.mutateAsync(selectedImage);
+        finalUpdates.imageUrl = imageResult.imageUrl;
+      }
+      
+      const response = await apiRequest("PATCH", `/api/admin/room-categories/${data.id}`, finalUpdates);
       return await response.json();
     },
     onSuccess: () => {
@@ -88,6 +130,8 @@ export default function InventoryManagement() {
       setIsDialogOpen(false);
       setEditingCategory(null);
       form.reset();
+      setSelectedImage(null);
+      setImagePreview("");
       toast({
         title: "Room category updated",
         description: "Room category has been updated successfully.",
@@ -134,8 +178,40 @@ export default function InventoryManagement() {
       totalUnits: category.totalUnits,
       maxOccupancy: category.maxOccupancy || 2,
       bedConfiguration: category.bedConfiguration || "1 Double Bed",
+      imageUrl: category.imageUrl || "",
     });
+    // Set existing image preview if available
+    if (category.imageUrl) {
+      setImagePreview(category.imageUrl);
+    } else {
+      setImagePreview("");
+    }
+    setSelectedImage(null);
     setIsDialogOpen(true);
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+    // Clear the file input
+    const fileInput = document.getElementById('room-image') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   const handleSubmit = (data: CategoryFormData) => {
@@ -153,6 +229,8 @@ export default function InventoryManagement() {
     setIsDialogOpen(false);
     setEditingCategory(null);
     form.reset();
+    setSelectedImage(null);
+    setImagePreview("");
   };
 
   const handleDelete = (categoryId: number, categoryName: string) => {
@@ -218,6 +296,52 @@ export default function InventoryManagement() {
                     {form.formState.errors.description.message}
                   </p>
                 )}
+              </div>
+
+              {/* Room Image Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="room-image">Room Image</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img 
+                        src={imagePreview} 
+                        alt="Room preview" 
+                        className="w-full h-32 object-cover rounded-md"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={removeImage}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="mt-2">
+                        <label
+                          htmlFor="room-image"
+                          className="cursor-pointer text-sm font-medium text-brand-orange hover:text-orange-600"
+                        >
+                          <Upload className="h-4 w-4 inline mr-1" />
+                          Upload room image
+                        </label>
+                        <input
+                          id="room-image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -313,9 +437,22 @@ export default function InventoryManagement() {
         {categories.map((category: RoomCategory) => (
           <Card key={category.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{category.name}</CardTitle>
+              <div className="flex justify-between items-start gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    {category.imageUrl ? (
+                      <img 
+                        src={category.imageUrl} 
+                        alt={category.name}
+                        className="w-12 h-12 object-cover rounded-lg border"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg border flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-gray-400" />
+                      </div>
+                    )}
+                    <CardTitle className="text-lg">{category.name}</CardTitle>
+                  </div>
                   <CardDescription className="mt-2">
                     {category.description}
                   </CardDescription>

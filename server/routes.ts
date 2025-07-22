@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
@@ -713,6 +714,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error cancelling booking:", error);
       res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
+  // Room Category Image Upload
+  app.post("/api/admin/room-category-image", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No image file provided' });
+      }
+
+      // Move file to room-categories directory
+      const roomCategoriesDir = path.join(process.cwd(), 'uploads', 'room-categories');
+      if (!fs.existsSync(roomCategoriesDir)) {
+        fs.mkdirSync(roomCategoriesDir, { recursive: true });
+      }
+
+      const finalPath = path.join(roomCategoriesDir, req.file.filename);
+      fs.renameSync(req.file.path, finalPath);
+
+      // Generate public URL for the uploaded image
+      const imageUrl = `/uploads/room-categories/${req.file.filename}`;
+
+      res.json({
+        imageUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (error) {
+      console.error('Room category image upload error:', error);
+      res.status(500).json({ message: 'Failed to upload image' });
     }
   });
 

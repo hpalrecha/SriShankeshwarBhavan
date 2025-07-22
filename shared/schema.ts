@@ -12,6 +12,7 @@ export const roomCategories = pgTable("room_categories", {
   totalUnits: integer("total_units").notNull(),
   maxOccupancy: integer("max_occupancy").notNull().default(2),
   bedConfiguration: varchar("bed_configuration", { length: 100 }).notNull().default("1 Double Bed"),
+  imageUrl: text("image_url"), // Room category image URL
   createdAt: timestamp("created_at").defaultNow(),
 });
 
