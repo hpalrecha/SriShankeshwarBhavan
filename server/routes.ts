@@ -13,6 +13,7 @@ import { testDirectSMTP } from "./test-direct-smtp";
 import { testSimpleSMTP } from "./test-simple-smtp";
 import { checkVerifiedEmails } from "./check-ses-emails";
 import { checkDomainCredentials } from "./check-domain-credentials";
+import { testAllEmailTemplates } from "./test-all-email-templates";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1312,6 +1313,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Domain credentials check error:", error);
       res.status(500).json({ message: "Domain credentials check error" });
+    }
+  });
+
+  // Test all email templates
+  app.post("/api/test-all-email-templates", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email address is required" });
+      }
+
+      await testAllEmailTemplates(email);
+      res.json({ 
+        message: "All email templates sent successfully",
+        email: email,
+        templatesCount: 7,
+        templates: [
+          "Booking Confirmation",
+          "Booking Cancellation", 
+          "Password Reset",
+          "Pre Check-in Reminder",
+          "Check-in Day Welcome",
+          "Checkout Reminder",
+          "Post Checkout Feedback"
+        ]
+      });
+    } catch (error) {
+      console.error("Email templates test error:", error);
+      res.status(500).json({ message: "Failed to send email templates" });
     }
   });
 
