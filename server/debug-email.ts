@@ -7,7 +7,7 @@ export async function debugEmailConfiguration() {
   // Check environment variables
   console.log("Environment Variables:");
   console.log("- SES_SMTP_USERNAME:", process.env.SES_SMTP_USERNAME ? process.env.SES_SMTP_USERNAME.substring(0, 10) + "..." : "NOT SET");
-  console.log("- SES_SMTP_PASSWORD:", process.env.SES_SMTP_PASSWORD ? "SET (length: " + process.env.SES_SMTP_PASSWORD.length + ")" : "NOT SET");
+  console.log("- SES_SMTP_PASSWORD:", process.env.SES_SMTP_PASSWORD ? "SET (length: " + process.env.SES_SMTP_PASSWORD.length + ") [" + process.env.SES_SMTP_PASSWORD.substring(0, 5) + "..." + process.env.SES_SMTP_PASSWORD.slice(-5) + "]" : "NOT SET");
   console.log("- FROM_EMAIL:", process.env.FROM_EMAIL);
   
   // Test connection

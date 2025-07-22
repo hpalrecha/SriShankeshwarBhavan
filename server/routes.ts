@@ -9,6 +9,8 @@ import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import { sendBookingConfirmationEmailSMTP } from "./emailSMTP";
 import { debugEmailConfiguration } from "./debug-email";
+import { testManualSMTP } from "./test-manual-smtp";
+import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1237,6 +1239,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Debug email error:", error);
       res.status(500).json({ message: "Debug email error" });
+    }
+  });
+
+  // Manual SMTP test endpoint
+  app.get("/api/test-manual-smtp", async (req, res) => {
+    try {
+      const isWorking = await testManualSMTP();
+      res.json({ 
+        message: "Manual SMTP test completed",
+        isWorking,
+        checkConsole: "Check console for detailed logs"
+      });
+    } catch (error) {
+      console.error("Manual SMTP test error:", error);
+      res.status(500).json({ message: "Manual SMTP test failed" });
+    }
+  });
+
+  // Check email verification endpoint
+  app.get("/api/check-email-verification", async (req, res) => {
+    try {
+      const isVerified = await checkEmailVerification();
+      res.json({ 
+        message: "Email verification check completed",
+        isVerified,
+        checkConsole: "Check console for detailed logs"
+      });
+    } catch (error) {
+      console.error("Email verification check error:", error);
+      res.status(500).json({ message: "Email verification check failed" });
     }
   });
 
