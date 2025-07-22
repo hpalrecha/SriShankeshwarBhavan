@@ -103,6 +103,7 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 22, 2025: Successfully completed WhatsApp template integration - test_bhavan_booking template confirmed working with 7 parameters (name, booking ID, room category, check-in, check-out, guests, total amount), fixed language code format from 'en_US' to 'en' for custom templates, dual notification system now fully operational
 - July 22, 2025: Enhanced email templates with food details - booking confirmation emails now include detailed food breakdown with breakfast/lunch/dinner days and amounts when food is ordered
 - July 22, 2025: Fixed duplicate WhatsApp notifications issue - removed WhatsApp calls from email functions to ensure single notification per booking, WhatsApp integration now sends exactly one message per event
 - July 22, 2025: Successfully implemented WhatsApp WABA integration with Meta-approved templates - fixed API language format from string to JSON object, implemented parameter count matching for different templates (hello_world expects 0 parameters), phone number formatting with country code 91, WhatsApp notifications now fully operational alongside email system
