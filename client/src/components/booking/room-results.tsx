@@ -59,11 +59,20 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
       <Card className="shadow-lg overflow-hidden mb-6">
         <div className="md:flex">
           <div className="md:w-1/3">
-            <img 
-              src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-              alt="Hotel room with modern amenities" 
-              className="w-full h-48 md:h-full object-cover"
-            />
+            {category.imageUrl ? (
+              <img 
+                src={category.imageUrl} 
+                alt={category.name}
+                className="w-full h-48 md:h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-48 md:h-full bg-gray-200 flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <div className="text-6xl mb-2">🏨</div>
+                  <p className="text-sm">No image available</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="md:w-2/3 p-6">
             <div className="flex justify-between items-start">

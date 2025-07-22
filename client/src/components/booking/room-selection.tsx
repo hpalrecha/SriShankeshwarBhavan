@@ -100,11 +100,20 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
           return (
             <Card key={category.id} className="shadow-lg overflow-hidden">
               <div className="relative">
-                <img 
-                  src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250" 
-                  alt={category.name}
-                  className="w-full h-48 object-cover"
-                />
+                {category.imageUrl ? (
+                  <img 
+                    src={category.imageUrl} 
+                    alt={category.name}
+                    className="w-full h-48 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <div className="text-4xl mb-2">🏨</div>
+                      <p className="text-sm">No image available</p>
+                    </div>
+                  </div>
+                )}
                 <Badge className="absolute top-3 right-3 bg-green-100 text-green-800">
                   {roomSelection.maxAvailable} Available
                 </Badge>
