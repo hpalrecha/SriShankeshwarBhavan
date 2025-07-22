@@ -4,6 +4,7 @@ import * as nodemailer from 'nodemailer';
 
 // Working SMTP transporter using verified credentials
 const createSMTPTransporter = () => {
+  console.log("Creating SMTP transporter for ssbb.in domain...");
   return nodemailer.createTransport({
     host: 'email-smtp.ap-south-1.amazonaws.com',
     port: 587,
@@ -11,7 +12,9 @@ const createSMTPTransporter = () => {
     auth: {
       user: process.env.SES_SMTP_USERNAME!,
       pass: process.env.SES_SMTP_PASSWORD!
-    }
+    },
+    // Force the domain for Message-ID and Return-Path
+    name: 'ssbb.in'
   });
 };
 

@@ -12,6 +12,7 @@ import { debugSESConfiguration } from "./debug-email-ses";
 import { testDirectSMTP } from "./test-direct-smtp";
 import { testSimpleSMTP } from "./test-simple-smtp";
 import { checkVerifiedEmails } from "./check-ses-emails";
+import { checkDomainCredentials } from "./check-domain-credentials";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1297,6 +1298,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("SES email check error:", error);
       res.status(500).json({ message: "SES email check error" });
+    }
+  });
+
+  // Check domain credentials
+  app.post("/api/check-domain-credentials", async (req, res) => {
+    try {
+      await checkDomainCredentials();
+      res.json({ 
+        message: "Domain credentials check completed - see console logs and check email",
+        status: "success"
+      });
+    } catch (error) {
+      console.error("Domain credentials check error:", error);
+      res.status(500).json({ message: "Domain credentials check error" });
     }
   });
 
