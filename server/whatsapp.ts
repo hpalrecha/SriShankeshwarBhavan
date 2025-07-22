@@ -193,6 +193,31 @@ class WhatsAppService {
       return false;
     }
   }
+
+  async fetchTemplatesFromMeta(): Promise<any[]> {
+    if (!this.config || !this.config.isEnabled) {
+      throw new Error("WhatsApp not configured or disabled");
+    }
+
+    try {
+      const response = await fetch(`https://graph.facebook.com/v18.0/${this.config.businessAccountId}/message_templates`, {
+        headers: {
+          'Authorization': `Bearer ${this.config.accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Meta API Error: ${errorData.error?.message || 'Failed to fetch templates'}`);
+      }
+
+      const result = await response.json();
+      return result.data || [];
+    } catch (error: any) {
+      console.error("Error fetching templates from Meta:", error);
+      throw error;
+    }
+  }
 }
 
 export const whatsappService = new WhatsAppService();

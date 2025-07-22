@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Settings, MessageSquare, TestTube, Trash2, Edit } from "lucide-react";
+import { Plus, Settings, MessageSquare, TestTube, Trash2, Edit, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,9 +52,15 @@ export default function WhatsAppSettings() {
     queryKey: ["/api/whatsapp/config"],
   });
 
-  // Fetch WhatsApp templates
+  // Fetch WhatsApp template mappings (local database)
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ["/api/whatsapp/templates"],
+  });
+
+  // Fetch WhatsApp templates from Meta API
+  const { data: metaTemplates, isLoading: metaTemplatesLoading, refetch: refetchMetaTemplates } = useQuery({
+    queryKey: ["/api/whatsapp/templates/meta"],
+    enabled: false, // Only fetch when manually triggered
   });
 
   // Configuration form
@@ -370,18 +376,67 @@ export default function WhatsAppSettings() {
 
         <TabsContent value="templates">
           <div className="space-y-4">
+            {/* Meta Templates Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5" />
-                    Template Mappings
+                    Available Templates from Meta
+                  </span>
+                  <Button
+                    onClick={() => refetchMetaTemplates()}
+                    disabled={metaTemplatesLoading}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${metaTemplatesLoading ? 'animate-spin' : ''}`} />
+                    {metaTemplatesLoading ? "Loading..." : "Fetch Templates"}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {metaTemplatesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : metaTemplates && metaTemplates.length > 0 ? (
+                  <div className="space-y-2">
+                    {metaTemplates.map((template: any) => (
+                      <div key={template.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <p className="font-medium">{template.name}</p>
+                          <p className="text-sm text-gray-500">
+                            Status: <Badge variant={template.status === 'APPROVED' ? 'default' : 'secondary'}>
+                              {template.status}
+                            </Badge>
+                          </p>
+                          <p className="text-sm text-gray-500">Language: {template.language}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Click "Fetch Templates" to load your approved templates from Meta
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Template Mappings Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Template Mappings for Notifications
                   </span>
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button className="bg-orange-600 hover:bg-orange-700">
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Template
+                        Add Template Mapping
                       </Button>
                     </DialogTrigger>
                     <DialogContent>

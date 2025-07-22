@@ -1376,6 +1376,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WhatsApp Template Routes
+  // WhatsApp template management - fetch from Meta API
+  app.get("/api/whatsapp/templates/meta", async (req, res) => {
+    try {
+      const templates = await whatsappService.fetchTemplatesFromMeta();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching WhatsApp templates from Meta:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch templates from Meta" });
+    }
+  });
+
+  // WhatsApp template mappings (local database)
   app.get("/api/whatsapp/templates", async (req, res) => {
     try {
       const templates = await storage.getWhatsAppTemplates();
