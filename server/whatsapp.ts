@@ -39,19 +39,33 @@ class WhatsAppService {
     return this.config;
   }
 
-  private async sendTemplate(phoneNumber: string, templateName: string, parameters: string[] = []): Promise<boolean> {
+  private async sendTemplate(phoneNumber: string, notificationType: string, parameters: string[] = []): Promise<boolean> {
     if (!this.config || !this.config.isEnabled) {
       console.log("WhatsApp is not configured or disabled");
       return false;
     }
 
     try {
+      // Import storage dynamically to avoid circular dependency
+      const { storage } = await import('./storage');
+      
+      // Get the template mapping for this notification type
+      const templates = await storage.getWhatsAppTemplates();
+      const templateMapping = templates.find(t => t.notificationType === notificationType && t.isActive);
+      
+      if (!templateMapping) {
+        console.log(`No active WhatsApp template mapping found for ${notificationType}`);
+        return false;
+      }
+
+      console.log(`📱 Sending WhatsApp notification: ${notificationType} to ${phoneNumber} using template: ${templateMapping.templateName}`);
+
       const message: WhatsAppMessage = {
         messaging_product: 'whatsapp',
         to: phoneNumber,
         type: 'template',
         template: {
-          name: templateName,
+          name: templateMapping.templateName, // Use the actual Meta template name
           language: 'en_US',
           components: parameters.length > 0 ? [{
             type: 'body',
@@ -75,14 +89,14 @@ class WhatsAppService {
       const result = await response.json();
       
       if (response.ok) {
-        console.log(`✅ WhatsApp message sent successfully:`, result);
+        console.log(`✅ WhatsApp message sent successfully to ${phoneNumber}:`, result);
         return true;
       } else {
-        console.error(`❌ WhatsApp API error:`, result);
+        console.error(`❌ WhatsApp API error for ${phoneNumber}:`, result);
         return false;
       }
     } catch (error: any) {
-      console.error(`❌ WhatsApp send error:`, error.message);
+      console.error(`❌ WhatsApp send error for ${phoneNumber}:`, error.message);
       return false;
     }
   }

@@ -500,6 +500,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             console.error(`Error sending booking confirmation email for ${booking.bookingId}:`, error);
           }
+
+          // Send booking confirmation WhatsApp notification for each booking
+          try {
+            await whatsappService.sendBookingConfirmation(booking, user, roomCategory);
+          } catch (error) {
+            console.error(`Error sending booking confirmation WhatsApp for ${booking.bookingId}:`, error);
+          }
         }
       }
 
@@ -616,6 +623,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         console.error("Error sending booking confirmation email:", error);
+      }
+
+      // Send booking confirmation WhatsApp notification
+      try {
+        await whatsappService.sendBookingConfirmation(booking, user, category);
+      } catch (error) {
+        console.error("Error sending booking confirmation WhatsApp:", error);
       }
 
       // Auto-login new users by creating a session
