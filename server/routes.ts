@@ -11,6 +11,7 @@ import { sendEmailViaSES } from "./emailSES";
 import { debugSESConfiguration } from "./debug-email-ses";
 import { testDirectSMTP } from "./test-direct-smtp";
 import { testSimpleSMTP } from "./test-simple-smtp";
+import { checkVerifiedEmails } from "./check-ses-emails";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1282,6 +1283,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Simple SMTP test error:", error);
       res.status(500).json({ message: "Simple SMTP test error" });
+    }
+  });
+
+  // Check SES verified emails
+  app.get("/api/check-ses-emails", async (req, res) => {
+    try {
+      await checkVerifiedEmails();
+      res.json({ 
+        message: "SES email verification check completed - see console logs",
+        checkConsole: true
+      });
+    } catch (error) {
+      console.error("SES email check error:", error);
+      res.status(500).json({ message: "SES email check error" });
     }
   });
 

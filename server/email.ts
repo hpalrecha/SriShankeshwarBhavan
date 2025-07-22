@@ -43,7 +43,7 @@ async function sendEmailHybrid(to: string, subject: string, htmlBody: string, te
     const transporter = createSMTPTransporter();
     
     const mailOptions = {
-      from: 'booking@ssbb.in',
+      from: 'info@p91india.com',
       to: to,
       subject: subject,
       html: htmlBody,
