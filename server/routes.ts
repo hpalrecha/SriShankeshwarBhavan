@@ -404,7 +404,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Room category not found" });
       }
 
-      const availableUnits = category.totalUnits - categoryBookings.length;
+      // Calculate total rooms booked (not just number of bookings)
+      const totalRoomsBooked = categoryBookings.reduce((sum, booking) => {
+        return sum + (booking.roomsBooked || 1);
+      }, 0);
+      
+      const availableUnits = category.totalUnits - totalRoomsBooked;
       const roomsNeeded = Math.ceil(guestCount / category.maxOccupancy);
       
       res.json({
