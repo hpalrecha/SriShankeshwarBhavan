@@ -105,6 +105,16 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData): Prom
             <p><strong>Check-in Date:</strong> ${checkinDate}</p>
             <p><strong>Check-out Date:</strong> ${checkoutDate}</p>
             <p><strong>Guests:</strong> ${booking.guests}</p>
+            <p><strong>Room Amount:</strong> ₹${(parseFloat(booking.totalAmount) - parseFloat(booking.foodAmount || '0')).toFixed(2)}</p>
+            ${booking.foodAmount && parseFloat(booking.foodAmount) > 0 ? `
+            <p><strong>Food Details:</strong></p>
+            <ul style="margin-left: 20px;">
+              ${booking.breakfastDays > 0 ? `<li>Breakfast: ${booking.breakfastDays} days</li>` : ''}
+              ${booking.lunchDays > 0 ? `<li>Lunch: ${booking.lunchDays} days</li>` : ''}
+              ${booking.dinnerDays > 0 ? `<li>Dinner: ${booking.dinnerDays} days</li>` : ''}
+            </ul>
+            <p><strong>Food Amount:</strong> ₹${booking.foodAmount}</p>
+            ` : ''}
             <p><strong>Total Amount:</strong> ₹${booking.totalAmount}</p>
             <p><strong>Payment Status:</strong> ${booking.paymentStatus}</p>
           </div>
@@ -139,6 +149,14 @@ Booking Details:
 - Check-in Date: ${checkinDate}
 - Check-out Date: ${checkoutDate}
 - Guests: ${booking.guests}
+- Room Amount: ₹${(parseFloat(booking.totalAmount) - parseFloat(booking.foodAmount || '0')).toFixed(2)}
+${booking.foodAmount && parseFloat(booking.foodAmount) > 0 ? `
+Food Details:
+${booking.breakfastDays > 0 ? `  - Breakfast: ${booking.breakfastDays} days` : ''}
+${booking.lunchDays > 0 ? `  - Lunch: ${booking.lunchDays} days` : ''}
+${booking.dinnerDays > 0 ? `  - Dinner: ${booking.dinnerDays} days` : ''}
+- Food Amount: ₹${booking.foodAmount}
+` : ''}
 - Total Amount: ₹${booking.totalAmount}
 - Payment Status: ${booking.paymentStatus}
 
