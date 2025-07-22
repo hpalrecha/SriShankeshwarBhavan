@@ -1,7 +1,7 @@
 import { sendEmailViaSES } from './emailSES';
 import type { RoomBooking, User, RoomCategory } from "@shared/schema";
 import * as nodemailer from 'nodemailer';
-import { whatsappService } from "./whatsapp";
+// import { whatsappService } from "./whatsapp"; // Removed to avoid duplicate WhatsApp notifications - now handled in routes.ts
 
 // Working SMTP transporter using verified credentials
 const createSMTPTransporter = () => {
@@ -155,12 +155,7 @@ We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
 
     const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
     
-    // Send WhatsApp notification if enabled and configured
-    try {
-      await whatsappService.sendBookingConfirmation(booking, user, category);
-    } catch (error) {
-      console.error("WhatsApp booking confirmation failed:", error);
-    }
+    // WhatsApp notification is now handled separately in routes.ts to avoid duplication
 
     return emailSent;
   } catch (error) {
@@ -236,7 +231,8 @@ Sri Shankeshwar Bengaluru Bhavan Team`;
     
     // Send WhatsApp notification if enabled and configured
     try {
-      await whatsappService.sendBookingCancellation(booking, user, category);
+      // WhatsApp notifications are now handled in routes.ts to avoid duplication
+      // await whatsappService.sendBookingCancellation(booking, user, category);
     } catch (error) {
       console.error("WhatsApp booking cancellation failed:", error);
     }
@@ -367,7 +363,8 @@ Sri Shankeshwar Bengaluru Bhavan Team`;
     
     // Send WhatsApp notification if enabled and configured
     try {
-      await whatsappService.sendPreCheckinReminder(booking, user, category);
+      // WhatsApp notifications are now handled in routes.ts to avoid duplication
+      // await whatsappService.sendPreCheckinReminder(booking, user, category);
     } catch (error) {
       console.error("WhatsApp pre-checkin reminder failed:", error);
     }
@@ -443,7 +440,8 @@ Sri Shankeshwar Bengaluru Bhavan Team`;
     
     // Send WhatsApp notification if enabled and configured
     try {
-      await whatsappService.sendCheckinDayWelcome(booking, user, category);
+      // WhatsApp notifications are now handled in routes.ts to avoid duplication  
+      // await whatsappService.sendCheckinDayWelcome(booking, user, category);
     } catch (error) {
       console.error("WhatsApp checkin day welcome failed:", error);
     }
@@ -518,7 +516,8 @@ Sri Shankeshwar Bengaluru Bhavan Team`;
     
     // Send WhatsApp notification if enabled and configured
     try {
-      await whatsappService.sendPostCheckoutFeedback(booking, user, category);
+      // WhatsApp notifications are now handled in routes.ts to avoid duplication
+      // await whatsappService.sendPostCheckoutFeedback(booking, user, category);
     } catch (error) {
       console.error("WhatsApp post-checkout feedback failed:", error);
     }
