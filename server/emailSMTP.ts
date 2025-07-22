@@ -11,18 +11,49 @@ interface EmailData {
   guestCount: number;
 }
 
-// SMTP configuration using your AWS SES SMTP credentials
-const transporter = nodemailer.createTransport({
-  host: 'email-smtp.ap-south-1.amazonaws.com',
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: 'AKIA4JRGW6DN2QOBPEL6', // Your SMTP username
-    pass: 'BEwUA46mkW7zyRShKIWQBRSenj0+fZ1S95zel/C/7UD' // Your SMTP password
+function getTransporter() {
+  // Option 1: Use SES-generated SMTP credentials from environment
+  if (process.env.SES_SMTP_USERNAME && process.env.SES_SMTP_PASSWORD) {
+    return nodemailer.createTransport({
+      host: 'email-smtp.ap-south-1.amazonaws.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SES_SMTP_USERNAME,
+        pass: process.env.SES_SMTP_PASSWORD
+      }
+    });
   }
-});
+  
+  // Option 2: Use IAM credentials as SMTP (fallback)
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    return nodemailer.createTransport({
+      host: 'email-smtp.ap-south-1.amazonaws.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.AWS_ACCESS_KEY_ID,
+        pass: process.env.AWS_SECRET_ACCESS_KEY
+      }
+    });
+  }
+  
+  return null;
+}
 
 export async function sendBookingConfirmationEmailSMTP(data: EmailData): Promise<boolean> {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.log("AWS SES SMTP credentials not configured");
+    return false;
+  }
+
+  // Debug logging (masking sensitive parts)
+  console.log("SMTP Configuration:");
+  console.log("- Username:", process.env.SES_SMTP_USERNAME ? process.env.SES_SMTP_USERNAME.substring(0, 10) + "..." : "NOT SET");
+  console.log("- Password:", process.env.SES_SMTP_PASSWORD ? process.env.SES_SMTP_PASSWORD.substring(0, 5) + "..." : "NOT SET");
+  console.log("- From Email:", process.env.FROM_EMAIL);
+
   try {
     const htmlContent = `
       <!DOCTYPE html>

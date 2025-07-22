@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import { sendBookingConfirmationEmailSMTP } from "./emailSMTP";
+import { debugEmailConfiguration } from "./debug-email";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1221,6 +1222,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Seeding error:", error);
       res.status(500).json({ message: "Failed to seed database" });
+    }
+  });
+
+  // Debug email configuration endpoint
+  app.get("/api/debug-email", async (req, res) => {
+    try {
+      const isWorking = await debugEmailConfiguration();
+      res.json({ 
+        message: "Email configuration debug completed",
+        isWorking,
+        checkConsole: "Check console for detailed logs"
+      });
+    } catch (error) {
+      console.error("Debug email error:", error);
+      res.status(500).json({ message: "Debug email error" });
     }
   });
 
