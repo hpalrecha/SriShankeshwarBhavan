@@ -1,5 +1,63 @@
 import { sendEmailViaSES } from './emailSES';
 import type { RoomBooking, User, RoomCategory } from "@shared/schema";
+import * as nodemailer from 'nodemailer';
+
+// Working SMTP transporter using verified credentials
+const createSMTPTransporter = () => {
+  return nodemailer.createTransport({
+    host: 'email-smtp.ap-south-1.amazonaws.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.SES_SMTP_USERNAME!,
+      pass: process.env.SES_SMTP_PASSWORD!
+    }
+  });
+};
+
+// Hybrid email sending function - tries AWS SES first, falls back to SMTP
+async function sendEmailHybrid(to: string, subject: string, htmlBody: string, textBody: string): Promise<boolean> {
+  console.log(`Attempting to send email to: ${to}`);
+  console.log(`Subject: ${subject}`);
+  
+  // First try AWS SES
+  try {
+    console.log("Trying AWS SES...");
+    const sesResult = await sendEmailViaSES({
+      to,
+      subject, 
+      html: htmlBody,
+      text: textBody
+    });
+    if (sesResult) {
+      console.log("✅ Email sent successfully via AWS SES");
+      return true;
+    }
+  } catch (error: any) {
+    console.log(`❌ AWS SES failed: ${error.message}`);
+  }
+  
+  // Fallback to working SMTP
+  try {
+    console.log("Falling back to SMTP...");
+    const transporter = createSMTPTransporter();
+    
+    const mailOptions = {
+      from: 'info@p91india.com',
+      to: to,
+      subject: subject,
+      html: htmlBody,
+      text: textBody
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully via SMTP! MessageId: ${info.messageId}`);
+    return true;
+  } catch (error: any) {
+    console.log(`❌ SMTP fallback also failed: ${error.message}`);
+    return false;
+  }
+}
 
 interface BookingEmailData {
   booking: RoomBooking;
@@ -91,12 +149,7 @@ We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
 © 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
     `;
 
-    return await sendEmailViaSES({
-      to: recipientEmail,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending booking confirmation email:", error);
     return false;
@@ -166,12 +219,7 @@ Contact us if you have any questions.
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailViaSES({
-      to: recipientEmail,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending booking cancellation email:", error);
     return false;
@@ -224,12 +272,7 @@ This link will expire in 1 hour.
 Best regards,
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailViaSES({
-      to: email,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(email, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending password reset email:", error);
     return false;
@@ -298,12 +341,7 @@ We look forward to welcoming you tomorrow!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailViaSES({
-      to: recipientEmail,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending pre-checkin reminder email:", error);
     return false;
@@ -370,12 +408,7 @@ Looking forward to welcoming you today!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailViaSES({
-      to: recipientEmail,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending checkin day welcome email:", error);
     return false;
@@ -441,12 +474,7 @@ We hope to welcome you back soon!
 
 Sri Shankeshwar Bengaluru Bhavan Team`;
 
-    return await sendEmailViaSES({
-      to: recipientEmail,
-      subject,
-      html: htmlBody,
-      text: textBody
-    });
+    return await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
   } catch (error) {
     console.error("Error sending post-checkout feedback email:", error);
     return false;

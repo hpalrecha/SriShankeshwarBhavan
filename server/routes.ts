@@ -9,7 +9,8 @@ import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail } from "./email";
 import { sendEmailViaSES } from "./emailSES";
 import { debugSESConfiguration } from "./debug-email-ses";
-import { testManualSMTP } from "./test-manual-smtp";
+import { testDirectSMTP } from "./test-direct-smtp";
+import { testSimpleSMTP } from "./test-simple-smtp";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1239,6 +1240,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Debug AWS SES error:", error);
       res.status(500).json({ message: "Debug AWS SES error" });
+    }
+  });
+
+  // Test direct SMTP with working credentials
+  app.post("/api/test-direct-smtp", async (req, res) => {
+    try {
+      const success = await testDirectSMTP();
+      if (success) {
+        res.json({ 
+          message: "Direct SMTP test successful - email sent!",
+          status: "success"
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Direct SMTP test failed - check console for details",
+          status: "failed"
+        });
+      }
+    } catch (error) {
+      console.error("Direct SMTP test error:", error);
+      res.status(500).json({ message: "Direct SMTP test error" });
+    }
+  });
+
+  // Test simple SMTP with proper imports
+  app.post("/api/test-simple-smtp", async (req, res) => {
+    try {
+      const success = await testSimpleSMTP();
+      if (success) {
+        res.json({ 
+          message: "Simple SMTP test successful - email sent!",
+          status: "success"
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Simple SMTP test failed - check console for details",
+          status: "failed"
+        });
+      }
+    } catch (error) {
+      console.error("Simple SMTP test error:", error);
+      res.status(500).json({ message: "Simple SMTP test error" });
     }
   });
 
