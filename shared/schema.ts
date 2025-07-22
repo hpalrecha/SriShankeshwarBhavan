@@ -62,15 +62,31 @@ export const roomBookings = pgTable("room_bookings", {
   roomNumber: varchar("room_number", { length: 20 }),
   roomsBooked: integer("rooms_booked").default(1),
   paymentReference: varchar("payment_reference", { length: 100 }),
+  // Primary Guest Details
+  primaryGuestName: varchar("primary_guest_name", { length: 255 }),
+  primaryGuestEmail: varchar("primary_guest_email", { length: 255 }),
+  primaryGuestPhone: varchar("primary_guest_phone", { length: 20 }),
+  // Address Details
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  pinCode: varchar("pin_code", { length: 20 }),
+  country: varchar("country", { length: 100 }),
   // Travel Details
   arrivingFrom: varchar("arriving_from", { length: 255 }),
   goingTo: varchar("going_to", { length: 255 }),
+  eta: varchar("eta", { length: 100 }),
+  etd: varchar("etd", { length: 100 }),
   estimatedArrivalTime: timestamp("estimated_arrival_time"),
   estimatedDepartureTime: timestamp("estimated_departure_time"),
   // Check-in/out actual times
   actualCheckinTime: timestamp("actual_checkin_time"),
   actualCheckoutTime: timestamp("actual_checkout_time"),
   // Food booking
+  foodBreakfast: boolean("food_breakfast").default(false),
+  foodLunch: boolean("food_lunch").default(false),
+  foodDinner: boolean("food_dinner").default(false),
   breakfastDays: integer("breakfast_days").default(0),
   lunchDays: integer("lunch_days").default(0),
   dinnerDays: integer("dinner_days").default(0),

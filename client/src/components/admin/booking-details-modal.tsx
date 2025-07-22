@@ -383,15 +383,15 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   {booking.booking.eta && (
-                    <div>
-                      <p className="text-sm text-gray-600">ETA</p>
-                      <p className="font-medium">{booking.booking.eta}</p>
+                    <div className="p-3 bg-green-50 rounded border-l-4 border-green-400">
+                      <p className="text-sm text-gray-600">Estimated Arrival Time (ETA)</p>
+                      <p className="font-medium text-green-800">{booking.booking.eta}</p>
                     </div>
                   )}
                   {booking.booking.etd && (
-                    <div>
-                      <p className="text-sm text-gray-600">ETD</p>
-                      <p className="font-medium">{booking.booking.etd}</p>
+                    <div className="p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                      <p className="text-sm text-gray-600">Estimated Departure Time (ETD)</p>
+                      <p className="font-medium text-blue-800">{booking.booking.etd}</p>
                     </div>
                   )}
                 </div>
@@ -400,40 +400,69 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
           )}
 
           {/* Food Booking Information */}
-          {(booking.booking.foodBreakfast || booking.booking.foodLunch || booking.booking.foodDinner) && (
+          {(booking.booking.foodBreakfast || booking.booking.foodLunch || booking.booking.foodDinner || 
+            (booking.booking.breakfastDays && booking.booking.breakfastDays > 0) || 
+            (booking.booking.lunchDays && booking.booking.lunchDays > 0) || 
+            (booking.booking.dinnerDays && booking.booking.dinnerDays > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  Food Booking
+                  Food Booking Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
-                  {booking.booking.foodBreakfast && (
-                    <div className="flex justify-between items-center p-2 bg-yellow-50 rounded">
-                      <span className="font-medium">Breakfast</span>
-                      <span className="text-green-600 font-medium">Booked</span>
+                  {/* Breakfast */}
+                  {(booking.booking.foodBreakfast || (booking.booking.breakfastDays && booking.booking.breakfastDays > 0)) && (
+                    <div className="flex justify-between items-center p-3 bg-yellow-50 rounded border-l-4 border-yellow-400">
+                      <div>
+                        <span className="font-medium text-yellow-800">Breakfast</span>
+                        {booking.booking.breakfastDays && booking.booking.breakfastDays > 0 && (
+                          <div className="text-sm text-yellow-600">
+                            {booking.booking.breakfastDays} day{booking.booking.breakfastDays > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
                     </div>
                   )}
-                  {booking.booking.foodLunch && (
-                    <div className="flex justify-between items-center p-2 bg-orange-50 rounded">
-                      <span className="font-medium">Lunch</span>
-                      <span className="text-green-600 font-medium">Booked</span>
+                  
+                  {/* Lunch */}
+                  {(booking.booking.foodLunch || (booking.booking.lunchDays && booking.booking.lunchDays > 0)) && (
+                    <div className="flex justify-between items-center p-3 bg-orange-50 rounded border-l-4 border-orange-400">
+                      <div>
+                        <span className="font-medium text-orange-800">Lunch</span>
+                        {booking.booking.lunchDays && booking.booking.lunchDays > 0 && (
+                          <div className="text-sm text-orange-600">
+                            {booking.booking.lunchDays} day{booking.booking.lunchDays > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
                     </div>
                   )}
-                  {booking.booking.foodDinner && (
-                    <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                      <span className="font-medium">Dinner</span>
-                      <span className="text-green-600 font-medium">Booked</span>
+                  
+                  {/* Dinner */}
+                  {(booking.booking.foodDinner || (booking.booking.dinnerDays && booking.booking.dinnerDays > 0)) && (
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                      <div>
+                        <span className="font-medium text-blue-800">Dinner</span>
+                        {booking.booking.dinnerDays && booking.booking.dinnerDays > 0 && (
+                          <div className="text-sm text-blue-600">
+                            {booking.booking.dinnerDays} day{booking.booking.dinnerDays > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
                     </div>
                   )}
                 </div>
                 {booking.booking.foodAmount && parseFloat(booking.booking.foodAmount) > 0 && (
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between items-center font-medium">
-                      <span>Total Food Donation:</span>
-                      <span className="text-green-600">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</span>
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center font-medium bg-green-50 p-3 rounded">
+                      <span className="text-green-800">Total Food Donation:</span>
+                      <span className="text-green-600 text-lg">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</span>
                     </div>
                   </div>
                 )}
