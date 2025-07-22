@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendCheckInDayReminderEmail, sendPostCheckoutFeedbackEmail } from "./email";
+import { sendBookingConfirmationEmailSMTP } from "./emailSMTP";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1277,12 +1278,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date()
       };
 
-      // Send the test email
-      const emailSent = await sendBookingConfirmationEmail({
-        booking: sampleBooking,
-        category: sampleCategory,
-        guestEmail: email,
-        guestName: "Test Guest"
+      // Send the test email using SMTP
+      const emailSent = await sendBookingConfirmationEmailSMTP({
+        recipientEmail: email,
+        recipientName: "Test Guest",
+        bookingId: sampleBooking.bookingId,
+        checkInDate: sampleBooking.checkInDate,
+        checkOutDate: sampleBooking.checkOutDate,
+        roomCategory: sampleCategory.name,
+        totalAmount: parseFloat(sampleBooking.totalAmount),
+        guestCount: sampleBooking.guestCount
       });
 
       if (emailSent) {
