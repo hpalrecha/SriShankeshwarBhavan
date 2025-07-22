@@ -22,7 +22,7 @@ export async function testSimpleSMTP(): Promise<boolean> {
     console.log("✅ SMTP connection verified successfully");
 
     const info = await transporter.sendMail({
-      from: 'info@p91india.com',
+      from: 'booking@ssbb.in',
       to: 'jaggi13js@gmail.com',
       subject: 'Test Email from Sri Shankeshwar Bengaluru Bhavan',
       text: 'This is a test email to verify SMTP functionality.',
