@@ -103,6 +103,8 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 23, 2025: Fixed room image removal functionality - corrected image deletion logic to properly clear imageUrl from database when remove button is clicked, ensuring removed images don't persist after updates
+- July 23, 2025: Fixed dialog scrollability issues across all admin modals - added proper scrollable containers with max-height constraints to Room Inventory, User Details, Booking Details, and WhatsApp Settings dialogs
 - July 23, 2025: Redesigned admin dashboard with modern sidebar navigation - replaced horizontal tab navigation with vertical sidebar menu, removed public site header from admin area, added dedicated admin branding with SSH logo, improved navigation with icons and contextual descriptions, enhanced visual hierarchy with proper spacing and modern design patterns
 - July 22, 2025: Fixed admin dashboard issues - changed "Today's Revenue" to "Today's Donations" for consistent terminology, made View Details buttons functional in Recent Bookings section with proper navigation to bookings tab
 - July 22, 2025: Fixed room availability calculation - backend now properly counts actual rooms booked instead of just booking count, ensuring accurate inventory display for guest bookings

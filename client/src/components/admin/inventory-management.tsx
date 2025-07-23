@@ -120,6 +120,9 @@ export default function InventoryManagement() {
       if (selectedImage) {
         const imageResult = await uploadImageMutation.mutateAsync(selectedImage);
         finalUpdates.imageUrl = imageResult.imageUrl;
+      } else if (!imagePreview && editingCategory?.imageUrl) {
+        // If no image preview and we had an image before, remove it
+        finalUpdates.imageUrl = '';
       }
       
       const response = await apiRequest("PATCH", `/api/admin/room-categories/${data.id}`, finalUpdates);
@@ -207,6 +210,8 @@ export default function InventoryManagement() {
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview("");
+    // Clear the form field as well
+    form.setValue('imageUrl', '');
     // Clear the file input
     const fileInput = document.getElementById('room-image') as HTMLInputElement;
     if (fileInput) {
