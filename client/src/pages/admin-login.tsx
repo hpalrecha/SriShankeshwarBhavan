@@ -32,8 +32,17 @@ export default function AdminLogin() {
     setIsLoading(true);
     
     try {
-      // Demo login - in production, this would make an API call
-      if (values.email === "admin@ssh.com" && values.password === "admin123") {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
         localStorage.setItem("admin_logged_in", "true");
         toast({
           title: "Login Successful",
@@ -43,7 +52,7 @@ export default function AdminLogin() {
       } else {
         toast({
           title: "Login Failed",
-          description: "Invalid email or password. Try admin@ssh.com / admin123",
+          description: data.message || "Invalid email or password.",
           variant: "destructive",
         });
       }

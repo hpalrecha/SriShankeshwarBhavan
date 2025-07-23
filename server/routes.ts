@@ -150,6 +150,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Admin login
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Find admin user
+      const admin = await storage.getAdminUserByEmail(email);
+      if (!admin) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check password
+      const isValidPassword = await bcrypt.compare(password, admin.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Set admin session
+      (req.session as any).adminId = admin.id;
+      (req.session as any).adminEmail = admin.email;
+
+      res.json({ 
+        message: "Admin login successful", 
+        admin: { 
+          id: admin.id, 
+          name: admin.name, 
+          email: admin.email,
+          role: admin.role 
+        } 
+      });
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Admin login failed" });
+    }
+  });
+
   // Forgot Password endpoint
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
