@@ -165,7 +165,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <div className="overflow-y-auto max-h-[calc(90vh-8rem)] pr-2">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Booking Details - {booking.booking.bookingId}</span>
@@ -725,6 +726,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
           onCapture={handleCameraCapture}
           title="Capture Aadhaar Card"
         />
+        </div>
       </DialogContent>
     </Dialog>
 

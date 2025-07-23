@@ -439,7 +439,7 @@ export default function WhatsAppSettings() {
                         Add Template Mapping
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add Template Mapping</DialogTitle>
                         <p className="text-sm text-muted-foreground">
@@ -629,7 +629,7 @@ export default function WhatsAppSettings() {
       {/* Edit Template Dialog */}
       {editingTemplate && (
         <Dialog open={!!editingTemplate} onOpenChange={() => setEditingTemplate(null)}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Template Mapping</DialogTitle>
             </DialogHeader>

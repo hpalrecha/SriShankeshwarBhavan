@@ -262,13 +262,14 @@ export default function InventoryManagement() {
               Add Room Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingCategory ? "Edit Room Category" : "Add New Room Category"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="overflow-y-auto max-h-[calc(90vh-8rem)] pr-2">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Room Name</Label>
                 <Input
@@ -429,6 +430,7 @@ export default function InventoryManagement() {
                 </Button>
               </div>
             </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -123,6 +123,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="overflow-y-auto max-h-[calc(90vh-8rem)] pr-2">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-12 h-12 bg-brand-orange text-white rounded-full flex items-center justify-center font-bold text-lg">
@@ -162,7 +163,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="font-medium">Joined:</span>
-                  <span>{new Date(user.createdAt).toLocaleDateString()}</span>
+                  <span>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -419,6 +420,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onViewBookings
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
+        </div>
         </div>
       </DialogContent>
     </Dialog>
