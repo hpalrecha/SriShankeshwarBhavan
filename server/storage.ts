@@ -9,6 +9,7 @@ import {
   passwordResetTokens,
   whatsappConfig,
   whatsappTemplates,
+  trusteeReservedDates,
   type RoomCategory,
   type User,
   type RoomBooking,
@@ -18,6 +19,7 @@ import {
   type FoodSettings,
   type WhatsAppConfig,
   type WhatsAppTemplate,
+  type TrusteeReservedDate,
   type InsertRoomCategory,
   type InsertUser,
   type InsertRoomBooking,
@@ -27,6 +29,7 @@ import {
   type InsertFoodSettings,
   type InsertWhatsAppConfig,
   type InsertWhatsAppTemplate,
+  type InsertTrusteeReservedDate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
@@ -83,6 +86,23 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<{ id: number; userId: number; used: boolean; expiresAt: string } | undefined>;
   markPasswordResetTokenAsUsed(tokenId: number): Promise<void>;
   updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
+
+  // WhatsApp Configuration
+  getWhatsAppConfig(): Promise<WhatsAppConfig | undefined>;
+  createOrUpdateWhatsAppConfig(config: InsertWhatsAppConfig): Promise<WhatsAppConfig>;
+
+  // WhatsApp Templates
+  getWhatsAppTemplates(): Promise<WhatsAppTemplate[]>;
+  createWhatsAppTemplate(template: InsertWhatsAppTemplate): Promise<WhatsAppTemplate>;
+  updateWhatsAppTemplate(id: number, template: Partial<WhatsAppTemplate>): Promise<WhatsAppTemplate>;
+  deleteWhatsAppTemplate(id: number): Promise<void>;
+
+  // Trustee Reserved Dates
+  getTrusteeReservedDates(): Promise<TrusteeReservedDate[]>;
+  createTrusteeReservedDate(reservedDate: InsertTrusteeReservedDate): Promise<TrusteeReservedDate>;
+  updateTrusteeReservedDate(id: number, reservedDate: Partial<TrusteeReservedDate>): Promise<TrusteeReservedDate>;
+  deleteTrusteeReservedDate(id: number): Promise<void>;
+  getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -441,6 +461,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWhatsAppTemplate(id: number): Promise<void> {
     await db.delete(whatsappTemplates).where(eq(whatsappTemplates.id, id));
+  }
+
+  // Trustee Reserved Dates
+  async getTrusteeReservedDates(): Promise<TrusteeReservedDate[]> {
+    return await db.select().from(trusteeReservedDates).orderBy(asc(trusteeReservedDates.dayOfMonth));
+  }
+
+  async createTrusteeReservedDate(reservedDate: InsertTrusteeReservedDate): Promise<TrusteeReservedDate> {
+    const [newReservedDate] = await db.insert(trusteeReservedDates).values(reservedDate).returning();
+    return newReservedDate;
+  }
+
+  async updateTrusteeReservedDate(id: number, reservedDate: Partial<TrusteeReservedDate>): Promise<TrusteeReservedDate> {
+    const [updatedReservedDate] = await db
+      .update(trusteeReservedDates)
+      .set({ ...reservedDate, updatedAt: new Date() })
+      .where(eq(trusteeReservedDates.id, id))
+      .returning();
+    return updatedReservedDate;
+  }
+
+  async deleteTrusteeReservedDate(id: number): Promise<void> {
+    await db.delete(trusteeReservedDates).where(eq(trusteeReservedDates.id, id));
+  }
+
+  async getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]> {
+    return await db.select().from(trusteeReservedDates)
+      .where(eq(trusteeReservedDates.isEnabled, true))
+      .orderBy(asc(trusteeReservedDates.dayOfMonth));
   }
 }
 

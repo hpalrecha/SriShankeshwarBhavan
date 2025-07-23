@@ -11,6 +11,7 @@ import UsersTable from "@/components/admin/users-table";
 import TrusteeManagement from "@/components/admin/trustee-management";
 import FoodSettings from "@/components/admin/food-settings";
 import WhatsAppSettings from "./admin/WhatsAppSettings";
+import TrusteeReservations from "./admin/TrusteeReservations";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,8 @@ export default function Admin() {
         );
       case "trustees":
         return <TrusteeManagement />;
+      case "trustee-reservations":
+        return <TrusteeReservations />;
       case "whatsapp-settings":
         return <WhatsAppSettings />;
       default:
@@ -142,6 +145,7 @@ export default function Admin() {
                 { id: "whatsapp-settings", label: "WhatsApp" },
                 { id: "users", label: "Users" },
                 { id: "trustees", label: "Trustees" },
+                { id: "trustee-reservations", label: "Trustee Reservations" },
               ].map((tab) => (
                 <button
                   key={tab.id}

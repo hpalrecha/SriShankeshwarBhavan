@@ -269,6 +269,16 @@ export const whatsappTemplates = pgTable("whatsapp_templates", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Trustee Reserved Dates - For blocking specific dates monthly for trustee-only bookings
+export const trusteeReservedDates = pgTable("trustee_reserved_dates", {
+  id: serial("id").primaryKey(),
+  dayOfMonth: integer("day_of_month").notNull(), // 1-31, represents which day of the month
+  isEnabled: boolean("is_enabled").default(true),
+  description: varchar("description", { length: 255 }).default("Trustee Reserved Day"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas for WhatsApp
 export const insertWhatsAppConfigSchema = createInsertSchema(whatsappConfig).omit({
   id: true,
@@ -282,8 +292,18 @@ export const insertWhatsAppTemplateSchema = createInsertSchema(whatsappTemplates
   updatedAt: true,
 });
 
+export const insertTrusteeReservedDateSchema = createInsertSchema(trusteeReservedDates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types for WhatsApp
 export type WhatsAppConfig = typeof whatsappConfig.$inferSelect;
 export type InsertWhatsAppConfig = z.infer<typeof insertWhatsAppConfigSchema>;
 export type WhatsAppTemplate = typeof whatsappTemplates.$inferSelect;
 export type InsertWhatsAppTemplate = z.infer<typeof insertWhatsAppTemplateSchema>;
+
+// Types for Trustee Reserved Dates
+export type TrusteeReservedDate = typeof trusteeReservedDates.$inferSelect;
+export type InsertTrusteeReservedDate = z.infer<typeof insertTrusteeReservedDateSchema>;

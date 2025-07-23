@@ -560,6 +560,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Room category not found" });
       }
 
+      // Check for trustee reserved dates
+      const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
+      const bookingCheckinDate = new Date(bookingData.checkinDate);
+      const bookingCheckoutDate = new Date(bookingData.checkoutDate);
+      
+      // Check each day in the booking range against trustee reserved dates
+      const bookingDates = [];
+      for (let date = new Date(bookingCheckinDate); date < bookingCheckoutDate; date.setDate(date.getDate() + 1)) {
+        bookingDates.push(new Date(date));
+      }
+      
+      const conflictingDates = [];
+      for (const bookingDate of bookingDates) {
+        const dayOfMonth = bookingDate.getDate();
+        const isReservedDate = trusteeReservedDates.some(rd => rd.dayOfMonth === dayOfMonth);
+        
+        if (isReservedDate) {
+          // Only allow trustees to book on reserved dates
+          if (!userData.isTrustee) {
+            conflictingDates.push({
+              date: bookingDate.toDateString(),
+              dayOfMonth: dayOfMonth
+            });
+          }
+        }
+      }
+      
+      if (conflictingDates.length > 0) {
+        return res.status(400).json({ 
+          message: `Booking not allowed on trustee reserved dates: ${conflictingDates.map(d => d.date).join(', ')}. These dates are reserved exclusively for trustees.`,
+          conflictingDates: conflictingDates,
+          trusteeOnly: true
+        });
+      }
+
       // Validate room capacity vs guests
       const roomsBooked = bookingData.roomsBooked || 1;
       const totalCapacity = category.maxOccupancy * roomsBooked;
@@ -1580,6 +1615,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending test email:", error);
       res.status(500).json({ message: "Failed to send test email" });
+    }
+  });
+
+  // Trustee Reserved Dates Routes
+  app.get("/api/admin/trustee-reserved-dates", async (req, res) => {
+    try {
+      const reservedDates = await storage.getTrusteeReservedDates();
+      res.json(reservedDates);
+    } catch (error: any) {
+      console.error("Error fetching trustee reserved dates:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch trustee reserved dates" });
+    }
+  });
+
+  app.post("/api/admin/trustee-reserved-dates", async (req, res) => {
+    try {
+      const { dayOfMonth, description, isEnabled } = req.body;
+      
+      // Validate day of month
+      if (dayOfMonth < 1 || dayOfMonth > 31) {
+        return res.status(400).json({ error: "Day of month must be between 1 and 31" });
+      }
+      
+      const reservedDate = await storage.createTrusteeReservedDate({
+        dayOfMonth,
+        description: description || "Trustee Reserved Day",
+        isEnabled: isEnabled !== false, // Default to true
+      });
+      
+      res.status(201).json(reservedDate);
+    } catch (error: any) {
+      console.error("Error creating trustee reserved date:", error);
+      res.status(500).json({ error: error.message || "Failed to create trustee reserved date" });
+    }
+  });
+
+  app.patch("/api/admin/trustee-reserved-dates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      // Validate day of month if provided
+      if (updates.dayOfMonth && (updates.dayOfMonth < 1 || updates.dayOfMonth > 31)) {
+        return res.status(400).json({ error: "Day of month must be between 1 and 31" });
+      }
+      
+      const updatedReservedDate = await storage.updateTrusteeReservedDate(id, updates);
+      res.json(updatedReservedDate);
+    } catch (error: any) {
+      console.error("Error updating trustee reserved date:", error);
+      res.status(500).json({ error: error.message || "Failed to update trustee reserved date" });
+    }
+  });
+
+  app.delete("/api/admin/trustee-reserved-dates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTrusteeReservedDate(id);
+      res.json({ message: "Trustee reserved date deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting trustee reserved date:", error);
+      res.status(500).json({ error: error.message || "Failed to delete trustee reserved date" });
+    }
+  });
+
+  // Initialize default trustee reserved dates if they don't exist
+  app.post("/api/admin/initialize-default-trustee-dates", async (req, res) => {
+    try {
+      const existingDates = await storage.getTrusteeReservedDates();
+      
+      if (existingDates.length === 0) {
+        // Create default dates: 14th and 15th of every month
+        await storage.createTrusteeReservedDate({
+          dayOfMonth: 14,
+          description: "Trustee Reserved Day - 14th",
+          isEnabled: true,
+        });
+        
+        await storage.createTrusteeReservedDate({
+          dayOfMonth: 15,
+          description: "Trustee Reserved Day - 15th", 
+          isEnabled: true,
+        });
+        
+        res.json({ message: "Default trustee reserved dates (14th and 15th) created successfully" });
+      } else {
+        res.json({ message: "Trustee reserved dates already exist", count: existingDates.length });
+      }
+    } catch (error: any) {
+      console.error("Error initializing default trustee dates:", error);
+      res.status(500).json({ error: error.message || "Failed to initialize default trustee dates" });
     }
   });
 
