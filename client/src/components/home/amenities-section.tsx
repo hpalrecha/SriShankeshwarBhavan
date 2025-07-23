@@ -1,5 +1,6 @@
 import { Wifi, Car, Coffee, Shield, Utensils, Users, Clock, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import roomImage from "@assets/images (7)_1753275469754.jpg";
 
 export default function AmenitiesSection() {
   const amenities = [
@@ -95,7 +96,7 @@ export default function AmenitiesSection() {
             </div>
             <div className="relative">
               <img
-                src="@assets/images (7)_1753275469754.jpg"
+                src={roomImage}
                 alt="Comfortable hotel room interior"
                 className="rounded-lg shadow-md w-full h-64 object-cover"
               />

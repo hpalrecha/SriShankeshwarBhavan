@@ -1,5 +1,6 @@
 import { MapPin, Clock, Plane, Train } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import templeImage from "@assets/17412441144_1753275501511.jpg";
 
 export default function LocationSection() {
   const landmarks = [
@@ -50,7 +51,7 @@ export default function LocationSection() {
           <div className="relative">
             <div className="bg-gray-200 rounded-xl h-96 flex items-center justify-center mb-4">
               <img
-                src="@assets/17412441144_1753275501511.jpg"
+                src={templeImage}
                 alt="Shankheshwar temple and surrounding area in Gujarat"
                 className="w-full h-full object-cover rounded-xl"
               />
