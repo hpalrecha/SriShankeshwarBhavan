@@ -156,7 +156,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Guests:</span>
-                    <span className="text-sm">{booking.numberOfGuests} guests, 1 room</span>
+                    <span className="text-sm">{booking.guests} guests, 1 room</span>
                   </div>
                 </div>
                 
@@ -240,7 +240,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                       <div>
                         <div className="font-medium text-gray-900">{user.name}</div>
                         <div className="text-sm text-gray-500">{user.email}</div>
-                        <div className="text-xs text-gray-400">{booking.numberOfGuests} guests, 1 room</div>
+                        <div className="text-xs text-gray-400">{booking.guests} guests, 1 room</div>
                       </div>
                     </div>
                   </td>
