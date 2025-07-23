@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, Users, Phone, Mail, Plus, Minus } from "lucide-react";
+import { Calendar, Users, Phone, Mail, Plus, Minus, MapPin, Plane, Utensils } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { RoomCategory } from "@shared/schema";
 
 const roomSelectionSchema = z.object({
@@ -25,6 +26,21 @@ const adminBookingSchema = z.object({
   checkinDate: z.string().min(1, "Check-in date is required"),
   checkoutDate: z.string().min(1, "Check-out date is required"),
   guests: z.number().min(1, "At least 1 guest required"),
+  // Address fields
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  country: z.string().default("India"),
+  // Travel details
+  arrivingFrom: z.string().optional(),
+  goingTo: z.string().optional(),
+  estimatedArrivalTime: z.string().optional(),
+  estimatedDepartureTime: z.string().optional(),
+  // Food options
+  breakfastDays: z.number().default(0),
+  lunchDays: z.number().default(0),
+  dinnerDays: z.number().default(0),
   roomSelections: z.array(roomSelectionSchema).refine(
     (selections) => selections.some(s => s.quantity > 0),
     "At least one room must be selected"
@@ -54,6 +70,12 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
     queryKey: ["/api/room-categories"],
   });
 
+  // Fetch food settings for pricing
+  const { data: foodSettings } = useQuery({
+    queryKey: ["/api/admin/food-settings"],
+    retry: false,
+  });
+
   // Initialize room selections when categories load
   useEffect(() => {
     if (roomCategories.length > 0 && Object.keys(roomSelections).length === 0) {
@@ -74,6 +96,21 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
       checkinDate: "",
       checkoutDate: "",
       guests: 2,
+      // Address fields
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: "India",
+      // Travel details
+      arrivingFrom: "",
+      goingTo: "",
+      estimatedArrivalTime: "",
+      estimatedDepartureTime: "",
+      // Food options
+      breakfastDays: 0,
+      lunchDays: 0,
+      dinnerDays: 0,
       roomSelections: [],
       paymentMethod: "cash",
       paymentReference: "",
@@ -101,16 +138,41 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
           quantity
         }));
 
+      // Calculate food costs
+      const breakfastCost = (data.breakfastDays || 0) * parseFloat(foodSettings?.breakfastPrice || "0");
+      const lunchCost = (data.lunchDays || 0) * parseFloat(foodSettings?.lunchPrice || "0");
+      const dinnerCost = (data.dinnerDays || 0) * parseFloat(foodSettings?.dinnerPrice || "0");
+      const totalFoodCost = breakfastCost + lunchCost + dinnerCost;
+
       const response = await apiRequest("POST", "/api/admin/bookings/combination", {
         user: {
           name: data.guestName,
           email: data.guestEmail,
           mobile: data.guestMobile,
+          // Address fields
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          pincode: data.pincode,
+          country: data.country,
         },
         booking: {
           checkinDate: data.checkinDate,
           checkoutDate: data.checkoutDate,
           guests: data.guests,
+          // Travel details
+          arrivingFrom: data.arrivingFrom,
+          goingTo: data.goingTo,
+          estimatedArrivalTime: data.estimatedArrivalTime,
+          estimatedDepartureTime: data.estimatedDepartureTime,
+          // Food options
+          breakfastDays: data.breakfastDays,
+          lunchDays: data.lunchDays,
+          dinnerDays: data.dinnerDays,
+          breakfastCost,
+          lunchCost,
+          dinnerCost,
+          totalFoodCost,
           roomSelections: roomSelectionArray,
           paymentMethod: data.paymentMethod,
           paymentReference: data.paymentReference,
@@ -394,6 +456,201 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 </Card>
               ))}
             </div>
+          </div>
+
+          {/* Address Details Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <MapPin className="h-4 w-4" />
+              <h4>Address Details (Optional)</h4>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="address">Full Address</Label>
+              <Textarea
+                id="address"
+                {...form.register("address")}
+                placeholder="Enter complete address"
+                rows={2}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  {...form.register("city")}
+                  placeholder="City"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  {...form.register("state")}
+                  placeholder="State"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  {...form.register("pincode")}
+                  placeholder="Pincode"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Travel Details Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <Plane className="h-4 w-4" />
+              <h4>Travel Details (Optional)</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="arrivingFrom">Arriving From</Label>
+                <Input
+                  id="arrivingFrom"
+                  {...form.register("arrivingFrom")}
+                  placeholder="City/Location"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="goingTo">Going To (Next Destination)</Label>
+                <Input
+                  id="goingTo"
+                  {...form.register("goingTo")}
+                  placeholder="City/Location"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="estimatedArrivalTime">Estimated Arrival Time</Label>
+                <Input
+                  id="estimatedArrivalTime"
+                  type="datetime-local"
+                  {...form.register("estimatedArrivalTime")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="estimatedDepartureTime">Estimated Departure Time</Label>
+                <Input
+                  id="estimatedDepartureTime"
+                  type="datetime-local"
+                  {...form.register("estimatedDepartureTime")}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Food Options Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <Utensils className="h-4 w-4" />
+              <h4>Food Options (Optional)</h4>
+            </div>
+            <p className="text-sm text-gray-600">
+              Select the number of meal coupons you would like to purchase. Food donations will be added to total amount.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="breakfastDays">
+                  Breakfast Coupons 
+                  <span className="text-sm text-gray-500 ml-1">
+                    (₹{foodSettings?.breakfastPrice || "50"}/coupon)
+                  </span>
+                </Label>
+                <Input
+                  id="breakfastDays"
+                  type="number"
+                  min="0"
+                  {...form.register("breakfastDays", { valueAsNumber: true })}
+                  placeholder="Number of breakfast coupons"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lunchDays">
+                  Lunch Coupons 
+                  <span className="text-sm text-gray-500 ml-1">
+                    (₹{foodSettings?.lunchPrice || "100"}/coupon)
+                  </span>
+                </Label>
+                <Input
+                  id="lunchDays"
+                  type="number"
+                  min="0"
+                  {...form.register("lunchDays", { valueAsNumber: true })}
+                  placeholder="Number of lunch coupons"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dinnerDays">
+                  Dinner Coupons 
+                  <span className="text-sm text-gray-500 ml-1">
+                    (₹{foodSettings?.dinnerPrice || "150"}/coupon)
+                  </span>
+                </Label>
+                <Input
+                  id="dinnerDays"
+                  type="number"
+                  min="0"
+                  {...form.register("dinnerDays", { valueAsNumber: true })}
+                  placeholder="Number of dinner coupons"
+                />
+              </div>
+            </div>
+
+            {/* Food Cost Summary */}
+            {(() => {
+              const breakfastDays = form.watch("breakfastDays") || 0;
+              const lunchDays = form.watch("lunchDays") || 0;  
+              const dinnerDays = form.watch("dinnerDays") || 0;
+              
+              const breakfastCost = breakfastDays * parseFloat(foodSettings?.breakfastPrice || "0");
+              const lunchCost = lunchDays * parseFloat(foodSettings?.lunchPrice || "0");
+              const dinnerCost = dinnerDays * parseFloat(foodSettings?.dinnerPrice || "0");
+              const totalFoodCost = breakfastCost + lunchCost + dinnerCost;
+              
+              if (totalFoodCost > 0) {
+                return (
+                  <div className="bg-orange-50 p-3 rounded-lg">
+                    <h5 className="font-medium text-gray-900 mb-2">Food Cost Summary:</h5>
+                    <div className="text-sm space-y-1">
+                      {breakfastCost > 0 && (
+                        <div className="flex justify-between">
+                          <span>Breakfast ({breakfastDays} coupons):</span>
+                          <span>₹{breakfastCost.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {lunchCost > 0 && (
+                        <div className="flex justify-between">
+                          <span>Lunch ({lunchDays} coupons):</span>
+                          <span>₹{lunchCost.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {dinnerCost > 0 && (
+                        <div className="flex justify-between">
+                          <span>Dinner ({dinnerDays} coupons):</span>
+                          <span>₹{dinnerCost.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-medium pt-1 border-t">
+                        <span>Total Food Cost:</span>
+                        <span>₹{totalFoodCost.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
