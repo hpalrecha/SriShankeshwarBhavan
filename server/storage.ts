@@ -32,7 +32,7 @@ import {
   type InsertTrusteeReservedDate,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, lt, gt, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Room Categories
@@ -220,13 +220,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingsByDateRange(startDate: Date, endDate: Date): Promise<RoomBooking[]> {
+    // Find bookings that overlap with the requested date range
+    // Overlap occurs when: booking.checkinDate < endDate AND booking.checkoutDate > startDate
     return await db
       .select()
       .from(roomBookings)
       .where(
         and(
-          gte(roomBookings.checkinDate, startDate),
-          lte(roomBookings.checkoutDate, endDate)
+          lt(roomBookings.checkinDate, endDate),
+          gt(roomBookings.checkoutDate, startDate),
+          ne(roomBookings.status, "cancelled")
         )
       )
       .orderBy(asc(roomBookings.checkinDate));

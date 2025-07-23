@@ -391,11 +391,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categoryId = parseInt(roomCategoryId as string);
       const guestCount = parseInt(guests as string) || 1;
 
-      // Get bookings in the date range for this room category
+      // Get bookings that overlap with the date range for this room category
       const bookings = await storage.getBookingsByDateRange(startDate, endDate);
       const categoryBookings = bookings.filter(booking => 
-        booking.roomCategoryId === categoryId && 
-        booking.status !== "cancelled"
+        booking.roomCategoryId === categoryId
       );
 
       // Get room category to check total units and capacity
