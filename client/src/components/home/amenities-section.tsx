@@ -95,7 +95,7 @@ export default function AmenitiesSection() {
             </div>
             <div className="relative">
               <img
-                src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
+                src="@assets/images (7)_1753275469754.jpg"
                 alt="Comfortable hotel room interior"
                 className="rounded-lg shadow-md w-full h-64 object-cover"
               />

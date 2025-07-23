@@ -50,7 +50,7 @@ export default function LocationSection() {
           <div className="relative">
             <div className="bg-gray-200 rounded-xl h-96 flex items-center justify-center mb-4">
               <img
-                src="https://images.unsplash.com/photo-1582510003544-4d00b7f74220?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
+                src="@assets/17412441144_1753275501511.jpg"
                 alt="Shankheshwar temple and surrounding area in Gujarat"
                 className="w-full h-full object-cover rounded-xl"
               />
