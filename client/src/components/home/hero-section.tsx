@@ -12,7 +12,7 @@ export default function HeroSection() {
           {/* Logo/Brand */}
           <div className="mb-8">
             <div className="w-20 h-20 bg-brand-orange rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">SSH</span>
+              <span className="text-white font-bold text-xl">SSBB</span>
             </div>
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
               Sri Shankeshwar

@@ -149,7 +149,7 @@ export default function Admin() {
             <Hotel className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">SSH Admin</h1>
+            <h1 className="text-lg font-bold text-gray-900">SSBB Admin</h1>
             <p className="text-sm text-gray-500">Hotel Management</p>
           </div>
         </div>

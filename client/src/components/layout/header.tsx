@@ -46,10 +46,10 @@ export default function Header() {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => setLocation("/")}>
               <div className="w-10 h-10 bg-brand-orange rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">SSH</span>
+                <span className="text-white font-bold text-xs">SSBB</span>
               </div>
               <h1 className="ml-3 text-xl font-semibold text-gray-900 hidden sm:block">Sri Shankeshwar Bengaluru Bhavan</h1>
-              <h1 className="ml-3 text-lg font-semibold text-gray-900 sm:hidden">SSH Bhavan</h1>
+              <h1 className="ml-3 text-lg font-semibold text-gray-900 sm:hidden">SSBB</h1>
             </div>
           </div>
           
