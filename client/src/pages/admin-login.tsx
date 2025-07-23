@@ -116,9 +116,9 @@ export default function AdminLogin() {
 
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 text-center">
-                <strong>Demo Credentials:</strong><br />
-                Email: admin@ssh.com<br />
-                Password: admin123
+                <strong>Admin Credentials:</strong><br />
+                Email: admin@ssbb.in<br />
+                Password: SSBB@Admin2025!
               </p>
             </div>
           </CardContent>
