@@ -12,7 +12,7 @@ import type { BookingFormData, RoomAvailability } from "@/lib/types";
 export default function Home() {
   const [searchResults, setSearchResults] = useState<{
     bookingData: BookingFormData;
-    availabilityData: RoomAvailability;
+    availabilityData: any;
   } | null>(null);
 
   const handleSearch = (data: BookingFormData, availability: any) => {

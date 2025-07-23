@@ -3,15 +3,8 @@ import { Calendar, MapPin, Users } from "lucide-react";
 export default function HeroSection() {
   return (
     <section className="relative h-screen overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
-          alt="Sri Shankeshwar Bengaluru Bhavan - Beautiful hotel exterior with gardens"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-      </div>
+      {/* Gradient Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-brand-orange/20"></div>
 
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center h-full text-center text-white px-4">
