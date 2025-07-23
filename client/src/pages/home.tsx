@@ -41,7 +41,7 @@ export default function Home() {
 
       {/* Room Results */}
       {searchResults && (
-        searchResults.availabilityData.availableRooms ? (
+        searchResults.availabilityData?.availableRooms && searchResults.availabilityData.availableRooms.length > 0 ? (
           <RoomSelection 
             bookingData={searchResults.bookingData}
             availabilityData={searchResults.availabilityData}

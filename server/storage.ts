@@ -4,7 +4,7 @@ import {
   roomBookings,
   idProofs,
   adminUsers,
-  trusteeAutoBookings,
+
   foodSettings,
   passwordResetTokens,
   whatsappConfig,
@@ -15,7 +15,7 @@ import {
   type RoomBooking,
   type IdProof,
   type AdminUser,
-  type TrusteeAutoBooking,
+
   type FoodSettings,
   type WhatsAppConfig,
   type WhatsAppTemplate,
@@ -25,7 +25,7 @@ import {
   type InsertRoomBooking,
   type InsertIdProof,
   type InsertAdminUser,
-  type InsertTrusteeAutoBooking,
+
   type InsertFoodSettings,
   type InsertWhatsAppConfig,
   type InsertWhatsAppTemplate,
@@ -71,11 +71,6 @@ export interface IStorage {
   getAdminUserByEmail(email: string): Promise<AdminUser | undefined>;
   createAdminUser(admin: InsertAdminUser): Promise<AdminUser>;
 
-  // Trustee Auto Bookings
-  getTrusteeAutoBookings(): Promise<TrusteeAutoBooking[]>;
-  createTrusteeAutoBooking(autoBooking: InsertTrusteeAutoBooking): Promise<TrusteeAutoBooking>;
-  updateTrusteeAutoBooking(id: number, autoBooking: Partial<TrusteeAutoBooking>): Promise<TrusteeAutoBooking>;
-  getTrusteeAutoBookingsByMonth(year: number, month: number): Promise<TrusteeAutoBooking[]>;
   
   // Food Settings
   getFoodSettings(): Promise<FoodSettings | undefined>;
@@ -386,7 +381,15 @@ export class DatabaseStorage implements IStorage {
       .from(passwordResetTokens)
       .where(eq(passwordResetTokens.token, token))
       .limit(1);
-    return resetToken;
+    
+    if (!resetToken) return undefined;
+    
+    return {
+      id: resetToken.id,
+      userId: resetToken.userId,
+      used: resetToken.used || false,
+      expiresAt: resetToken.expiresAt.toISOString()
+    };
   }
 
   async markPasswordResetTokenAsUsed(tokenId: number): Promise<void> {
