@@ -10,7 +10,7 @@ import BookingDetailsModal from "./booking-details-modal";
 export default function CheckinCheckout() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
 
   const { data: checkins, isLoading: loadingCheckins } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/todays-checkins"],
@@ -119,7 +119,7 @@ export default function CheckinCheckout() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedBookingId(booking.id)}
+                      onClick={() => setSelectedBooking({ booking, user, category })}
                     >
                       View ID
                     </Button>
@@ -177,7 +177,7 @@ export default function CheckinCheckout() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedBookingId(booking.id)}
+                      onClick={() => setSelectedBooking({ booking, user, category })}
                     >
                       Payment
                     </Button>
@@ -190,11 +190,11 @@ export default function CheckinCheckout() {
       </Card>
 
       {/* Booking Details Modal */}
-      {selectedBookingId && (
+      {selectedBooking && (
         <BookingDetailsModal
-          booking={null}
-          isOpen={!!selectedBookingId}
-          onClose={() => setSelectedBookingId(null)}
+          booking={selectedBooking}
+          isOpen={!!selectedBooking}
+          onClose={() => setSelectedBooking(null)}
         />
       )}
     </div>
