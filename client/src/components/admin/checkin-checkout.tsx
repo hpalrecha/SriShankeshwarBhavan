@@ -192,7 +192,7 @@ export default function CheckinCheckout() {
       {/* Booking Details Modal */}
       {selectedBookingId && (
         <BookingDetailsModal
-          bookingId={selectedBookingId}
+          booking={null}
           isOpen={!!selectedBookingId}
           onClose={() => setSelectedBookingId(null)}
         />

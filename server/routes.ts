@@ -944,39 +944,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Trustee auto-booking management
-  app.get("/api/admin/trustee-auto-bookings", async (req, res) => {
-    try {
-      const { year, month } = req.query;
-      if (!year || !month) {
-        return res.status(400).json({ message: "Year and month are required" });
-      }
+  // Trustee auto-booking routes - REMOVED per user request
+  // app.get("/api/admin/trustee-auto-bookings", async (req, res) => {
+  //   try {
+  //     const { year, month } = req.query;
+  //     if (!year || !month) {
+  //       return res.status(400).json({ message: "Year and month are required" });
+  //     }
       
-      const autoBookings = await storage.getTrusteeAutoBookingsByMonth(
-        parseInt(year as string), 
-        parseInt(month as string)
-      );
-      res.json(autoBookings);
-    } catch (error) {
-      console.error("Error fetching trustee auto-bookings:", error);
-      res.status(500).json({ message: "Failed to fetch trustee auto-bookings" });
-    }
-  });
+  //     const autoBookings = await storage.getTrusteeAutoBookingsByMonth(
+  //       parseInt(year as string), 
+  //       parseInt(month as string)
+  //     );
+  //     res.json(autoBookings);
+  //   } catch (error) {
+  //     console.error("Error fetching trustee auto-bookings:", error);
+  //     res.status(500).json({ message: "Failed to fetch trustee auto-bookings" });
+  //   }
+  // });
 
-  app.post("/api/admin/trustee-auto-bookings", async (req, res) => {
-    try {
-      const { year, month, dates, roomCategoryId } = req.body;
+  // app.post("/api/admin/trustee-auto-bookings", async (req, res) => {
+  //   try {
+  //     const { year, month, dates, roomCategoryId } = req.body;
       
-      const autoBooking = await storage.createTrusteeAutoBooking({
-        trusteeId: 1, // This should be the actual trustee ID from request
-        bookingDate: new Date(year, month - 1, dates[0]), // Use first date as primary
-      });
+  //     const autoBooking = await storage.createTrusteeAutoBooking({
+  //       trusteeId: 1, // This should be the actual trustee ID from request
+  //       bookingDate: new Date(year, month - 1, dates[0]), // Use first date as primary
+  //     });
       
-      res.status(201).json(autoBooking);
-    } catch (error) {
-      console.error("Error creating trustee auto-booking:", error);
-      res.status(500).json({ message: "Failed to create trustee auto-booking" });
-    }
-  });
+  //     res.status(201).json(autoBooking);
+  //   } catch (error) {
+  //     console.error("Error creating trustee auto-booking:", error);
+  //     res.status(500).json({ message: "Failed to create trustee auto-booking" });
+  //   }
+  // });
 
   // Get all trustees
   app.get("/api/admin/trustees", async (req, res) => {
@@ -1189,30 +1190,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auto-booking trigger
-  app.post("/api/trustees/auto-booking", async (req, res) => {
-    try {
-      // This would typically be triggered by a cron job
-      const trustees = await storage.getTrustees();
-      const results = [];
+  // Auto-booking trigger - REMOVED per user request
+  // app.post("/api/trustees/auto-booking", async (req, res) => {
+  //   try {
+  //     // This would typically be triggered by a cron job
+  //     const trustees = await storage.getTrustees();
+  //     const results = [];
 
-      for (const trustee of trustees) {
-        if (trustee.trusteeStatus === "active" && trustee.trusteeAutoBookDates && trustee.trusteeRoomCategoryId) {
-          const autoBooking = await storage.createTrusteeAutoBooking({
-            trusteeId: trustee.id,
-            bookingDate: new Date(), // This would be calculated based on auto-book dates
-            optOutStatus: "pending",
-          });
-          results.push(autoBooking);
-        }
-      }
+  //     for (const trustee of trustees) {
+  //       if (trustee.trusteeStatus === "active" && trustee.trusteeAutoBookDates && trustee.trusteeRoomCategoryId) {
+  //         const autoBooking = await storage.createTrusteeAutoBooking({
+  //           trusteeId: trustee.id,
+  //           bookingDate: new Date(), // This would be calculated based on auto-book dates
+  //           optOutStatus: "pending",
+  //         });
+  //         results.push(autoBooking);
+  //       }
+  //     }
 
-      res.json({ message: "Auto-booking triggered", results });
-    } catch (error) {
-      console.error("Error triggering auto-booking:", error);
-      res.status(500).json({ message: "Failed to trigger auto-booking" });
-    }
-  });
+  //     res.json({ message: "Auto-booking triggered", results });
+  //   } catch (error) {
+  //     console.error("Error triggering auto-booking:", error);
+  //     res.status(500).json({ message: "Failed to trigger auto-booking" });
+  //   }
+  // });
 
   // Seed initial data
   app.get("/api/seed", async (req, res) => {

@@ -33,7 +33,7 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ### User Management
 - **Customer Portal**: Public booking interface with room search and guest details
 - **Admin Dashboard**: Complete booking and guest management system
-- **Trustee System**: Privileged users with auto-booking capabilities (2 days/month)
+- **Trustee System**: Privileged user accounts for special guests (manual bookings only)
 
 ### Room Management
 - **Room Categories**: Two configurable room types with pricing and unit limits
@@ -56,11 +56,10 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 4. Booking is created with unique booking ID
 5. Email notifications are triggered for confirmation
 
-### Trustee Auto-Booking
-1. Admin triggers monthly auto-booking process
-2. System identifies active trustees with configured booking dates
-3. Automatic bookings are created for available dates
-4. Email notifications sent to trustees with opt-out options
+### Trustee Management
+1. Trustees can make regular bookings through the normal customer booking process
+2. Admin can view and manage trustee accounts through the user management interface
+3. No automated booking functionality - all bookings are manual
 
 ### Admin Operations
 1. Dashboard displays real-time statistics and recent bookings
@@ -103,6 +102,8 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 23, 2025: Completely removed trustee auto-booking functionality per user request - disabled trusteeAutoBookings table in schema, removed all related API routes, storage methods, and UI components, replaced trustee management interface with placeholder message, removed auto-booking trigger functionality and calendar scheduling
+- July 23, 2025: Fixed View ID and Payment buttons in check-in/check-out interface - buttons now properly open booking details modal with correct props, added missing state management for modal control
 - July 23, 2025: Fixed room image removal functionality - corrected image deletion logic to properly clear imageUrl from database when remove button is clicked, ensuring removed images don't persist after updates
 - July 23, 2025: Fixed dialog scrollability issues across all admin modals - added proper scrollable containers with max-height constraints to Room Inventory, User Details, Booking Details, and WhatsApp Settings dialogs
 - July 23, 2025: Redesigned admin dashboard with modern sidebar navigation - replaced horizontal tab navigation with vertical sidebar menu, removed public site header from admin area, added dedicated admin branding with SSH logo, improved navigation with icons and contextual descriptions, enhanced visual hierarchy with proper spacing and modern design patterns

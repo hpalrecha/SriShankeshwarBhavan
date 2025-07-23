@@ -305,39 +305,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Trustee Auto Bookings
-  async getTrusteeAutoBookings(): Promise<TrusteeAutoBooking[]> {
-    return await db.select().from(trusteeAutoBookings).orderBy(desc(trusteeAutoBookings.createdAt));
-  }
+  // Trustee auto-booking methods - REMOVED per user request
+  // async getTrusteeAutoBookings(): Promise<TrusteeAutoBooking[]> {
+  //   return await db.select().from(trusteeAutoBookings).orderBy(desc(trusteeAutoBookings.createdAt));
+  // }
 
-  async createTrusteeAutoBooking(autoBooking: InsertTrusteeAutoBooking): Promise<TrusteeAutoBooking> {
-    const [newAutoBooking] = await db.insert(trusteeAutoBookings).values(autoBooking).returning();
-    return newAutoBooking;
-  }
+  // async createTrusteeAutoBooking(autoBooking: InsertTrusteeAutoBooking): Promise<TrusteeAutoBooking> {
+  //   const [newAutoBooking] = await db.insert(trusteeAutoBookings).values(autoBooking).returning();
+  //   return newAutoBooking;
+  // }
 
-  async updateTrusteeAutoBooking(id: number, autoBooking: Partial<TrusteeAutoBooking>): Promise<TrusteeAutoBooking> {
-    const [updatedAutoBooking] = await db
-      .update(trusteeAutoBookings)
-      .set(autoBooking)
-      .where(eq(trusteeAutoBookings.id, id))
-      .returning();
-    return updatedAutoBooking;
-  }
+  // async updateTrusteeAutoBooking(id: number, autoBooking: Partial<TrusteeAutoBooking>): Promise<TrusteeAutoBooking> {
+  //   const [updatedAutoBooking] = await db
+  //     .update(trusteeAutoBookings)
+  //     .set(autoBooking)
+  //     .where(eq(trusteeAutoBookings.id, id))
+  //     .returning();
+  //   return updatedAutoBooking;
+  // }
 
-  async getTrusteeAutoBookingsByMonth(year: number, month: number): Promise<TrusteeAutoBooking[]> {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+  // async getTrusteeAutoBookingsByMonth(year: number, month: number): Promise<TrusteeAutoBooking[]> {
+  //   const startDate = new Date(year, month - 1, 1);
+  //   const endDate = new Date(year, month, 0);
 
-    return await db
-      .select()
-      .from(trusteeAutoBookings)
-      .where(
-        and(
-          gte(trusteeAutoBookings.bookingDate, startDate),
-          lte(trusteeAutoBookings.bookingDate, endDate)
-        )
-      )
-      .orderBy(asc(trusteeAutoBookings.bookingDate));
-  }
+  //   return await db
+  //     .select()
+  //     .from(trusteeAutoBookings)
+  //     .where(
+  //       and(
+  //         gte(trusteeAutoBookings.bookingDate, startDate),
+  //         lte(trusteeAutoBookings.bookingDate, endDate)
+  //       )
+  //     )
+  //     .orderBy(asc(trusteeAutoBookings.bookingDate));
+  // }
 
   // Food Settings
   async getFoodSettings(): Promise<FoodSettings | undefined> {

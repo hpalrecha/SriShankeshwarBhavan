@@ -127,14 +127,15 @@ export const foodSettings = pgTable("food_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const trusteeAutoBookings = pgTable("trustee_auto_bookings", {
-  id: serial("id").primaryKey(),
-  trusteeId: integer("trustee_id").references(() => users.id).notNull(),
-  bookingDate: timestamp("booking_date").notNull(),
-  optOutStatus: varchar("opt_out_status", { length: 50 }).default("pending"), // pending, confirmed, opted_out
-  bookingId: integer("booking_id").references(() => roomBookings.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// Trustee auto-booking table - REMOVED per user request
+// export const trusteeAutoBookings = pgTable("trustee_auto_bookings", {
+//   id: serial("id").primaryKey(),
+//   trusteeId: integer("trustee_id").references(() => users.id).notNull(),
+//   bookingDate: timestamp("booking_date").notNull(),
+//   optOutStatus: varchar("opt_out_status", { length: 50 }).default("pending"), // pending, confirmed, opted_out
+//   bookingId: integer("booking_id").references(() => roomBookings.id),
+//   createdAt: timestamp("created_at").defaultNow(),
+// });
 
 // Relations
 export const roomCategoriesRelations = relations(roomCategories, ({ many }) => ({
@@ -144,7 +145,7 @@ export const roomCategoriesRelations = relations(roomCategories, ({ many }) => (
 
 export const usersRelations = relations(users, ({ many, one }) => ({
   bookings: many(roomBookings),
-  trusteeAutoBookings: many(trusteeAutoBookings),
+  // trusteeAutoBookings: many(trusteeAutoBookings), // REMOVED
   trusteeRoomCategory: one(roomCategories, {
     fields: [users.trusteeRoomCategoryId],
     references: [roomCategories.id],
@@ -161,10 +162,10 @@ export const roomBookingsRelations = relations(roomBookings, ({ one, many }) => 
     references: [roomCategories.id],
   }),
   idProofs: many(idProofs),
-  trusteeAutoBooking: one(trusteeAutoBookings, {
-    fields: [roomBookings.id],
-    references: [trusteeAutoBookings.bookingId],
-  }),
+  // trusteeAutoBooking: one(trusteeAutoBookings, { // REMOVED
+  //   fields: [roomBookings.id],
+  //   references: [trusteeAutoBookings.bookingId],
+  // }),
 }));
 
 export const idProofsRelations = relations(idProofs, ({ one }) => ({
@@ -174,16 +175,17 @@ export const idProofsRelations = relations(idProofs, ({ one }) => ({
   }),
 }));
 
-export const trusteeAutoBookingsRelations = relations(trusteeAutoBookings, ({ one }) => ({
-  trustee: one(users, {
-    fields: [trusteeAutoBookings.trusteeId],
-    references: [users.id],
-  }),
-  booking: one(roomBookings, {
-    fields: [trusteeAutoBookings.bookingId],
-    references: [roomBookings.id],
-  }),
-}));
+// Trustee auto-bookings relations - REMOVED
+// export const trusteeAutoBookingsRelations = relations(trusteeAutoBookings, ({ one }) => ({
+//   trustee: one(users, {
+//     fields: [trusteeAutoBookings.trusteeId],
+//     references: [users.id],
+//   }),
+//   booking: one(roomBookings, {
+//     fields: [trusteeAutoBookings.bookingId],
+//     references: [roomBookings.id],
+//   }),
+// }));
 
 // Insert schemas
 export const insertRoomCategorySchema = createInsertSchema(roomCategories).omit({
@@ -220,10 +222,11 @@ export const insertFoodSettingsSchema = createInsertSchema(foodSettings).omit({
   updatedAt: true,
 });
 
-export const insertTrusteeAutoBookingSchema = createInsertSchema(trusteeAutoBookings).omit({
-  id: true,
-  createdAt: true,
-});
+// Trustee auto-booking insert schema - REMOVED
+// export const insertTrusteeAutoBookingSchema = createInsertSchema(trusteeAutoBookings).omit({
+//   id: true,
+//   createdAt: true,
+// });
 
 // Types
 export type RoomCategory = typeof roomCategories.$inferSelect;
@@ -244,8 +247,9 @@ export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
 export type FoodSettings = typeof foodSettings.$inferSelect;
 export type InsertFoodSettings = z.infer<typeof insertFoodSettingsSchema>;
 
-export type TrusteeAutoBooking = typeof trusteeAutoBookings.$inferSelect;
-export type InsertTrusteeAutoBooking = z.infer<typeof insertTrusteeAutoBookingSchema>;
+// Trustee auto-booking types - REMOVED
+// export type TrusteeAutoBooking = typeof trusteeAutoBookings.$inferSelect;
+// export type InsertTrusteeAutoBooking = z.infer<typeof insertTrusteeAutoBookingSchema>;
 
 // WhatsApp configuration table
 export const whatsappConfig = pgTable("whatsapp_config", {
