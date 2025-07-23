@@ -3,11 +3,11 @@ import { Calendar, MapPin, Users } from "lucide-react";
 export default function HeroSection() {
   return (
     <section className="relative h-screen overflow-hidden">
-      {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-brand-orange/20"></div>
+      {/* Light Orange Background */}
+      <div className="absolute inset-0 bg-orange-50"></div>
 
       {/* Content */}
-      <div className="relative z-10 flex items-center justify-center h-full text-center text-white px-4">
+      <div className="relative z-10 flex items-center justify-center h-full text-center text-gray-800 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Logo/Brand */}
           <div className="mb-8">
@@ -21,7 +21,7 @@ export default function HeroSection() {
           </div>
 
           {/* Tagline */}
-          <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-2xl mx-auto">
+          <p className="text-xl md:text-2xl mb-8 text-gray-600 max-w-2xl mx-auto">
             Experience spiritual comfort and modern hospitality in the sacred town of Shankheshwar, Gujarat
           </p>
 
@@ -42,7 +42,7 @@ export default function HeroSection() {
           </div>
 
           {/* CTA */}
-          <div className="text-lg text-gray-200">
+          <div className="text-lg text-gray-600">
             <p>Scroll down to check availability and book your stay</p>
             <div className="mt-4 animate-bounce">
               <svg
