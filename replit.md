@@ -102,6 +102,8 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 23, 2025: Fixed critical room availability bug - corrected date overlap logic in getBookingsByDateRange method to properly detect overlapping bookings using lt/gt/ne operators, updated database query to find all bookings that overlap with requested dates instead of only bookings within the date range, added comprehensive debug logging to troubleshoot availability calculations
+- July 23, 2025: Fixed BookingsTable component errors - resolved missing BookOpen icon import and field name inconsistency (numberOfGuests → guests) that was causing runtime errors in admin booking management
 - July 23, 2025: Implemented comprehensive mobile responsiveness across entire admin system - added collapsible sidebar with hamburger menu for mobile devices, transformed booking table to responsive card layout on mobile, optimized dashboard stats grid for different screen sizes, enhanced check-in/checkout interface with flexible layouts, ensured all admin components work seamlessly on mobile without feature loss
 - July 23, 2025: Completely removed trustee auto-booking functionality per user request - disabled trusteeAutoBookings table in schema, removed all related API routes, storage methods, and UI components, replaced trustee management interface with placeholder message, removed auto-booking trigger functionality and calendar scheduling
 - July 23, 2025: Fixed View ID and Payment buttons in check-in/check-out interface - buttons now properly open booking details modal with correct props, added missing state management for modal control

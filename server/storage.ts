@@ -222,7 +222,22 @@ export class DatabaseStorage implements IStorage {
   async getBookingsByDateRange(startDate: Date, endDate: Date): Promise<RoomBooking[]> {
     // Find bookings that overlap with the requested date range
     // Overlap occurs when: booking.checkinDate < endDate AND booking.checkoutDate > startDate
-    return await db
+    console.log('DEBUG SQL: Looking for bookings with date range:', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+    
+    // First get all bookings to see what's in the database
+    const allBookings = await db.select().from(roomBookings);
+    console.log('DEBUG SQL: All bookings in database:', allBookings.map(b => ({
+      id: b.id,
+      checkin: b.checkinDate,
+      checkout: b.checkoutDate,
+      status: b.status,
+      category: b.roomCategoryId
+    })));
+    
+    const result = await db
       .select()
       .from(roomBookings)
       .where(
@@ -233,6 +248,16 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(roomBookings.checkinDate));
+      
+    console.log('DEBUG SQL: Found overlapping bookings:', result.map(b => ({
+      id: b.id,
+      checkin: b.checkinDate,
+      checkout: b.checkoutDate,
+      status: b.status,
+      category: b.roomCategoryId
+    })));
+    
+    return result;
   }
 
   async getTodaysCheckins(): Promise<RoomBooking[]> {

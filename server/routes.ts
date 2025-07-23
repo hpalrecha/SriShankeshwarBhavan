@@ -397,6 +397,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         booking.roomCategoryId === categoryId
       );
 
+      // Debug logging
+      console.log('DEBUG: Checking availability for:', {
+        checkinDate: checkinDate,
+        checkoutDate: checkoutDate,
+        roomCategoryId: categoryId,
+        guests: guestCount
+      });
+      console.log('DEBUG: Total bookings found:', bookings.length);
+      console.log('DEBUG: Category bookings found:', categoryBookings.length);
+      console.log('DEBUG: Category bookings:', categoryBookings.map(b => ({
+        id: b.id,
+        checkinDate: b.checkinDate,
+        checkoutDate: b.checkoutDate,
+        status: b.status,
+        roomsBooked: b.roomsBooked
+      })));
+
       // Get room category to check total units and capacity
       const category = await storage.getRoomCategory(categoryId);
       if (!category) {
