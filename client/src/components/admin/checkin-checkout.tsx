@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
+import BookingDetailsModal from "./booking-details-modal";
 
 export default function CheckinCheckout() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
 
   const { data: checkins, isLoading: loadingCheckins } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/todays-checkins"],
@@ -116,6 +119,7 @@ export default function CheckinCheckout() {
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => setSelectedBookingId(booking.id)}
                     >
                       View ID
                     </Button>
@@ -173,6 +177,7 @@ export default function CheckinCheckout() {
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => setSelectedBookingId(booking.id)}
                     >
                       Payment
                     </Button>
@@ -183,6 +188,15 @@ export default function CheckinCheckout() {
           )}
         </CardContent>
       </Card>
+
+      {/* Booking Details Modal */}
+      {selectedBookingId && (
+        <BookingDetailsModal
+          bookingId={selectedBookingId}
+          isOpen={!!selectedBookingId}
+          onClose={() => setSelectedBookingId(null)}
+        />
+      )}
     </div>
   );
 }
