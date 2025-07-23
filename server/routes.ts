@@ -397,22 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         booking.roomCategoryId === categoryId
       );
 
-      // Debug logging
-      console.log('DEBUG: Checking availability for:', {
-        checkinDate: checkinDate,
-        checkoutDate: checkoutDate,
-        roomCategoryId: categoryId,
-        guests: guestCount
-      });
-      console.log('DEBUG: Total bookings found:', bookings.length);
-      console.log('DEBUG: Category bookings found:', categoryBookings.length);
-      console.log('DEBUG: Category bookings:', categoryBookings.map(b => ({
-        id: b.id,
-        checkinDate: b.checkinDate,
-        checkoutDate: b.checkoutDate,
-        status: b.status,
-        roomsBooked: b.roomsBooked
-      })));
+
 
       // Get room category to check total units and capacity
       const category = await storage.getRoomCategory(categoryId);
@@ -425,8 +410,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sum + (booking.roomsBooked || 1);
       }, 0);
       
-      const availableUnits = category.totalUnits - totalRoomsBooked;
+      // Check for trustee reserved dates that would make rooms unavailable to non-trustees
+      let availableUnits = category.totalUnits - totalRoomsBooked;
       const roomsNeeded = Math.ceil(guestCount / category.maxOccupancy);
+      
+      // Check if any dates in the booking range are trustee-reserved
+      const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
+      const bookingDates = [];
+      for (let date = new Date(startDate); date < endDate; date.setDate(date.getDate() + 1)) {
+        bookingDates.push(new Date(date));
+      }
+      
+      const hasTrusteeReservedDates = bookingDates.some(bookingDate => {
+        const dayOfMonth = bookingDate.getDate();
+        return trusteeReservedDates.some(rd => rd.dayOfMonth === dayOfMonth);
+      });
+      
+      // If there are trustee reserved dates, mark as unavailable for non-trustees
+      if (hasTrusteeReservedDates) {
+        // For non-trustees, rooms are effectively unavailable on these dates
+        availableUnits = 0;
+      }
       
       res.json({
         available: availableUnits >= roomsNeeded,
