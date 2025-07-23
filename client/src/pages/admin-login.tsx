@@ -123,13 +123,7 @@ export default function AdminLogin() {
               </form>
             </Form>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 text-center">
-                <strong>Admin Credentials:</strong><br />
-                Email: admin@ssbb.in<br />
-                Password: SSBB@Admin2025!
-              </p>
-            </div>
+
           </CardContent>
         </Card>
 
