@@ -75,7 +75,7 @@ export default function CheckinCheckout() {
           ) : (
             <div className="space-y-4">
               {checkins.map(({ booking, user, category }) => (
-                <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-100 last:border-b-0 space-y-3 sm:space-y-0">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{user.name}</p>
                     <p className="text-sm text-gray-500">
@@ -87,7 +87,7 @@ export default function CheckinCheckout() {
                       </p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2 sm:space-x-2 sm:gap-0">
                     {booking.status === 'checked_in' ? (
                       <div className="flex space-x-2">
                         <Button
@@ -141,7 +141,7 @@ export default function CheckinCheckout() {
           ) : (
             <div className="space-y-4">
               {checkouts.map(({ booking, user, category }) => (
-                <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-100 last:border-b-0 space-y-3 sm:space-y-0">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{user.name}</p>
                     <p className="text-sm text-gray-500">
@@ -158,7 +158,7 @@ export default function CheckinCheckout() {
                       </p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2 sm:space-x-2 sm:gap-0">
                     {booking.status === 'checked_out' ? (
                       <div className="text-sm text-green-600 font-medium">
                         Completed

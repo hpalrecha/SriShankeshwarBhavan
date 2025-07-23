@@ -113,84 +113,233 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
 
   return (
     <>
-    <Card className="mb-8">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
+          <BookOpen className="h-5 w-5" />
           {userFilter ? `User Bookings (${filteredBookings.length})` : `Recent Bookings (${filteredBookings.length})`}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+      <CardContent className="p-0">
+        {/* Mobile Cards View */}
+        <div className="block lg:hidden space-y-4 p-4">
+          {filteredBookings.map(({ booking, user, category }) => (
+            <Card key={booking.id} className="border border-gray-200">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <Users className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{user.name}</div>
+                      <div className="text-sm text-gray-500">{user.email}</div>
+                    </div>
+                  </div>
+                  {getStatusBadge(booking.status)}
+                </div>
+                
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Room:</span>
+                    <span className="text-sm font-medium">{category.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Dates:</span>
+                    <span className="text-sm">
+                      {new Date(booking.checkinDate).toLocaleDateString()} - {new Date(booking.checkoutDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Amount:</span>
+                    <span className="text-sm font-medium">₹{booking.totalAmount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Guests:</span>
+                    <span className="text-sm">{booking.numberOfGuests} guests, 1 room</span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {booking.status === "confirmed" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-green-600 border-green-600 hover:bg-green-50 flex-1"
+                      onClick={() => handleStatusChange(booking.id, "checked_in")}
+                      disabled={updateBookingMutation.isPending}
+                    >
+                      Check In
+                    </Button>
+                  )}
+                  
+                  {booking.status === "checked_in" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50 flex-1"
+                      onClick={() => handleStatusChange(booking.id, "checked_out")}
+                      disabled={updateBookingMutation.isPending}
+                    >
+                      Check Out
+                    </Button>
+                  )}
+                  
+                  {(booking.status === "confirmed" || booking.status === "checked_in") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+                          handleStatusChange(booking.id, "cancelled");
+                        }
+                      }}
+                      disabled={updateBookingMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewDetails({ booking, user, category })}
+                    className="flex items-center gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Details
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="w-full border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left p-3 font-medium text-gray-700">GUEST</th>
+                <th className="text-left p-3 font-medium text-gray-700">ROOM</th>
+                <th className="text-left p-3 font-medium text-gray-700">DATES</th>
+                <th className="text-left p-3 font-medium text-gray-700">PAYMENT</th>
+                <th className="text-left p-3 font-medium text-gray-700">STATUS</th>
+                <th className="text-left p-3 font-medium text-gray-700">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {filteredBookings.map(({ booking, user, category }) => (
-                <tr key={booking.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                    <div className="text-sm text-gray-500">{booking.guests} guests, {booking.roomsBooked || 1} room{(booking.roomsBooked || 1) > 1 ? 's' : ''}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {category.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(booking.checkinDate).toLocaleDateString()} - {new Date(booking.checkoutDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getPaymentBadge(booking.paymentStatus)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(booking.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewDetails({ booking, user, category })}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Details
-                      </Button>
-                      {booking.status === "confirmed" && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleStatusChange(booking.id, "checked_in")}
-                          disabled={updateBookingMutation.isPending}
-                        >
-                          Check In
-                        </Button>
-                      )}
-                      {booking.status === "checked_in" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStatusChange(booking.id, "checked_out")}
-                          disabled={updateBookingMutation.isPending}
-                        >
-                          Check Out
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleStatusChange(booking.id, "cancelled")}
-                        disabled={updateBookingMutation.isPending}
-                      >
-                        Cancel
-                      </Button>
+                <tr key={booking.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <Users className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-xs text-gray-400">{booking.numberOfGuests} guests, 1 room</div>
+                      </div>
                     </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <div className="font-medium text-gray-900">{category.name}</div>
+                    <div className="text-sm text-gray-500">
+                      ₹{category.price}/night
+                    </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <div className="flex items-center gap-1 text-sm">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span>
+                        {new Date(booking.checkinDate).toLocaleDateString()} - {new Date(booking.checkoutDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {Math.ceil((new Date(booking.checkoutDate).getTime() - new Date(booking.checkinDate).getTime()) / (1000 * 60 * 60 * 24))} nights
+                    </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <div className="flex items-center gap-1">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900">
+                        ₹{booking.totalAmount}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {booking.paymentMethod === "pay_at_checkin" ? "Pay at Check-in" : booking.paymentMethod}
+                    </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <div className="space-y-2">
+                      <div>
+                        {getStatusBadge(booking.status)}
+                      </div>
+                      
+                      {booking.status === "confirmed" && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-600 border-green-600 hover:bg-green-50"
+                            onClick={() => handleStatusChange(booking.id, "checked_in")}
+                            disabled={updateBookingMutation.isPending}
+                          >
+                            Check In
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {booking.status === "checked_in" && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            onClick={() => handleStatusChange(booking.id, "checked_out")}
+                            disabled={updateBookingMutation.isPending}
+                          >
+                            Check Out
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {(booking.status === "confirmed" || booking.status === "checked_in") && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+                                handleStatusChange(booking.id, "cancelled");
+                              }
+                            }}
+                            disabled={updateBookingMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewDetails({ booking, user, category })}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Details
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -200,14 +349,17 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       </CardContent>
     </Card>
 
-    <BookingDetailsModal 
-      booking={selectedBooking}
-      isOpen={isModalOpen}
-      onClose={() => {
-        setIsModalOpen(false);
-        setSelectedBooking(null);
-      }}
-    />
+    {/* Booking Details Modal */}
+    {selectedBooking && (
+      <BookingDetailsModal
+        booking={selectedBooking}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedBooking(null);
+        }}
+      />
+    )}
     </>
   );
 }

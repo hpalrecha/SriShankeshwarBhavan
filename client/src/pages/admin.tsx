@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
   LayoutDashboard, 
   Package, 
@@ -26,7 +27,8 @@ import {
   Crown,
   Calendar,
   LogOut,
-  Hotel
+  Hotel,
+  Menu
 } from "lucide-react";
 
 interface UserWithBookings {
@@ -45,6 +47,7 @@ export default function Admin() {
   const { toast } = useToast();
   const [selectedUserForBooking, setSelectedUserForBooking] = useState<UserWithBookings | null>(null);
   const [userBookingsFilter, setUserBookingsFilter] = useState<number | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const isAdminLoggedIn = localStorage.getItem("admin_logged_in");
@@ -132,89 +135,120 @@ export default function Admin() {
     { id: "trustee-reservations", label: "Trustee Reservations", icon: Calendar },
   ];
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg flex flex-col">
-        {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-              <Hotel className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">SSH Admin</h1>
-              <p className="text-sm text-gray-500">Hotel Management</p>
-            </div>
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setSidebarOpen(false); // Close mobile sidebar when tab is selected
+  };
+
+  const SidebarContent = () => (
+    <>
+      {/* Logo/Header */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+            <Hotel className="h-6 w-6 text-white" />
           </div>
-        </div>
-
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-4 py-6">
-          <nav className="space-y-2">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-                    activeTab === item.id
-                      ? "bg-orange-500 text-white"
-                      : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </ScrollArea>
-
-        {/* Logout Button */}
-        <div className="p-4 border-t border-gray-200">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-3"
-            onClick={() => {
-              localStorage.removeItem("admin_logged_in");
-              setLocation("/");
-              toast({
-                title: "Logged Out",
-                description: "You have been successfully logged out.",
-              });
-            }}
-          >
-            <LogOut className="h-5 w-5" />
-            Logout
-          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">SSH Admin</h1>
+            <p className="text-sm text-gray-500">Hotel Management</p>
+          </div>
         </div>
       </div>
 
+      {/* Navigation */}
+      <ScrollArea className="flex-1 px-4 py-6">
+        <nav className="space-y-2">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                  activeTab === item.id
+                    ? "bg-orange-500 text-white"
+                    : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      {/* Logout Button */}
+      <div className="p-4 border-t border-gray-200">
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-3"
+          onClick={() => {
+            localStorage.removeItem("admin_logged_in");
+            setLocation("/");
+            toast({
+              title: "Logged Out",
+              description: "You have been successfully logged out.",
+            });
+          }}
+        >
+          <LogOut className="h-5 w-5" />
+          Logout
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-64 bg-white shadow-lg flex-col">
+        <SidebarContent />
+      </div>
+
+      {/* Mobile Sidebar */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="h-full bg-white flex flex-col">
+            <SidebarContent />
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <div className="bg-white shadow-sm border-b border-gray-200 px-8 py-4">
+        <div className="bg-white shadow-sm border-b border-gray-200 px-4 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {sidebarItems.find(item => item.id === activeTab)?.label || "Dashboard"}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                {activeTab === "dashboard" && "Overview of hotel operations and statistics"}
-                {activeTab === "inventory" && "Manage room categories and availability"}
-                {activeTab === "bookings" && "View and manage all bookings"}
-                {activeTab === "create-booking" && "Create new booking for guests"}
-                {activeTab === "checkin" && "Handle guest check-in and check-out"}
-                {activeTab === "food-settings" && "Configure meal pricing and options"}
-                {activeTab === "whatsapp-settings" && "WhatsApp notification configuration"}
-                {activeTab === "users" && "Manage guest accounts and information"}
-                {activeTab === "trustees" && "Manage trustee accounts and privileges"}
-                {activeTab === "trustee-reservations" && "Configure trustee-only reservation dates"}
-              </p>
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Mobile Menu Button */}
+              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm" className="lg:hidden">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+              </Sheet>
+
+              <div className="min-w-0">
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">
+                  {sidebarItems.find(item => item.id === activeTab)?.label || "Dashboard"}
+                </h2>
+                <p className="text-sm lg:text-base text-gray-600 mt-1 hidden sm:block">
+                  {activeTab === "dashboard" && "Overview of hotel operations and statistics"}
+                  {activeTab === "inventory" && "Manage room categories and availability"}
+                  {activeTab === "bookings" && "View and manage all bookings"}
+                  {activeTab === "create-booking" && "Create new booking for guests"}
+                  {activeTab === "checkin" && "Handle guest check-in and check-out"}
+                  {activeTab === "food-settings" && "Configure meal pricing and options"}
+                  {activeTab === "whatsapp-settings" && "WhatsApp notification configuration"}
+                  {activeTab === "users" && "Manage guest accounts and information"}
+                  {activeTab === "trustees" && "Manage trustee accounts and privileges"}
+                  {activeTab === "trustee-reservations" && "Configure trustee-only reservation dates"}
+                </p>
+              </div>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-xs lg:text-sm text-gray-500 hidden md:block">
               {new Date().toLocaleDateString('en-IN', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -226,8 +260,8 @@ export default function Admin() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex-1 p-4 lg:p-8 min-w-0">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6 min-w-0">
             {renderTabContent()}
           </div>
         </div>

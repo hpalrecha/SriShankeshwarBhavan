@@ -48,7 +48,7 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
   return (
     <div className="space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -145,7 +145,7 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-3">
                     <div>
                       <p className="text-gray-600">Room Type</p>
                       <p className="font-medium">{category.name}</p>
