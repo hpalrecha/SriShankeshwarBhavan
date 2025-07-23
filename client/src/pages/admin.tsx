@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import Header from "@/components/layout/header";
-import Tabs from "@/components/layout/tabs";
 import DashboardStats from "@/components/admin/dashboard-stats";
 import BookingsTable from "@/components/admin/bookings-table";
 import CheckinCheckout from "@/components/admin/checkin-checkout";
@@ -13,8 +11,23 @@ import FoodSettings from "@/components/admin/food-settings";
 import WhatsAppSettings from "./admin/WhatsAppSettings";
 import TrusteeReservations from "./admin/TrusteeReservations";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  LayoutDashboard, 
+  Package, 
+  BookOpen, 
+  PlusCircle, 
+  CheckCircle, 
+  Utensils, 
+  MessageSquare, 
+  Users, 
+  Crown,
+  Calendar,
+  LogOut,
+  Hotel
+} from "lucide-react";
 
 interface UserWithBookings {
   id: number;
@@ -106,18 +119,64 @@ export default function Admin() {
     }
   };
 
+  const sidebarItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "inventory", label: "Room Inventory", icon: Package },
+    { id: "bookings", label: "Bookings", icon: BookOpen },
+    { id: "create-booking", label: "New Booking", icon: PlusCircle },
+    { id: "checkin", label: "Check-in/out", icon: CheckCircle },
+    { id: "food-settings", label: "Food Settings", icon: Utensils },
+    { id: "whatsapp-settings", label: "WhatsApp", icon: MessageSquare },
+    { id: "users", label: "Users", icon: Users },
+    { id: "trustees", label: "Trustees", icon: Crown },
+    { id: "trustee-reservations", label: "Trustee Reservations", icon: Calendar },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-2">Manage bookings, guests, and hotel operations</p>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-white shadow-lg flex flex-col">
+        {/* Logo/Header */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <Hotel className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">SSH Admin</h1>
+              <p className="text-sm text-gray-500">Hotel Management</p>
+            </div>
           </div>
+        </div>
+
+        {/* Navigation */}
+        <ScrollArea className="flex-1 px-4 py-6">
+          <nav className="space-y-2">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                    activeTab === item.id
+                      ? "bg-orange-500 text-white"
+                      : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </ScrollArea>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
           <Button
             variant="outline"
+            className="w-full justify-start gap-3"
             onClick={() => {
               localStorage.removeItem("admin_logged_in");
               setLocation("/");
@@ -127,44 +186,51 @@ export default function Admin() {
               });
             }}
           >
+            <LogOut className="h-5 w-5" />
             Logout
           </Button>
         </div>
+      </div>
 
-        {/* Tab Navigation */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex space-x-6">
-              {[
-                { id: "dashboard", label: "Dashboard" },
-                { id: "inventory", label: "Room Inventory" },
-                { id: "bookings", label: "Bookings" },
-                { id: "create-booking", label: "New Booking" },
-                { id: "checkin", label: "Check-in/out" },
-                { id: "food-settings", label: "Food Settings" },
-                { id: "whatsapp-settings", label: "WhatsApp" },
-                { id: "users", label: "Users" },
-                { id: "trustees", label: "Trustees" },
-                { id: "trustee-reservations", label: "Trustee Reservations" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-brand-orange text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Header */}
+        <div className="bg-white shadow-sm border-b border-gray-200 px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {sidebarItems.find(item => item.id === activeTab)?.label || "Dashboard"}
+              </h2>
+              <p className="text-gray-600 mt-1">
+                {activeTab === "dashboard" && "Overview of hotel operations and statistics"}
+                {activeTab === "inventory" && "Manage room categories and availability"}
+                {activeTab === "bookings" && "View and manage all bookings"}
+                {activeTab === "create-booking" && "Create new booking for guests"}
+                {activeTab === "checkin" && "Handle guest check-in and check-out"}
+                {activeTab === "food-settings" && "Configure meal pricing and options"}
+                {activeTab === "whatsapp-settings" && "WhatsApp notification configuration"}
+                {activeTab === "users" && "Manage guest accounts and information"}
+                {activeTab === "trustees" && "Manage trustee accounts and privileges"}
+                {activeTab === "trustee-reservations" && "Configure trustee-only reservation dates"}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-        
-        {/* Tab Content */}
-        {renderTabContent()}
+            <div className="text-sm text-gray-500">
+              {new Date().toLocaleDateString('en-IN', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 p-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {renderTabContent()}
+          </div>
+        </div>
       </div>
     </div>
   );
