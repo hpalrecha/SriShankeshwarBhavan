@@ -329,7 +329,50 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 </div>
               </div>
 
-
+              {/* Travel Timing Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <Clock className="h-4 w-4" />
+                  <h4>Travel Timing (Optional)</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="estimatedArrivalTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Arrival Time (ETA)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            placeholder="Select arrival time"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="estimatedDepartureTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Departure Time (ETD)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            placeholder="Select departure time"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
 
               {/* Food Options Section */}
               <div className="space-y-4 pt-4 border-t">
