@@ -817,19 +817,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateRoomBooking(bookingId, { status: "cancelled" });
       
-      // Send booking cancellation email
+      // Send booking cancellation email and WhatsApp notification
       try {
         const category = await storage.getRoomCategory(booking.roomCategoryId);
         const user = await storage.getUser(booking.userId);
         if (category) {
+          // Send cancellation email
           await sendBookingCancellationEmail({
             booking: { ...booking, status: "cancelled" },
             user,
             category,
           });
+
+          // Send cancellation WhatsApp notification
+          try {
+            await whatsappService.sendBookingCancellation(booking, user || null, category);
+            console.log(`📱 WhatsApp cancellation notification sent for booking: ${booking.bookingId}`);
+          } catch (whatsappError) {
+            console.error("❌ Error sending WhatsApp cancellation notification:", whatsappError);
+          }
         }
       } catch (error) {
-        console.error("Error sending booking cancellation email:", error);
+        console.error("Error sending booking cancellation notifications:", error);
       }
       
       res.json({ message: "Booking cancelled successfully" });
@@ -927,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all bookings created today (regardless of check-in date)
       const allBookings = await storage.getRoomBookings();
       const bookingsCreatedToday = allBookings.filter(booking => {
-        const createdDate = new Date(booking.createdAt);
+        const createdDate = booking.createdAt ? new Date(booking.createdAt) : new Date();
         // Use toDateString() to compare just the date part
         return createdDate.toDateString() === today.toDateString();
       });

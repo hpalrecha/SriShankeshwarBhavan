@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { sendPreCheckinReminderEmail, sendCheckinDayWelcomeEmail, sendPostCheckoutFeedbackEmail } from "./email";
+import { whatsappService } from "./whatsapp";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -30,7 +31,15 @@ export function startPreCheckinReminderTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendPreCheckinReminderEmail(booking, user, category);
+            // Send email notification
+            await sendPreCheckinReminderEmail(booking, user || null, category);
+            
+            // Send WhatsApp notification
+            try {
+              await whatsappService.sendPreCheckinReminder(booking, user || null, category);
+            } catch (whatsappError) {
+              console.error(`WhatsApp pre-checkin reminder failed for ${booking.bookingId}:`, whatsappError);
+            }
           }
         } catch (error) {
           console.error(`Error sending pre-checkin reminder for booking ${booking.bookingId}:`, error);
@@ -113,7 +122,15 @@ export function startCheckinDayReminderTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendCheckinDayWelcomeEmail(booking, user, category);
+            // Send email notification
+            await sendCheckinDayWelcomeEmail(booking, user || null, category);
+            
+            // Send WhatsApp notification
+            try {
+              await whatsappService.sendCheckinDayWelcome(booking, user || null, category);
+            } catch (whatsappError) {
+              console.error(`WhatsApp check-in day welcome failed for ${booking.bookingId}:`, whatsappError);
+            }
           }
         } catch (error) {
           console.error(`Error sending check-in day reminder for booking ${booking.bookingId}:`, error);
@@ -155,7 +172,11 @@ export function startPostCheckoutFeedbackTask() {
           const category = await storage.getRoomCategory(booking.roomCategoryId);
           
           if (category) {
-            await sendPostCheckoutFeedbackEmail(booking, user, category);
+            // Send email notification
+            await sendPostCheckoutFeedbackEmail(booking, user || null, category);
+            
+            // Send WhatsApp notification (feedback requests are typically email-only, but could be added if needed)
+            // Note: Feedback requests usually work better via email with forms/links
           }
         } catch (error) {
           console.error(`Error sending post-checkout feedback for booking ${booking.bookingId}:`, error);
