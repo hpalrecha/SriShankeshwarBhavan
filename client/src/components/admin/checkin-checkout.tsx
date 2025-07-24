@@ -2,15 +2,37 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
 import BookingDetailsModal from "./booking-details-modal";
+import { Plane } from "lucide-react";
+
+const travelDetailsSchema = z.object({
+  arrivingFrom: z.string().optional(),
+  goingTo: z.string().optional(),
+});
 
 export default function CheckinCheckout() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
+  const [showTravelDialog, setShowTravelDialog] = useState(false);
+  const [checkingInBooking, setCheckingInBooking] = useState<BookingWithDetails | null>(null);
+
+  const travelForm = useForm<z.infer<typeof travelDetailsSchema>>({
+    resolver: zodResolver(travelDetailsSchema),
+    defaultValues: {
+      arrivingFrom: "",
+      goingTo: "",
+    },
+  });
 
   const { data: checkins, isLoading: loadingCheckins } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/todays-checkins"],
@@ -45,11 +67,30 @@ export default function CheckinCheckout() {
     },
   });
 
-  const handleCheckIn = (bookingId: number) => {
-    updateBookingMutation.mutate({
-      id: bookingId,
-      updates: { status: "checked_in" },
+  const handleCheckIn = (booking: BookingWithDetails) => {
+    setCheckingInBooking(booking);
+    // Pre-populate with existing data if available
+    travelForm.reset({
+      arrivingFrom: booking.booking.arrivingFrom || "",
+      goingTo: booking.booking.goingTo || "",
     });
+    setShowTravelDialog(true);
+  };
+
+  const confirmCheckIn = (values: z.infer<typeof travelDetailsSchema>) => {
+    if (!checkingInBooking) return;
+    
+    updateBookingMutation.mutate({
+      id: checkingInBooking.booking.id,
+      updates: { 
+        status: "checked_in",
+        arrivingFrom: values.arrivingFrom,
+        goingTo: values.goingTo,
+      },
+    });
+    setShowTravelDialog(false);
+    setCheckingInBooking(null);
+    travelForm.reset();
   };
 
   const handleCheckOut = (bookingId: number) => {
@@ -110,7 +151,7 @@ export default function CheckinCheckout() {
                       <Button
                         size="sm"
                         className="bg-brand-orange hover:bg-brand-orange-light"
-                        onClick={() => handleCheckIn(booking.id)}
+                        onClick={() => handleCheckIn({ booking, user, category })}
                         disabled={updateBookingMutation.isPending}
                       >
                         Check In
@@ -197,6 +238,79 @@ export default function CheckinCheckout() {
           onClose={() => setSelectedBooking(null)}
         />
       )}
+
+      {/* Travel Details Check-in Dialog */}
+      <Dialog open={showTravelDialog} onOpenChange={setShowTravelDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plane className="w-5 h-5" />
+              Guest Travel Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {checkingInBooking && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="font-medium">{checkingInBooking.user.name}</p>
+                <p className="text-sm text-gray-600">
+                  {checkingInBooking.category.name} - Booking ID: {checkingInBooking.booking.bookingId}
+                </p>
+              </div>
+
+              <Form {...travelForm}>
+                <form onSubmit={travelForm.handleSubmit(confirmCheckIn)} className="space-y-4">
+                  <FormField
+                    control={travelForm.control}
+                    name="arrivingFrom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Arriving From</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City/Location (e.g., Mumbai, Bangalore)" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={travelForm.control}
+                    name="goingTo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Going To (Next Destination)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City/Location (e.g., Delhi, Ahmedabad)" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowTravelDialog(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={updateBookingMutation.isPending}
+                      className="flex-1 bg-brand-orange hover:bg-brand-orange-light"
+                    >
+                      {updateBookingMutation.isPending ? "Checking In..." : "Complete Check-In"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

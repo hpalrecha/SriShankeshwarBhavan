@@ -25,7 +25,7 @@ export interface GuestFormData {
   state?: string;
   pincode?: string;
   country?: string;
-  paymentMethod: "online" | "checkin";
+  paymentMethod: "pay_online" | "pay_at_checkin";
 }
 
 export interface FoodSettings {

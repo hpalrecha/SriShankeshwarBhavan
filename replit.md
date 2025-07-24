@@ -102,6 +102,7 @@ This is a comprehensive hotel room booking platform built for Sri Shankeshwar Be
 ## Changelog
 ```
 Changelog:
+- July 24, 2025: Enhanced booking flow UX - removed travel details fields (arriving from/going to) from guest booking form and integrated them into admin check-in process with dedicated travel details dialog, streamlined guest booking experience while maintaining complete travel information capture during property check-in
 - July 23, 2025: PRODUCTION READY - Fixed all LSP errors and cleaned code for deployment, removed trustee auto-booking references from storage interface, fixed password reset token type compatibility, resolved frontend type errors, integrated trustee reservation logic into room availability check preventing booking inconsistencies
 - July 23, 2025: Fixed critical room availability bug - corrected date overlap logic in getBookingsByDateRange method to properly detect overlapping bookings using lt/gt/ne operators, updated database query to find all bookings that overlap with requested dates instead of only bookings within the date range, added comprehensive debug logging to troubleshoot availability calculations
 - July 23, 2025: Fixed BookingsTable component errors - resolved missing BookOpen icon import and field name inconsistency (numberOfGuests → guests) that was causing runtime errors in admin booking management

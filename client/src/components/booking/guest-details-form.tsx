@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, User, MapPin, Plane, Utensils, Clock } from "lucide-react";
+import { CheckCircle, User, MapPin, Utensils, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
@@ -28,9 +28,7 @@ const guestSchema = z.object({
   state: z.string().optional(),
   pincode: z.string().optional(),
   country: z.string().default("India"),
-  // Travel details
-  arrivingFrom: z.string().optional(),
-  goingTo: z.string().optional(),
+
   estimatedArrivalTime: z.string().optional(),
   estimatedDepartureTime: z.string().optional(),
   // Food options
@@ -72,8 +70,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       state: "",
       pincode: "",
       country: "India",
-      arrivingFrom: "",
-      goingTo: "",
+
       estimatedArrivalTime: "",
       estimatedDepartureTime: "",
       breakfastDays: 0,
@@ -145,9 +142,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         checkinDate: bookingData.checkinDate,
         checkoutDate: bookingData.checkoutDate,
         guests: bookingData.guests,
-        // Travel details
-        arrivingFrom: values.arrivingFrom,
-        goingTo: values.goingTo,
+
         estimatedArrivalTime: values.estimatedArrivalTime,
         estimatedDepartureTime: values.estimatedDepartureTime,
         // Food options
@@ -155,7 +150,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         lunchDays: values.lunchDays,
         dinnerDays: values.dinnerDays,
         paymentMethod: values.paymentMethod,
-        paymentStatus: values.paymentMethod === "online" ? "pending" : "unpaid",
+        paymentStatus: values.paymentMethod === "pay_online" ? "pending" : "unpaid",
         totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
@@ -334,71 +329,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 </div>
               </div>
 
-              {/* Travel Details Section */}
-              <div className="space-y-4 pt-4 border-t">
-                <div className="flex items-center gap-2 text-gray-900 font-medium">
-                  <Plane className="h-4 w-4" />
-                  <h4>Travel Details</h4>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="arrivingFrom"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Arriving From</FormLabel>
-                        <FormControl>
-                          <Input placeholder="City/Location" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="goingTo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Going To (Next Destination)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="City/Location" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="estimatedArrivalTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estimated Arrival Time</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="estimatedDepartureTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estimated Departure Time</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+
 
               {/* Food Options Section */}
               <div className="space-y-4 pt-4 border-t">
