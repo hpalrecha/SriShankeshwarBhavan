@@ -924,20 +924,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      const todaysBookings = await storage.getBookingsByDateRange(today, tomorrow);
-      const checkedInToday = todaysBookings.filter(b => b.status === "checked_in").length;
-      const todaysRevenue = todaysBookings
-        .filter(b => b.paymentStatus === "paid")
+      // Get all bookings created today (regardless of check-in date)
+      const allBookings = await storage.getRoomBookings();
+      const bookingsCreatedToday = allBookings.filter(booking => {
+        const createdDate = new Date(booking.createdAt);
+        // Use toDateString() to compare just the date part
+        return createdDate.toDateString() === today.toDateString();
+      });
+
+      // Get bookings checking in today (active only)
+      const todaysCheckins = await storage.getBookingsByDateRange(today, tomorrow);
+      const checkedInToday = todaysCheckins.filter(b => b.status === "checked_in").length;
+      
+      // Calculate revenue from today's created bookings that are paid
+      const todaysRevenue = bookingsCreatedToday
+        .filter(b => b.paymentStatus === "paid" && b.status !== "cancelled")
         .reduce((sum, b) => sum + parseFloat(b.totalAmount), 0);
 
-      // Calculate occupancy rate
+      // Calculate occupancy rate based on rooms actually occupied today
       const categories = await storage.getRoomCategories();
       const totalRooms = categories.reduce((sum, cat) => sum + cat.totalUnits, 0);
-      const occupiedRooms = todaysBookings.filter(b => b.status === "checked_in").length;
+      const occupiedRooms = todaysCheckins.filter(b => b.status === "checked_in").length;
       const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 
       res.json({
-        todayBookings: todaysBookings.length,
+        todayBookings: bookingsCreatedToday.length,
         checkedIn: checkedInToday,
         revenue: todaysRevenue,
         occupancy: `${occupancyRate}%`
