@@ -4,32 +4,35 @@ import {
   roomBookings,
   idProofs,
   adminUsers,
-
   foodSettings,
   passwordResetTokens,
   whatsappConfig,
   whatsappTemplates,
   trusteeReservedDates,
+  paymentGateways,
+  paymentTransactions,
   type RoomCategory,
   type User,
   type RoomBooking,
   type IdProof,
   type AdminUser,
-
   type FoodSettings,
   type WhatsAppConfig,
   type WhatsAppTemplate,
   type TrusteeReservedDate,
+  type PaymentGateway,
+  type PaymentTransaction,
   type InsertRoomCategory,
   type InsertUser,
   type InsertRoomBooking,
   type InsertIdProof,
   type InsertAdminUser,
-
   type InsertFoodSettings,
   type InsertWhatsAppConfig,
   type InsertWhatsAppTemplate,
   type InsertTrusteeReservedDate,
+  type InsertPaymentGateway,
+  type InsertPaymentTransaction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc, lt, gt, ne } from "drizzle-orm";
@@ -98,6 +101,23 @@ export interface IStorage {
   updateTrusteeReservedDate(id: number, reservedDate: Partial<TrusteeReservedDate>): Promise<TrusteeReservedDate>;
   deleteTrusteeReservedDate(id: number): Promise<void>;
   getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]>;
+
+  // Payment Gateways
+  getPaymentGateways(): Promise<PaymentGateway[]>;
+  getActivePaymentGateways(): Promise<PaymentGateway[]>;
+  getPaymentGateway(id: number): Promise<PaymentGateway | undefined>;
+  getPaymentGatewayByName(gatewayName: string): Promise<PaymentGateway | undefined>;
+  createPaymentGateway(gateway: InsertPaymentGateway): Promise<PaymentGateway>;
+  updatePaymentGateway(id: number, gateway: Partial<PaymentGateway>): Promise<PaymentGateway>;
+  deletePaymentGateway(id: number): Promise<void>;
+
+  // Payment Transactions
+  getPaymentTransactions(): Promise<PaymentTransaction[]>;
+  getPaymentTransaction(id: number): Promise<PaymentTransaction | undefined>;
+  getPaymentTransactionByTransactionId(transactionId: string): Promise<PaymentTransaction | undefined>;
+  getPaymentTransactionsByBookingId(bookingId: number): Promise<PaymentTransaction[]>;
+  createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
+  updatePaymentTransaction(id: number, transaction: Partial<PaymentTransaction>): Promise<PaymentTransaction>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -497,6 +517,80 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(trusteeReservedDates)
       .where(eq(trusteeReservedDates.isEnabled, true))
       .orderBy(asc(trusteeReservedDates.dayOfMonth));
+  }
+
+  // Payment Gateways
+  async getPaymentGateways(): Promise<PaymentGateway[]> {
+    return await db.select().from(paymentGateways).orderBy(asc(paymentGateways.displayName));
+  }
+
+  async getActivePaymentGateways(): Promise<PaymentGateway[]> {
+    return await db.select().from(paymentGateways)
+      .where(eq(paymentGateways.isActive, true))
+      .orderBy(asc(paymentGateways.displayName));
+  }
+
+  async getPaymentGateway(id: number): Promise<PaymentGateway | undefined> {
+    const [gateway] = await db.select().from(paymentGateways).where(eq(paymentGateways.id, id));
+    return gateway;
+  }
+
+  async getPaymentGatewayByName(gatewayName: string): Promise<PaymentGateway | undefined> {
+    const [gateway] = await db.select().from(paymentGateways).where(eq(paymentGateways.gatewayName, gatewayName));
+    return gateway;
+  }
+
+  async createPaymentGateway(gateway: InsertPaymentGateway): Promise<PaymentGateway> {
+    const [newGateway] = await db.insert(paymentGateways).values(gateway).returning();
+    return newGateway;
+  }
+
+  async updatePaymentGateway(id: number, gateway: Partial<PaymentGateway>): Promise<PaymentGateway> {
+    const [updated] = await db
+      .update(paymentGateways)
+      .set({ ...gateway, updatedAt: new Date() })
+      .where(eq(paymentGateways.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePaymentGateway(id: number): Promise<void> {
+    await db.delete(paymentGateways).where(eq(paymentGateways.id, id));
+  }
+
+  // Payment Transactions
+  async getPaymentTransactions(): Promise<PaymentTransaction[]> {
+    return await db.select().from(paymentTransactions).orderBy(desc(paymentTransactions.createdAt));
+  }
+
+  async getPaymentTransaction(id: number): Promise<PaymentTransaction | undefined> {
+    const [transaction] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.id, id));
+    return transaction;
+  }
+
+  async getPaymentTransactionByTransactionId(transactionId: string): Promise<PaymentTransaction | undefined> {
+    const [transaction] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.transactionId, transactionId));
+    return transaction;
+  }
+
+  async getPaymentTransactionsByBookingId(bookingId: number): Promise<PaymentTransaction[]> {
+    return await db.select().from(paymentTransactions)
+      .where(eq(paymentTransactions.bookingId, bookingId))
+      .orderBy(desc(paymentTransactions.createdAt));
+  }
+
+  async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    const [newTransaction] = await db.insert(paymentTransactions).values(transaction).returning();
+    return newTransaction;
+  }
+
+  async updatePaymentTransaction(id: number, transaction: Partial<PaymentTransaction>): Promise<PaymentTransaction> {
+    const [updated] = await db
+      .update(paymentTransactions)
+      .set({ ...transaction, updatedAt: new Date() })
+      .where(eq(paymentTransactions.id, id))
+      .returning();
+    return updated;
   }
 }
 

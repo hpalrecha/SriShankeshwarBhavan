@@ -56,7 +56,7 @@ export const roomBookings = pgTable("room_bookings", {
   checkoutDate: timestamp("checkout_date").notNull(),
   guests: integer("guests").notNull().default(1),
   status: varchar("status", { length: 50 }).notNull().default("confirmed"), // confirmed, cancelled, checked_in, checked_out
-  paymentStatus: varchar("payment_status", { length: 50 }).notNull().default("unpaid"), // paid, unpaid, pending
+  paymentStatus: varchar("payment_status", { length: 50 }).notNull().default("unpaid"), // paid_online, unpaid, pending, paid_checkin
   paymentMethod: varchar("payment_method", { length: 50 }), // online, checkin
   isAutoBooking: boolean("is_auto_booking").default(false),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
@@ -283,6 +283,48 @@ export const trusteeReservedDates = pgTable("trustee_reserved_dates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Payment Gateway Configurations
+export const paymentGateways = pgTable("payment_gateways", {
+  id: serial("id").primaryKey(),
+  gatewayName: varchar("gateway_name", { length: 50 }).notNull(), // razorpay, payu, paypal, stripe
+  displayName: varchar("display_name", { length: 100 }).notNull(), // "Razorpay", "PayU", etc
+  isActive: boolean("is_active").default(false),
+  isTestMode: boolean("is_test_mode").default(true),
+  // Gateway credentials
+  publicKey: text("public_key"), // For client-side (publishable key)
+  secretKey: text("secret_key"), // For server-side (secret key)
+  merchantId: text("merchant_id"), // For PayU, etc
+  merchantKey: text("merchant_key"), // For PayU
+  webhookSecret: text("webhook_secret"), // For webhook verification
+  // Configuration options
+  supportedCurrencies: text("supported_currencies").default("INR"), // JSON array
+  minimumAmount: decimal("minimum_amount", { precision: 10, scale: 2 }).default("1.00"),
+  maximumAmount: decimal("maximum_amount", { precision: 10, scale: 2 }),
+  processingFee: decimal("processing_fee", { precision: 5, scale: 2 }).default("0.00"), // Percentage
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment Transactions
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").references(() => roomBookings.id).notNull(),
+  gatewayId: integer("gateway_id").references(() => paymentGateways.id).notNull(),
+  transactionId: varchar("transaction_id", { length: 100 }).notNull().unique(),
+  gatewayTransactionId: varchar("gateway_transaction_id", { length: 200 }), // Gateway's transaction ID
+  orderId: varchar("order_id", { length: 100 }), // Gateway order ID
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("INR"),
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // pending, success, failed, refunded
+  paymentMethod: varchar("payment_method", { length: 50 }), // card, upi, netbanking, wallet
+  gatewayResponse: text("gateway_response"), // JSON response from gateway
+  failureReason: text("failure_reason"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  refundStatus: varchar("refund_status", { length: 50 }), // none, pending, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas for WhatsApp
 export const insertWhatsAppConfigSchema = createInsertSchema(whatsappConfig).omit({
   id: true,
@@ -302,6 +344,19 @@ export const insertTrusteeReservedDateSchema = createInsertSchema(trusteeReserve
   updatedAt: true,
 });
 
+// Insert schemas for Payment Gateways
+export const insertPaymentGatewaySchema = createInsertSchema(paymentGateways).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types for WhatsApp
 export type WhatsAppConfig = typeof whatsappConfig.$inferSelect;
 export type InsertWhatsAppConfig = z.infer<typeof insertWhatsAppConfigSchema>;
@@ -311,3 +366,9 @@ export type InsertWhatsAppTemplate = z.infer<typeof insertWhatsAppTemplateSchema
 // Types for Trustee Reserved Dates
 export type TrusteeReservedDate = typeof trusteeReservedDates.$inferSelect;
 export type InsertTrusteeReservedDate = z.infer<typeof insertTrusteeReservedDateSchema>;
+
+// Types for Payment Gateways
+export type PaymentGateway = typeof paymentGateways.$inferSelect;
+export type InsertPaymentGateway = z.infer<typeof insertPaymentGatewaySchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;

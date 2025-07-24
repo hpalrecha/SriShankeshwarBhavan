@@ -10,6 +10,7 @@ import TrusteeManagement from "@/components/admin/trustee-management";
 import FoodSettings from "@/components/admin/food-settings";
 import WhatsAppSettings from "./admin/WhatsAppSettings";
 import TrusteeReservations from "./admin/TrusteeReservations";
+import PaymentGatewaySettings from "@/components/PaymentGatewaySettings";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,7 +29,8 @@ import {
   Calendar,
   LogOut,
   Hotel,
-  Menu
+  Menu,
+  CreditCard
 } from "lucide-react";
 
 interface UserWithBookings {
@@ -117,6 +119,8 @@ export default function Admin() {
         return <TrusteeReservations />;
       case "whatsapp-settings":
         return <WhatsAppSettings />;
+      case "payment-gateways":
+        return <PaymentGatewaySettings />;
       default:
         return <DashboardStats onViewBookingDetails={handleViewBookingDetails} />;
     }
@@ -130,6 +134,7 @@ export default function Admin() {
     { id: "checkin", label: "Check-in/out", icon: CheckCircle },
     { id: "food-settings", label: "Food Settings", icon: Utensils },
     { id: "whatsapp-settings", label: "WhatsApp", icon: MessageSquare },
+    { id: "payment-gateways", label: "Payment Gateways", icon: CreditCard },
     { id: "users", label: "Users", icon: Users },
     { id: "trustees", label: "Trustees", icon: Crown },
     { id: "trustee-reservations", label: "Trustee Reservations", icon: Calendar },

@@ -16,6 +16,7 @@ import { CheckCircle, User, MapPin, Plane, Utensils, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
+import BookingPayment from "@/components/BookingPayment";
 
 const guestSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -36,7 +37,7 @@ const guestSchema = z.object({
   breakfastDays: z.number().default(0),
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
-  paymentMethod: z.enum(["online", "checkin"], {
+  paymentMethod: z.enum(["pay_at_checkin", "pay_online"], {
     required_error: "Please select a payment method",
   }),
 });
@@ -50,7 +51,9 @@ interface GuestDetailsFormProps {
 export default function GuestDetailsForm({ bookingData, availabilityData, onCancel }: GuestDetailsFormProps) {
   const { toast } = useToast();
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
+  const [pendingBookingData, setPendingBookingData] = useState<any>(null);
 
   // Fetch food settings for pricing
   const { data: foodSettings } = useQuery<FoodSettings>({
@@ -76,7 +79,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       breakfastDays: 0,
       lunchDays: 0,
       dinnerDays: 0,
-      paymentMethod: "checkin",
+      paymentMethod: "pay_at_checkin",
     },
   });
 
@@ -93,21 +96,13 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       
+      // Show payment step instead of going directly to confirmation
+      setShowPayment(true);
+      
       // If user was auto-logged in, invalidate auth cache
       if (result.autoLoggedIn) {
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        toast({
-          title: "Account Created & Booking Confirmed!",
-          description: `Welcome! Your booking ID is ${result.bookingId}. You've been automatically logged in.`,
-        });
-      } else {
-        toast({
-          title: "Booking Confirmed!",
-          description: `Your booking ID is ${result.bookingId}`,
-        });
       }
-      
-      setShowConfirmation(true);
     },
     onError: (error) => {
       console.error("Booking error:", error);
@@ -177,6 +172,51 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const navigateToMyBookings = () => {
     window.location.href = "/my-bookings";
   };
+
+  const handlePaymentSuccess = () => {
+    toast({
+      title: "Payment Successful!",
+      description: `Your booking is confirmed with ID: ${bookingId}`,
+    });
+    setShowPayment(false);
+    setShowConfirmation(true);
+  };
+
+  const handlePaymentError = (error: string) => {
+    toast({
+      title: "Payment Failed",
+      description: error,
+      variant: "destructive",
+    });
+  };
+
+  // Calculate total amount including food
+  const calculateTotalAmount = () => {
+    const breakfastPrice = parseFloat(foodSettings?.breakfastPrice || "50");
+    const lunchPrice = parseFloat(foodSettings?.lunchPrice || "100");
+    const dinnerPrice = parseFloat(foodSettings?.dinnerPrice || "100");
+    
+    const foodAmount = (form.watch('breakfastDays') * breakfastPrice) + 
+                      (form.watch('lunchDays') * lunchPrice) + 
+                      (form.watch('dinnerDays') * dinnerPrice);
+    
+    const roomAmount = totalAmount;
+    return roomAmount + foodAmount;
+  };
+
+  // If payment step is showing, render payment component
+  if (showPayment) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <BookingPayment
+          bookingId={bookingId}
+          totalAmount={calculateTotalAmount()}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentError={handlePaymentError}
+        />
+      </div>
+    );
+  }
 
   return (
     <>

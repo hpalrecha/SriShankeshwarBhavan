@@ -15,7 +15,8 @@ import { checkVerifiedEmails } from "./check-ses-emails";
 import { checkDomainCredentials } from "./check-domain-credentials";
 import { testAllEmailTemplates } from "./test-all-email-templates";
 import { whatsappService } from "./whatsapp";
-import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema } from "@shared/schema";
+import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema, insertPaymentGatewaySchema } from "@shared/schema";
+import { PaymentGatewayFactory, PaymentService } from "./payment-gateways";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -1783,6 +1784,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error initializing default trustee dates:", error);
       res.status(500).json({ error: error.message || "Failed to initialize default trustee dates" });
+    }
+  });
+
+  // Payment Gateway Configuration Routes
+  app.get("/api/admin/payment-gateways", async (req, res) => {
+    try {
+      const gateways = await storage.getPaymentGateways();
+      res.json(gateways);
+    } catch (error: any) {
+      console.error("Error fetching payment gateways:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch payment gateways" });
+    }
+  });
+
+  app.get("/api/payment-gateways/active", async (req, res) => {
+    try {
+      const activeGateways = await storage.getActivePaymentGateways();
+      // Remove sensitive information for client
+      const clientSafeGateways = activeGateways.map(gateway => ({
+        id: gateway.id,
+        gatewayName: gateway.gatewayName,
+        displayName: gateway.displayName,
+        isTestMode: gateway.isTestMode,
+        supportedCurrencies: gateway.supportedCurrencies,
+        minimumAmount: gateway.minimumAmount,
+        maximumAmount: gateway.maximumAmount,
+        processingFee: gateway.processingFee,
+        publicKey: gateway.publicKey, // Only public key is safe for client
+      }));
+      res.json(clientSafeGateways);
+    } catch (error: any) {
+      console.error("Error fetching active payment gateways:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch active payment gateways" });
+    }
+  });
+
+  app.post("/api/admin/payment-gateways", async (req, res) => {
+    try {
+      const validatedData = insertPaymentGatewaySchema.parse(req.body);
+      const gateway = await storage.createPaymentGateway(validatedData);
+      res.status(201).json(gateway);
+    } catch (error: any) {
+      console.error("Error creating payment gateway:", error);
+      res.status(500).json({ error: error.message || "Failed to create payment gateway" });
+    }
+  });
+
+  app.put("/api/admin/payment-gateways/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedGateway = await storage.updatePaymentGateway(id, updates);
+      res.json(updatedGateway);
+    } catch (error: any) {
+      console.error("Error updating payment gateway:", error);
+      res.status(500).json({ error: error.message || "Failed to update payment gateway" });
+    }
+  });
+
+  app.delete("/api/admin/payment-gateways/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePaymentGateway(id);
+      res.json({ message: "Payment gateway deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting payment gateway:", error);
+      res.status(500).json({ error: error.message || "Failed to delete payment gateway" });
+    }
+  });
+
+  // Payment Processing Routes
+  app.post("/api/payment/create-order", requireAuth, async (req, res) => {
+    try {
+      const { bookingId, gatewayName, amount, currency = "INR" } = req.body;
+
+      // Get the booking
+      const booking = await storage.getRoomBookingByBookingId(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Get the payment gateway
+      const gateway = await storage.getPaymentGatewayByName(gatewayName);
+      if (!gateway || !gateway.isActive) {
+        return res.status(400).json({ error: "Payment gateway not available" });
+      }
+
+      // Create payment gateway instance
+      const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
+      
+      // Process payment
+      const result = await PaymentService.processPayment(
+        paymentGateway,
+        parseFloat(amount),
+        currency,
+        bookingId
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      // Create transaction record
+      const transactionId = `TXN_${bookingId}_${Date.now()}`;
+      await storage.createPaymentTransaction({
+        bookingId: booking.id,
+        gatewayId: gateway.id,
+        transactionId,
+        orderId: result.data.id || result.data.txnid,
+        amount: amount.toString(),
+        currency,
+        status: "pending",
+        gatewayResponse: JSON.stringify(result.data),
+      });
+
+      res.json({
+        success: true,
+        transactionId,
+        gatewayData: result.data,
+        gateway: {
+          name: gateway.gatewayName,
+          displayName: gateway.displayName,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error creating payment order:", error);
+      res.status(500).json({ error: error.message || "Failed to create payment order" });
+    }
+  });
+
+  app.post("/api/payment/verify", async (req, res) => {
+    try {
+      const { transactionId, paymentData, gatewayName } = req.body;
+
+      // Get transaction
+      const transaction = await storage.getPaymentTransactionByTransactionId(transactionId);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+
+      // Get gateway
+      const gateway = await storage.getPaymentGateway(transaction.gatewayId);
+      if (!gateway) {
+        return res.status(400).json({ error: "Payment gateway not found" });
+      }
+
+      // Create payment gateway instance
+      const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
+      
+      // Verify payment
+      const verificationResult = await PaymentService.verifyPayment(paymentGateway, paymentData);
+
+      if (verificationResult.success && verificationResult.isValid) {
+        // Update transaction status
+        await storage.updatePaymentTransaction(transaction.id, {
+          status: "success",
+          gatewayTransactionId: paymentData.razorpay_payment_id || paymentData.mihpayid,
+          gatewayResponse: JSON.stringify(paymentData),
+        });
+
+        // Update booking payment status
+        await storage.updateRoomBooking(transaction.bookingId, {
+          paymentStatus: "paid_online",
+          paymentReference: paymentData.razorpay_payment_id || paymentData.mihpayid,
+        });
+
+        res.json({ success: true, message: "Payment verified successfully" });
+      } else {
+        // Update transaction status to failed
+        await storage.updatePaymentTransaction(transaction.id, {
+          status: "failed",
+          failureReason: verificationResult.error || "Payment verification failed",
+        });
+
+        res.status(400).json({ error: "Payment verification failed" });
+      }
+    } catch (error: any) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ error: error.message || "Failed to verify payment" });
+    }
+  });
+
+  // Payment webhook routes (for different gateways)
+  app.post("/api/payment/razorpay/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      // Implement Razorpay webhook verification
+      // This would handle payment success/failure notifications from Razorpay
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Razorpay webhook error:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  app.post("/api/payment/payu/success", async (req, res) => {
+    try {
+      // Handle PayU success callback
+      const paymentData = req.body;
+      // Process success response and update transaction
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-success?txn=${paymentData.txnid}`);
+    } catch (error: any) {
+      console.error("PayU success callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed`);
+    }
+  });
+
+  app.post("/api/payment/payu/failure", async (req, res) => {
+    try {
+      // Handle PayU failure callback
+      const paymentData = req.body;
+      // Process failure response and update transaction
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.txnid}`);
+    } catch (error: any) {
+      console.error("PayU failure callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed`);
+    }
+  });
+
+  // Payment Transactions Management
+  app.get("/api/admin/payment-transactions", async (req, res) => {
+    try {
+      const transactions = await storage.getPaymentTransactions();
+      res.json(transactions);
+    } catch (error: any) {
+      console.error("Error fetching payment transactions:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch payment transactions" });
+    }
+  });
+
+  app.get("/api/admin/payment-transactions/booking/:bookingId", async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.bookingId);
+      const transactions = await storage.getPaymentTransactionsByBookingId(bookingId);
+      res.json(transactions);
+    } catch (error: any) {
+      console.error("Error fetching payment transactions for booking:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch payment transactions" });
     }
   });
 
