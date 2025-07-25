@@ -1863,8 +1863,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/payment-gateways/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
-      const updatedGateway = await storage.updatePaymentGateway(id, updates);
+      // Use partial validation to allow partial updates and remove timestamp fields
+      const validatedData = insertPaymentGatewaySchema.partial().parse(req.body);
+      const updatedGateway = await storage.updatePaymentGateway(id, validatedData);
       res.json(updatedGateway);
     } catch (error: any) {
       console.error("Error updating payment gateway:", error);

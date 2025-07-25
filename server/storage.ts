@@ -546,9 +546,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePaymentGateway(id: number, gateway: Partial<PaymentGateway>): Promise<PaymentGateway> {
+    // Remove timestamp fields from the update data as they should be handled by the database
+    const { id: _, createdAt, updatedAt, ...updateData } = gateway;
+    
     const [updated] = await db
       .update(paymentGateways)
-      .set({ ...gateway, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(paymentGateways.id, id))
       .returning();
     return updated;
