@@ -36,7 +36,7 @@ const guestSchema = z.object({
   breakfastDays: z.number().default(0),
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
-  paymentMethod: z.enum(["pay_at_checkin", "pay_online", "checkin", "online"], {
+  paymentMethod: z.enum(["pay_at_checkin", "pay_online"], {
     required_error: "Please select a payment method",
   }),
 });
@@ -286,7 +286,6 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
           
           {/* Book for Self/Others Selection - Only show if user is logged in */}
           {currentUser && typeof currentUser === 'object' && 'name' in currentUser && (
-            // @ts-ignore - Type assertion for JSX
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <Label className="text-sm font-medium text-gray-700 mb-3 block">
                 Who are you booking for?
