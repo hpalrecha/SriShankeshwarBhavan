@@ -183,13 +183,18 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
   const onSubmit = (values: z.infer<typeof guestSchema>) => {
+    console.log("Form submitted with values:", values);
+    console.log("Payment method selected:", values.paymentMethod);
+    
     // Store form data for later use
     setFormData(values);
     
     if (values.paymentMethod === 'pay_online') {
+      console.log("Setting showPayment to true for online payment");
       // For online payment, go to payment first (don't create booking yet)
       setShowPayment(true);
     } else {
+      console.log("Creating booking directly for pay at checkin");
       // For pay at checkin, create booking directly
       createBookingFromFormData(values);
     }
@@ -273,6 +278,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
 
   // If payment step is showing, render payment component
   if (showPayment && formData && formData.paymentMethod === 'pay_online') {
+    console.log("Rendering payment component with:", {
+      showPayment,
+      formData: !!formData,
+      paymentMethod: formData.paymentMethod,
+      totalAmount: calculateTotalAmount()
+    });
     return (
       <div className="max-w-2xl mx-auto">
         <BookingPayment
