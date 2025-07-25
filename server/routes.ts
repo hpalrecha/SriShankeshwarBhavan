@@ -1884,19 +1884,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Payment Processing Routes
-  app.post("/api/payment/create-order", requireAuth, async (req, res) => {
+  // Test endpoint for debugging
+  app.post("/api/payment/test", async (req, res) => {
+    res.json({ message: "Payment endpoint working without auth!", body: req.body });
+  });
+
+  // Payment Processing Routes (NO AUTH REQUIRED for pre-booking payments)
+  app.post("/api/payment/create-order", async (req, res) => {
+    console.log("Payment create-order endpoint hit:", req.body);
     try {
       const { bookingId, gatewayName, amount, currency = "INR" } = req.body;
 
-      // Get the booking
-      const booking = await storage.getRoomBookingByBookingId(bookingId);
-      if (!booking) {
-        return res.status(404).json({ error: "Booking not found" });
+      console.log("Processing payment for booking:", bookingId);
+      console.log("Gateway name:", gatewayName);
+      console.log("Amount:", amount);
+
+      // For temporary booking IDs (pre-booking payments), skip booking lookup
+      let booking = null;
+      if (!bookingId.startsWith('TEMP_')) {
+        booking = await storage.getRoomBookingByBookingId(bookingId);
+        if (!booking) {
+          return res.status(404).json({ error: "Booking not found" });
+        }
       }
 
       // Get the payment gateway
       const gateway = await storage.getPaymentGatewayByName(gatewayName);
+      console.log("Gateway config:", {
+        name: gateway?.gatewayName,
+        isActive: gateway?.isActive,
+        isTestMode: gateway?.isTestMode,
+        publicKey: gateway?.publicKey,
+        secretKey: gateway?.secretKey ? '***hidden***' : 'missing'
+      });
+      
       if (!gateway || !gateway.isActive) {
         return res.status(400).json({ error: "Payment gateway not available" });
       }
@@ -1905,6 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
       
       // Process payment
+      console.log("About to process payment with gateway:", paymentGateway);
       const result = await PaymentService.processPayment(
         paymentGateway,
         parseFloat(amount),
@@ -1912,22 +1934,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bookingId
       );
 
+      console.log("Payment processing result:", result);
+
       if (!result.success) {
+        console.log("Payment failed with error:", result.error);
+        
+        // Provide helpful error message for Razorpay authentication issues
+        if (result.error === "Payment processing failed") {
+          return res.status(400).json({ 
+            error: "Payment gateway authentication failed. Please verify your API credentials in Admin → Payment Settings.",
+            details: "This usually happens when API keys are incorrect, expired, or the account isn't activated for the selected mode."
+          });
+        }
+        
         return res.status(400).json({ error: result.error });
       }
 
-      // Create transaction record
+      // Create transaction record (only for real bookings, not temporary ones)
       const transactionId = `TXN_${bookingId}_${Date.now()}`;
-      await storage.createPaymentTransaction({
-        bookingId: booking.id,
-        gatewayId: gateway.id,
-        transactionId,
-        orderId: result.data.id || result.data.txnid,
-        amount: amount.toString(),
-        currency,
-        status: "pending",
-        gatewayResponse: JSON.stringify(result.data),
-      });
+      if (booking) {
+        await storage.createPaymentTransaction({
+          bookingId: booking.id,
+          gatewayId: gateway.id,
+          transactionId,
+          orderId: result.data.id || result.data.txnid,
+          amount: amount.toString(),
+          currency,
+          status: "pending",
+          gatewayResponse: JSON.stringify(result.data),
+        });
+      }
 
       res.json({
         success: true,
