@@ -16,6 +16,13 @@ export class RazorpayGateway implements PaymentGatewayInterface {
 
   constructor(config: PaymentGateway) {
     this.config = config;
+    
+    console.log("Initializing Razorpay with config:", {
+      key_id: config.publicKey,
+      isTestMode: config.isTestMode,
+      gatewayName: config.gatewayName
+    });
+    
     this.razorpay = new Razorpay({
       key_id: config.publicKey!,
       key_secret: config.secretKey!,
@@ -23,6 +30,9 @@ export class RazorpayGateway implements PaymentGatewayInterface {
   }
 
   async createOrder(amount: number, currency: string, bookingId: string) {
+    console.log("Creating Razorpay order:", { amount, currency, bookingId });
+    console.log("Using credentials:", { key_id: this.config.publicKey, isTestMode: this.config.isTestMode });
+    
     const options = {
       amount: Math.round(amount * 100), // Razorpay expects amount in paise
       currency: currency.toUpperCase(),
