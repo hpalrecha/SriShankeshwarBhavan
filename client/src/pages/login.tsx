@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
+import { ArrowLeft, Home } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -55,6 +56,25 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="flex justify-between items-center mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/")}
+              className="text-gray-500 hover:text-brand-orange"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Home
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/")}
+              className="text-gray-500 hover:text-brand-orange"
+            >
+              <Home className="w-4 h-4" />
+            </Button>
+          </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
             Welcome Back
           </CardTitle>
