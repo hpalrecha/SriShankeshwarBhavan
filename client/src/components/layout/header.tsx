@@ -219,7 +219,7 @@ export default function Header() {
                 Contact
               </a>
               
-              {user && typeof user === 'object' && 'name' in user ? (
+              {user && typeof user === 'object' && 'name' in user && (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <div className="px-3 py-2">
                     <p className="text-sm text-gray-700">Welcome, {(user as any)?.name || 'Guest'}</p>
@@ -246,30 +246,6 @@ export default function Header() {
                     disabled={logoutMutation.isPending}
                   >
                     {logoutMutation.isPending ? "..." : "Logout"}
-                  </Button>
-                </div>
-              ) : (
-                <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
-                  <Button 
-                    onClick={() => {
-                      setLocation("/login");
-                      setMobileMenuOpen(false);
-                    }}
-                    variant="outline"
-                    className="mx-3 w-auto"
-                    size="sm"
-                  >
-                    Login
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      setLocation("/signup");
-                      setMobileMenuOpen(false);
-                    }}
-                    className="bg-brand-orange text-white hover:bg-orange-600 mx-3 w-auto"
-                    size="sm"
-                  >
-                    Sign Up
                   </Button>
                 </div>
               )}
