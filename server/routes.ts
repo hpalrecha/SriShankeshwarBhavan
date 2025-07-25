@@ -742,13 +742,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             resolve(null);
           });
         });
+        console.log(`🔐 Auto-logged in new user: ${user.id} with session: ${req.session.id}`);
+      } else if (req.session) {
+        // Also auto-login existing users for seamless experience
+        (req.session as any).userId = user.id;
+        await new Promise((resolve) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("Error saving session for existing user:", err);
+            }
+            resolve(null);
+          });
+        });
+        console.log(`🔐 Auto-logged in existing user: ${user.id} with session: ${req.session.id}`);
       }
 
       res.json({ 
         booking, 
         user, 
         bookingId, 
-        autoLoggedIn: isNewUser,
+        autoLoggedIn: isNewUser || true, // Always return true to indicate login attempt
         defaultPassword: isNewUser ? "guest123" : undefined
       });
     } catch (error) {

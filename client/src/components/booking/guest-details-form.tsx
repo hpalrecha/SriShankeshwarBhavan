@@ -140,16 +140,25 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       
-      // Show payment step instead of going directly to confirmation
-      setShowPayment(true);
+      // If payment method is pay_at_checkin, go directly to confirmation
+      if (form.getValues('paymentMethod') === 'pay_at_checkin') {
+        setShowConfirmation(true);
+      } else {
+        // For online payment, show payment step
+        setShowPayment(true);
+      }
       
-      // If user was auto-logged in, invalidate auth cache
-      if (result.autoLoggedIn) {
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        toast({
-          title: "Account Created & Logged In",
-          description: `Welcome! Your account has been created with the password: guest123`,
-        });
+      // Always invalidate auth cache after booking to refresh login status
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      
+      // Show success message for new accounts
+      if (result.autoLoggedIn && result.defaultPassword) {
+        setTimeout(() => {
+          toast({
+            title: "Account Created & Logged In",
+            description: `Welcome! Your account has been created with password: guest123`,
+          });
+        }, 1500);
       }
     },
     onError: (error) => {
@@ -253,7 +262,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   };
 
   // If payment step is showing, render payment component
-  if (showPayment) {
+  if (showPayment && form.getValues('paymentMethod') === 'pay_online') {
     return (
       <div className="max-w-2xl mx-auto">
         <BookingPayment
