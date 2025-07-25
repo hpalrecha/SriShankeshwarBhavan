@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Users } from "lucide-react";
+import { smoothScrollToSection } from "@/lib/scroll-utils";
 import type { RoomCategory } from "@shared/schema";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 
@@ -74,6 +75,11 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
           title: "Rooms found!",
           description: `${availableRooms.length} room type${availableRooms.length > 1 ? 's' : ''} available for your dates.`,
         });
+        
+        // Scroll to room results after a brief delay
+        setTimeout(() => {
+          smoothScrollToSection("room-results");
+        }, 100);
       }
     } catch (error) {
       console.error("Search error:", error);

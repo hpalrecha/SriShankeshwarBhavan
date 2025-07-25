@@ -41,17 +41,19 @@ export default function Home() {
 
       {/* Room Results */}
       {searchResults && (
-        searchResults.availabilityData?.availableRooms && searchResults.availabilityData.availableRooms.length > 0 ? (
-          <RoomSelection 
-            bookingData={searchResults.bookingData}
-            availabilityData={searchResults.availabilityData}
-          />
-        ) : (
-          <RoomResults 
-            bookingData={searchResults.bookingData}
-            availabilityData={searchResults.availabilityData}
-          />
-        )
+        <section id="room-results" className="py-8">
+          {searchResults.availabilityData?.availableRooms && searchResults.availabilityData.availableRooms.length > 0 ? (
+            <RoomSelection 
+              bookingData={searchResults.bookingData}
+              availabilityData={searchResults.availabilityData}
+            />
+          ) : (
+            <RoomResults 
+              bookingData={searchResults.bookingData}
+              availabilityData={searchResults.availabilityData}
+            />
+          )}
+        </section>
       )}
 
       {/* Amenities Section */}

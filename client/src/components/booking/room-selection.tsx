@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Calendar, Bed, Plus, Minus, CheckCircle } from "lucide-react";
+import { smoothScrollToSection } from "@/lib/scroll-utils";
 import GuestDetailsForm from "./guest-details-form";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 import type { RoomCategory } from "@shared/schema";
@@ -51,6 +52,10 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
 
   const handleProceedToBooking = () => {
     setShowGuestForm(true);
+    // Scroll to guest details form after a brief delay
+    setTimeout(() => {
+      smoothScrollToSection("guest-details");
+    }, 100);
   };
 
   // Create a booking summary for the guest form
@@ -73,11 +78,13 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
 
   if (showGuestForm) {
     return (
-      <GuestDetailsForm 
-        bookingData={bookingData}
-        availabilityData={createBookingSummary() as any}
-        onCancel={() => setShowGuestForm(false)}
-      />
+      <div id="guest-details">
+        <GuestDetailsForm 
+          bookingData={bookingData}
+          availabilityData={createBookingSummary() as any}
+          onCancel={() => setShowGuestForm(false)}
+        />
+      </div>
     );
   }
 
