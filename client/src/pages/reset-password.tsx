@@ -44,7 +44,7 @@ export default function ResetPassword() {
     queryKey: ['/api/auth/verify-reset-token', token],
     queryFn: async () => {
       if (!token) throw new Error('No reset token provided');
-      return await apiRequest(`/api/auth/verify-reset-token/${token}`, "GET");
+      return await apiRequest("GET", `/api/auth/verify-reset-token/${token}`);
     },
     retry: false,
     enabled: !!token,
@@ -52,7 +52,7 @@ export default function ResetPassword() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: ResetPasswordFormData) => {
-      return await apiRequest("/api/auth/reset-password", "POST", {
+      return await apiRequest("POST", "/api/auth/reset-password", {
         token,
         newPassword: data.newPassword,
       });
