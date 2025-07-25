@@ -43,11 +43,7 @@ export default function Signup() {
 
   const signupMutation = useMutation({
     mutationFn: async (data: Omit<SignupFormData, "confirmPassword">) => {
-      const response = await apiRequest("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      return response;
+      return await apiRequest("POST", "/api/auth/signup", data);
     },
     onSuccess: () => {
       setSuccess("Account created successfully! Please log in.");
