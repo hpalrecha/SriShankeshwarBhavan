@@ -42,6 +42,13 @@ export default function BookingPayment({
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  console.log("BookingPayment component rendered with:", {
+    bookingId,
+    formData: !!formData,
+    totalAmount,
+    selectedGateway
+  });
+
   // Fetch active payment gateways
   const { data: paymentGateways = [], isLoading } = useQuery<PaymentGateway[]>({
     queryKey: ["/api/payment-gateways/active"],
@@ -51,6 +58,7 @@ export default function BookingPayment({
   useEffect(() => {
     if (paymentGateways.length === 1 && !selectedGateway) {
       setSelectedGateway(paymentGateways[0].gatewayName);
+      console.log("Auto-selected payment gateway:", paymentGateways[0].gatewayName);
     }
   }, [paymentGateways, selectedGateway]);
 
@@ -213,6 +221,8 @@ export default function BookingPayment({
   };
 
   const handlePaymentSubmit = () => {
+    console.log("Payment submit clicked with gateway:", selectedGateway);
+    
     if (!selectedGateway) {
       toast({
         title: "Payment Gateway Required", 
