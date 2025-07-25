@@ -36,7 +36,7 @@ const guestSchema = z.object({
   breakfastDays: z.number().default(0),
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
-  paymentMethod: z.enum(["pay_at_checkin", "pay_online"], {
+  paymentMethod: z.enum(["pay_at_checkin", "pay_online", "checkin", "online"], {
     required_error: "Please select a payment method",
   }),
 });
@@ -201,7 +201,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         lunchDays: values.lunchDays,
         dinnerDays: values.dinnerDays,
         paymentMethod: values.paymentMethod,
-        paymentStatus: values.paymentMethod === "pay_online" ? "pending" : "unpaid",
+        paymentStatus: (values.paymentMethod === "pay_online" || values.paymentMethod === "online") ? "pending" : "unpaid",
         totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
@@ -556,12 +556,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                         className="flex space-x-4"
                       >
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="online" id="online" />
-                          <Label htmlFor="online">Pay Online</Label>
+                          <RadioGroupItem value="pay_online" id="pay_online" />
+                          <Label htmlFor="pay_online">Pay Online</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="checkin" id="checkin" />
-                          <Label htmlFor="checkin">Pay at Check-in</Label>
+                          <RadioGroupItem value="pay_at_checkin" id="pay_at_checkin" />
+                          <Label htmlFor="pay_at_checkin">Pay at Check-in</Label>
                         </div>
                       </RadioGroup>
                     </FormControl>
