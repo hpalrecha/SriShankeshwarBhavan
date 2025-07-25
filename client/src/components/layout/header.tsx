@@ -109,23 +109,21 @@ export default function Header() {
             </a>
 
             {user && typeof user === 'object' && 'name' in user ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-700 hidden sm:inline">
-                  Welcome, {(user as any)?.name || 'Guest'}
-                </span>
+              <div className="flex items-center space-x-2">
                 <Button 
                   onClick={() => setLocation("/dashboard")}
                   variant="outline"
                   size="sm"
-                  className="hidden sm:inline-flex"
+                  className="border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-white"
                 >
-                  Dashboard
+                  My Account
                 </Button>
                 <Button 
                   onClick={() => logoutMutation.mutate()}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   disabled={logoutMutation.isPending}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   {logoutMutation.isPending ? "..." : "Logout"}
                 </Button>

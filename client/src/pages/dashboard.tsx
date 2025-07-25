@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, CreditCard, MapPin, Phone, Mail } from "lucide-react";
+import { Calendar, Clock, CreditCard, MapPin, Phone, Mail, LogOut } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { RoomBooking, User } from "@shared/schema";
@@ -47,6 +47,27 @@ export default function Dashboard() {
       toast({
         title: "Cancellation failed",
         description: "Unable to cancel booking. Please contact support.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/auth/logout");
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      setLocation("/");
+    },
+    onError: () => {
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging you out.",
         variant: "destructive",
       });
     },
@@ -113,10 +134,48 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Navigation Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => setLocation("/")}>
+                <div className="w-10 h-10 bg-brand-orange rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">SSBB</span>
+                </div>
+                <h1 className="ml-3 text-xl font-semibold text-gray-900 hidden sm:block">Sri Shankeshwar Bengaluru Bhavan</h1>
+                <h1 className="ml-3 text-lg font-semibold text-gray-900 sm:hidden">SSBB</h1>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="hidden sm:inline-flex"
+              >
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
+          <h1 className="text-3xl font-bold text-gray-900">My Dashboard</h1>
           <p className="text-gray-600 mt-2">Manage your bookings and account settings</p>
         </div>
 
