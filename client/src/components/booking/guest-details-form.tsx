@@ -286,6 +286,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
           
           {/* Book for Self/Others Selection - Only show if user is logged in */}
           {currentUser && typeof currentUser === 'object' && 'name' in currentUser && (
+            // @ts-ignore - Type assertion for JSX
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <Label className="text-sm font-medium text-gray-700 mb-3 block">
                 Who are you booking for?

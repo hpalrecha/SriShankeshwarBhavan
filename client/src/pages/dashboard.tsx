@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
 
   // Get current user
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: user, isLoading: userLoading } = useQuery<User>({
     queryKey: ["/api/auth/me"],
     retry: false,
   });
@@ -65,23 +65,25 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              Please log in to view your dashboard
-            </CardDescription>
-          </CardHeader>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <Card className="w-full max-w-md mx-auto">
+            <CardHeader className="text-center">
+              <CardTitle>Access Denied</CardTitle>
+              <CardDescription>
+                Please log in to view your dashboard
+              </CardDescription>
+            </CardHeader>
           <CardContent className="text-center">
             <Button 
-              onClick={() => setLocation("/login")}
+              onClick={() => setLocation("/")}
               className="bg-brand-orange hover:bg-orange-600"
             >
               Go to Login
             </Button>
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
@@ -114,7 +116,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user.name}!</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
           <p className="text-gray-600 mt-2">Manage your bookings and account settings</p>
         </div>
 
@@ -130,9 +132,9 @@ export default function Dashboard() {
             <CardContent className="space-y-2">
               <div>
                 <span className="font-medium">Email:</span>
-                <p className="text-gray-600">{user.email}</p>
+                <p className="text-gray-600">{user?.email}</p>
               </div>
-              {user.isTrustee && (
+              {user?.isTrustee && (
                 <Badge className="bg-orange-100 text-orange-800">
                   Trustee Member
                 </Badge>
@@ -152,7 +154,7 @@ export default function Dashboard() {
               >
                 Make New Booking
               </Button>
-              {user.isTrustee && (
+              {user?.isTrustee && (
                 <Button 
                   onClick={() => window.location.href = "/trustee"}
                   variant="outline" 
