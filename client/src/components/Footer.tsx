@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white py-8 mt-16">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Institution Info */}
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Sri Shankeshwar Bengaluru Bhavan</h3>
@@ -26,17 +26,6 @@ export default function Footer() {
                 <p className="text-sm">info@ssbb.in</p>
               </div>
             </div>
-          </div>
-
-          {/* Quick Links */}
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold">Quick Links</h4>
-            <ul className="space-y-2 text-gray-300">
-              <li><Link href="/" className="text-sm hover:text-white transition-colors">Book Rooms</Link></li>
-              <li><Link href="/my-bookings" className="text-sm hover:text-white transition-colors">My Bookings</Link></li>
-              <li><Link href="/dashboard" className="text-sm hover:text-white transition-colors">Guest Dashboard</Link></li>
-              <li><Link href="/admin" className="text-sm hover:text-white transition-colors">Admin Portal</Link></li>
-            </ul>
           </div>
 
           {/* Services */}
