@@ -139,27 +139,40 @@ export default function PaymentGatewaySettings() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
     
+    if (!editingGateway) {
+      toast({
+        title: "Error",
+        description: "No gateway data to save",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("Submitting gateway data:", editingGateway);
+
+    // Use the React state directly instead of FormData
     const gatewayData = {
-      gatewayName: formData.get("gatewayName") as string,
-      displayName: formData.get("displayName") as string,
-      isActive: formData.get("isActive") === "on",
-      isTestMode: formData.get("isTestMode") === "on",
-      publicKey: formData.get("publicKey") as string,
-      secretKey: formData.get("secretKey") as string,
-      merchantId: formData.get("merchantId") as string,
-      merchantKey: formData.get("merchantKey") as string,
-      webhookSecret: formData.get("webhookSecret") as string,
-      supportedCurrencies: formData.get("supportedCurrencies") as string,
-      minimumAmount: formData.get("minimumAmount") as string,
-      maximumAmount: formData.get("maximumAmount") as string || undefined,
-      processingFee: formData.get("processingFee") as string,
+      gatewayName: editingGateway.gatewayName,
+      displayName: editingGateway.displayName,
+      isActive: editingGateway.isActive,
+      isTestMode: editingGateway.isTestMode,
+      publicKey: editingGateway.publicKey || "",
+      secretKey: editingGateway.secretKey || "",
+      merchantId: editingGateway.merchantId || "",
+      merchantKey: editingGateway.merchantKey || "",
+      webhookSecret: editingGateway.webhookSecret || "",
+      supportedCurrencies: editingGateway.supportedCurrencies,
+      minimumAmount: editingGateway.minimumAmount,
+      maximumAmount: editingGateway.maximumAmount || undefined,
+      processingFee: editingGateway.processingFee,
     };
 
-    if (editingGateway) {
+    if (editingGateway.id && editingGateway.id > 0) {
+      // Update existing gateway
       updateGatewayMutation.mutate({ ...editingGateway, ...gatewayData });
     } else {
+      // Create new gateway
       createGatewayMutation.mutate(gatewayData);
     }
   };
