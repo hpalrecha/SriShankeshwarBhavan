@@ -69,7 +69,7 @@ export default function PaymentGatewaySettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: gateways = [], isLoading } = useQuery({
+  const { data: gateways = [], isLoading } = useQuery<PaymentGateway[]>({
     queryKey: ["/api/admin/payment-gateways"],
   });
 
