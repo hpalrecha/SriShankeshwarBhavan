@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Header from "@/components/layout/header";
+import Footer from "@/components/Footer";
 import SimpleBookingForm from "@/components/booking/simple-booking-form";
 import RoomResults from "@/components/booking/room-results";
 import RoomSelection from "@/components/booking/room-selection";
@@ -64,6 +65,9 @@ export default function Home() {
 
       {/* Contact Section */}
       <ContactSection />
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

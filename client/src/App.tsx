@@ -13,6 +13,11 @@ import Dashboard from "@/pages/dashboard";
 import MyBookings from "@/pages/my-bookings";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
+import PricingPolicy from "@/pages/PricingPolicy";
+import ShippingPolicy from "@/pages/ShippingPolicy";
+import TermsAndConditions from "@/pages/TermsAndConditions";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import CancellationRefundPolicy from "@/pages/CancellationRefundPolicy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +33,11 @@ function Router() {
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={Admin} />
       <Route path="/trustee" component={Trustee} />
+      <Route path="/pricing-policy" component={PricingPolicy} />
+      <Route path="/shipping-policy" component={ShippingPolicy} />
+      <Route path="/terms-and-conditions" component={TermsAndConditions} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/cancellation-refund-policy" component={CancellationRefundPolicy} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, CreditCard, MapPin, Phone, Mail, LogOut } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import Footer from "@/components/Footer";
 import type { RoomBooking, User } from "@shared/schema";
 
 interface BookingWithDetails {
@@ -351,6 +352,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

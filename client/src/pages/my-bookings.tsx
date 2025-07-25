@@ -7,6 +7,7 @@ import { Calendar, MapPin, Users, CreditCard, Phone, Mail, Utensils } from "luci
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import Footer from "@/components/Footer";
 
 interface Booking {
   booking: {
@@ -252,6 +253,9 @@ export default function MyBookings() {
           </div>
         )}
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
