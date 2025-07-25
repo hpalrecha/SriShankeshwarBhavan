@@ -15,7 +15,7 @@ interface User {
 
 export function useAuth() {
   const { data: user, isLoading, error } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/auth/me"],
     retry: false,
   });
 

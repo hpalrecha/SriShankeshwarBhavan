@@ -734,10 +734,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Auto-login new users by creating a session
       if (isNewUser && req.session) {
         (req.session as any).userId = user.id;
-        req.session.save((err) => {
-          if (err) {
-            console.error("Error saving session for new user:", err);
-          }
+        await new Promise((resolve) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("Error saving session for new user:", err);
+            }
+            resolve(null);
+          });
         });
       }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CheckCircle, User, MapPin, Utensils, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
 import BookingPayment from "@/components/BookingPayment";
@@ -48,10 +49,18 @@ interface GuestDetailsFormProps {
 
 export default function GuestDetailsForm({ bookingData, availabilityData, onCancel }: GuestDetailsFormProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
+  const [bookingFor, setBookingFor] = useState<"self" | "others">("others");
+
+  // Check if user is authenticated
+  const { data: currentUser } = useQuery({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
 
   // Fetch food settings for pricing
   const { data: foodSettings } = useQuery<FoodSettings>({
@@ -70,7 +79,6 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       state: "",
       pincode: "",
       country: "India",
-
       estimatedArrivalTime: "",
       estimatedDepartureTime: "",
       breakfastDays: 0,
@@ -79,6 +87,45 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       paymentMethod: "pay_at_checkin",
     },
   });
+
+  // Auto-populate form when user is logged in and booking for self
+  useEffect(() => {
+    if (currentUser && typeof currentUser === 'object' && 'name' in currentUser && bookingFor === "self") {
+      form.reset({
+        name: (currentUser as any).name || "",
+        email: (currentUser as any).email || "",
+        mobile: (currentUser as any).mobile || "",
+        address: (currentUser as any).address || "",
+        city: (currentUser as any).city || "",
+        state: (currentUser as any).state || "",
+        pincode: (currentUser as any).pincode || "",
+        country: (currentUser as any).country || "India",
+        estimatedArrivalTime: "",
+        estimatedDepartureTime: "",
+        breakfastDays: 0,
+        lunchDays: 0,
+        dinnerDays: 0,
+        paymentMethod: "pay_at_checkin",
+      });
+    } else if (bookingFor === "others") {
+      form.reset({
+        name: "",
+        email: "",
+        mobile: "",
+        address: "",
+        city: "",
+        state: "",
+        pincode: "",
+        country: "India",
+        estimatedArrivalTime: "",
+        estimatedDepartureTime: "",
+        breakfastDays: 0,
+        lunchDays: 0,
+        dinnerDays: 0,
+        paymentMethod: "pay_at_checkin",
+      });
+    }
+  }, [currentUser, bookingFor, form]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: { user: GuestFormData; booking: any }) => {
@@ -98,7 +145,11 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       
       // If user was auto-logged in, invalidate auth cache
       if (result.autoLoggedIn) {
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        toast({
+          title: "Account Created & Logged In",
+          description: `Welcome! Your account has been created with the password: guest123`,
+        });
       }
     },
     onError: (error) => {
@@ -161,12 +212,13 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
 
   const handleCloseModal = () => {
     setShowConfirmation(false);
+    form.reset();
     onCancel();
   };
 
   const navigateToMyBookings = () => {
-    // Use Wouter for navigation instead of window.location
-    window.location.pathname = "/my-bookings";
+    setShowConfirmation(false);
+    setLocation('/dashboard');
   };
 
   const handlePaymentSuccess = () => {
@@ -218,7 +270,37 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     <>
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Guest Details</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Guest Details
+          </CardTitle>
+          
+          {/* Book for Self/Others Selection - Only show if user is logged in */}
+          {currentUser && typeof currentUser === 'object' && 'name' in currentUser && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Who are you booking for?
+              </Label>
+              <RadioGroup 
+                value={bookingFor} 
+                onValueChange={(value: "self" | "others") => setBookingFor(value)}
+                className="flex flex-row gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="self" id="self" />
+                  <Label htmlFor="self" className="text-sm cursor-pointer">
+                    For Myself
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="others" id="others" />
+                  <Label htmlFor="others" className="text-sm cursor-pointer">
+                    For Someone Else
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Form {...form}>

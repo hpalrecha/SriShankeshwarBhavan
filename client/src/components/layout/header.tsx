@@ -14,7 +14,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check if user is authenticated
-  const { data: user } = useQuery({
+  const { data: user, refetch } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
   });
@@ -111,7 +111,7 @@ export default function Header() {
             {user && typeof user === 'object' && 'name' in user ? (
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-gray-700 hidden sm:inline">
-                  Welcome, {user?.name || 'Guest'}
+                  Welcome, {(user as any)?.name || 'Guest'}
                 </span>
                 <Button 
                   onClick={() => setLocation("/dashboard")}
@@ -224,7 +224,7 @@ export default function Header() {
               {user && typeof user === 'object' && 'name' in user ? (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <div className="px-3 py-2">
-                    <p className="text-sm text-gray-700">Welcome, {user?.name || 'Guest'}</p>
+                    <p className="text-sm text-gray-700">Welcome, {(user as any)?.name || 'Guest'}</p>
                   </div>
                   <Button 
                     onClick={() => {

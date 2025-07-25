@@ -22,12 +22,14 @@ export default function Dashboard() {
   // Get current user
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["/api/auth/me"],
+    retry: false,
   });
 
   // Get user's bookings
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/my-bookings"],
     enabled: !!user,
+    retry: false,
   });
 
   const cancelBookingMutation = useMutation({
