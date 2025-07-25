@@ -33,7 +33,7 @@ export default function BookingPayment({
   onPaymentSuccess, 
   onPaymentError 
 }: BookingPaymentProps) {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pay_at_checkin");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pay_online");
   const [selectedGateway, setSelectedGateway] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -42,6 +42,13 @@ export default function BookingPayment({
   const { data: paymentGateways = [], isLoading } = useQuery<PaymentGateway[]>({
     queryKey: ["/api/payment-gateways/active"],
   });
+
+  // Auto-select gateway if only one is available
+  useEffect(() => {
+    if (paymentGateways.length === 1 && !selectedGateway) {
+      setSelectedGateway(paymentGateways[0].gatewayName);
+    }
+  }, [paymentGateways, selectedGateway]);
 
   // Create payment order mutation
   const createOrderMutation = useMutation({
@@ -202,15 +209,9 @@ export default function BookingPayment({
   };
 
   const handlePaymentSubmit = () => {
-    if (selectedPaymentMethod === "pay_at_checkin") {
-      // No online payment needed
-      onPaymentSuccess();
-      return;
-    }
-
     if (!selectedGateway) {
       toast({
-        title: "Payment Gateway Required",
+        title: "Payment Gateway Required", 
         description: "Please select a payment gateway",
         variant: "destructive",
       });
@@ -270,87 +271,70 @@ export default function BookingPayment({
           </p>
         </div>
 
-        <RadioGroup value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-          {/* Pay at Check-in Option */}
-          <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-gray-50">
-            <RadioGroupItem value="pay_at_checkin" id="pay_at_checkin" />
-            <Label htmlFor="pay_at_checkin" className="flex items-center gap-2 cursor-pointer flex-1">
-              <MapPin className="w-4 h-4 text-gray-500" />
-              <div>
-                <div className="font-medium">Pay at Check-in</div>
-                <div className="text-sm text-gray-500">Pay when you arrive at the bhavan</div>
-              </div>
-            </Label>
-          </div>
-
-          {/* Online Payment Option */}
-          {paymentGateways.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-gray-50">
-                <RadioGroupItem value="pay_online" id="pay_online" />
-                <Label htmlFor="pay_online" className="flex items-center gap-2 cursor-pointer flex-1">
-                  <Wallet className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <div className="font-medium">Pay Online</div>
-                    <div className="text-sm text-gray-500">Pay securely using online payment gateways</div>
-                  </div>
-                </Label>
-              </div>
-
-              {/* Gateway Selection */}
-              {selectedPaymentMethod === "pay_online" && (
-                <div className="ml-6 space-y-2">
-                  <Label className="text-sm font-medium">Select Payment Gateway:</Label>
-                  <RadioGroup value={selectedGateway} onValueChange={setSelectedGateway}>
-                    {paymentGateways.map((gateway: PaymentGateway) => (
-                      <div key={gateway.id} className="flex items-center space-x-2 p-3 border rounded-lg">
-                        <RadioGroupItem value={gateway.gatewayName} id={gateway.gatewayName} />
-                        <Label htmlFor={gateway.gatewayName} className="cursor-pointer flex-1">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-medium">{gateway.displayName}</div>
-                              <div className="text-xs text-gray-500">
-                                Min: ₹{gateway.minimumAmount} • Fee: {gateway.processingFee}%
-                                {gateway.isTestMode && " • Test Mode"}
-                              </div>
-                            </div>
-                          </div>
-                        </Label>
+        {/* Gateway Selection - Show only if more than one gateway */}
+        {paymentGateways.length > 1 ? (
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Select Payment Gateway:</Label>
+            <RadioGroup value={selectedGateway} onValueChange={setSelectedGateway}>
+              {paymentGateways.map((gateway: PaymentGateway) => (
+                <div key={gateway.id} className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <RadioGroupItem value={gateway.gatewayName} id={gateway.gatewayName} />
+                  <Label htmlFor={gateway.gatewayName} className="cursor-pointer flex-1">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium">{gateway.displayName}</div>
+                        <div className="text-xs text-gray-500">
+                          Min: ₹{gateway.minimumAmount} • Fee: {gateway.processingFee}%
+                          {gateway.isTestMode && " • Test Mode"}
+                        </div>
                       </div>
-                    ))}
-                  </RadioGroup>
+                    </div>
+                  </Label>
                 </div>
-              )}
+              ))}
+            </RadioGroup>
+          </div>
+        ) : paymentGateways.length === 1 ? (
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">{paymentGateways[0].displayName}</div>
+                <div className="text-sm text-gray-500">
+                  Processing your payment securely
+                  {paymentGateways[0].isTestMode && " • Test Mode"}
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                Fee: {paymentGateways[0].processingFee}%
+              </div>
             </div>
-          )}
-        </RadioGroup>
-
-        {paymentGateways.length === 0 && (
+          </div>
+        ) : (
           <div className="text-center p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-yellow-800">
-              Online payment is currently unavailable. Please select "Pay at Check-in".
+              No payment gateways are currently available. Please contact support.
             </p>
           </div>
         )}
 
+
+
         <Button
           onClick={handlePaymentSubmit}
-          disabled={isProcessing || createOrderMutation.isPending}
+          disabled={isProcessing || createOrderMutation.isPending || (!selectedGateway && paymentGateways.length > 0)}
           className="w-full"
           size="lg"
         >
           {isProcessing ? (
             "Processing Payment..."
-          ) : selectedPaymentMethod === "pay_at_checkin" ? (
-            "Confirm Booking"
           ) : (
             `Pay ₹${totalAmount.toFixed(2)} Online`
           )}
         </Button>
 
-        {selectedPaymentMethod === "pay_online" && selectedGateway && (
+        {selectedGateway && (
           <div className="text-xs text-gray-500 text-center">
-            <p>You will be redirected to the payment gateway to complete your donation securely.</p>
+            <p>You will be redirected to {paymentGateways.find(g => g.gatewayName === selectedGateway)?.displayName} to complete your donation securely.</p>
           </div>
         )}
       </CardContent>
