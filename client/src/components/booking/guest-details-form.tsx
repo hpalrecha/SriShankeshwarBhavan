@@ -53,7 +53,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
-  const [pendingBookingData, setPendingBookingData] = useState<any>(null);
+  const [formData, setFormData] = useState<z.infer<typeof guestSchema> | null>(null);
   const [bookingFor, setBookingFor] = useState<"self" | "others">("others");
 
   // Check if user is authenticated
@@ -183,6 +183,19 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
   const onSubmit = (values: z.infer<typeof guestSchema>) => {
+    // Store form data for later use
+    setFormData(values);
+    
+    if (values.paymentMethod === 'pay_online') {
+      // For online payment, go to payment first (don't create booking yet)
+      setShowPayment(true);
+    } else {
+      // For pay at checkin, create booking directly
+      createBookingFromFormData(values);
+    }
+  };
+
+  const createBookingFromFormData = (values: z.infer<typeof guestSchema>) => {
     // Calculate food costs
     const breakfastPrice = parseFloat(foodSettings?.breakfastPrice || "50");
     const lunchPrice = parseFloat(foodSettings?.lunchPrice || "100");
@@ -202,15 +215,13 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         checkinDate: bookingData.checkinDate,
         checkoutDate: bookingData.checkoutDate,
         guests: bookingData.guests,
-
         estimatedArrivalTime: values.estimatedArrivalTime,
         estimatedDepartureTime: values.estimatedDepartureTime,
-        // Food options
         breakfastDays: values.breakfastDays,
         lunchDays: values.lunchDays,
         dinnerDays: values.dinnerDays,
         paymentMethod: values.paymentMethod,
-        paymentStatus: (values.paymentMethod === "pay_online" || values.paymentMethod === "online") ? "pending" : "unpaid",
+        paymentStatus: values.paymentMethod === "pay_online" ? "paid" : "unpaid",
         totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
@@ -231,12 +242,11 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   };
 
   const handlePaymentSuccess = () => {
-    toast({
-      title: "Payment Successful!",
-      description: `Your booking is confirmed with ID: ${bookingId}`,
-    });
+    // Payment successful, now create the booking
+    if (formData) {
+      createBookingFromFormData(formData);
+    }
     setShowPayment(false);
-    setShowConfirmation(true);
   };
 
   const handlePaymentError = (error: string) => {
@@ -262,11 +272,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   };
 
   // If payment step is showing, render payment component
-  if (showPayment && form.getValues('paymentMethod') === 'pay_online') {
+  if (showPayment && formData && formData.paymentMethod === 'pay_online') {
     return (
       <div className="max-w-2xl mx-auto">
         <BookingPayment
-          bookingId={bookingId}
+          formData={formData}
+          bookingData={bookingData}
           totalAmount={calculateTotalAmount()}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
@@ -285,7 +296,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
           </CardTitle>
           
           {/* Book for Self/Others Selection - Only show if user is logged in */}
-          {currentUser && typeof currentUser === 'object' && 'name' in currentUser && (
+          {currentUser && typeof currentUser === 'object' && currentUser !== null && 'name' in currentUser && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <Label className="text-sm font-medium text-gray-700 mb-3 block">
                 Who are you booking for?

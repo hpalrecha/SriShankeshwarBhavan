@@ -21,14 +21,18 @@ interface PaymentGateway {
 }
 
 interface BookingPaymentProps {
-  bookingId: string;
+  bookingId?: string;
+  formData?: any;
+  bookingData?: any;
   totalAmount: number;
   onPaymentSuccess: () => void;
   onPaymentError: (error: string) => void;
 }
 
 export default function BookingPayment({ 
-  bookingId, 
+  bookingId,
+  formData,
+  bookingData,
   totalAmount, 
   onPaymentSuccess, 
   onPaymentError 
@@ -239,8 +243,11 @@ export default function BookingPayment({
     }
 
     setIsProcessing(true);
+    // Use a temporary booking ID for payment processing if no booking exists yet
+    const tempBookingId = bookingId || `TEMP_${Date.now()}`;
+    
     createOrderMutation.mutate({
-      bookingId,
+      bookingId: tempBookingId,
       gatewayName: selectedGateway,
       amount: totalAmount,
     });
