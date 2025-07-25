@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ interface BookingWithDetails {
 export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   // Get current user
   const { data: user, isLoading: userLoading } = useQuery({
@@ -30,9 +32,7 @@ export default function Dashboard() {
 
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
-      await apiRequest(`/api/bookings/${bookingId}/cancel`, {
-        method: "PATCH",
-      });
+      await apiRequest("PATCH", `/api/bookings/${bookingId}/cancel`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-bookings"] });
@@ -73,7 +73,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="text-center">
             <Button 
-              onClick={() => window.location.href = "/login"}
+              onClick={() => setLocation("/login")}
               className="bg-brand-orange hover:bg-orange-600"
             >
               Go to Login

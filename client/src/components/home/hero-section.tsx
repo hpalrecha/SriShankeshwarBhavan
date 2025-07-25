@@ -1,4 +1,5 @@
 import { Calendar, MapPin, Users } from "lucide-react";
+import { smoothScrollToSection } from "@/lib/scroll-utils";
 
 export default function HeroSection() {
   return (
@@ -44,7 +45,11 @@ export default function HeroSection() {
           {/* CTA */}
           <div className="text-lg text-gray-600">
             <p>Scroll down to check availability and book your stay</p>
-            <div className="mt-4 animate-bounce">
+            <button 
+              onClick={() => smoothScrollToSection("booking")}
+              className="mt-4 animate-bounce focus:outline-none hover:scale-110 transition-transform duration-200"
+              aria-label="Scroll to booking section"
+            >
               <svg
                 className="w-6 h-6 mx-auto"
                 fill="none"
@@ -58,7 +63,7 @@ export default function HeroSection() {
                   d="M19 14l-7 7m0 0l-7-7m7 7V3"
                 />
               </svg>
-            </div>
+            </button>
           </div>
         </div>
       </div>

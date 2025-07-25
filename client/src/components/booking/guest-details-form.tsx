@@ -165,7 +165,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   };
 
   const navigateToMyBookings = () => {
-    window.location.href = "/my-bookings";
+    // Use Wouter for navigation instead of window.location
+    window.location.pathname = "/my-bookings";
   };
 
   const handlePaymentSuccess = () => {

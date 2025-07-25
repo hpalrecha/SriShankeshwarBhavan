@@ -27,7 +27,7 @@ export default function Home() {
       <HeroSection />
 
       {/* Booking Form Section */}
-      <section className="relative -mt-20 z-10 py-8">
+      <section id="booking" className="relative -mt-20 z-10 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-xl shadow-2xl p-8">
             <div className="text-center mb-8">
