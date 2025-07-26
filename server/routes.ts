@@ -1653,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test route to manually trigger WhatsApp for last booking
   app.post("/api/debug/test-whatsapp-booking", async (req, res) => {
     try {
-      console.log('🧪 MANUAL WhatsApp test triggered');
+      console.log('🧪 MANUAL WhatsApp test triggered for phone:', req.body.phoneOverride || 'latest booking');
       
       // Get the most recent booking
       const recentBookings = await storage.getRecentBookings(1);
@@ -1664,6 +1664,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const booking = recentBookings[0];
       console.log('📋 Testing with booking:', booking.bookingId);
       
+      // Override phone number if provided (create a modified booking object)
+      let testBooking = { ...booking };
+      if (req.body.phoneOverride) {
+        testBooking.primaryGuestPhone = req.body.phoneOverride;
+        console.log('📞 Using override phone:', req.body.phoneOverride);
+      }
+      
       // Get user and category
       const user = await storage.getUser(booking.userId);
       const category = await storage.getRoomCategory(booking.roomCategoryId);
@@ -1672,17 +1679,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: false, message: 'Category not found' });
       }
       
-      console.log('📞 Phone from booking:', booking.primaryGuestPhone);
+      console.log('📞 Phone from booking:', testBooking.primaryGuestPhone);
       console.log('📞 Phone from user:', user?.mobile);
       
       // Test WhatsApp notification
-      const result = await whatsappService.sendBookingConfirmation(booking, user || null, category);
+      console.log('🚀 ATTEMPTING WhatsApp notification for test booking');
+      const result = await whatsappService.sendBookingConfirmation(testBooking, user || null, category);
       console.log('📱 WhatsApp test result:', result);
       
       res.json({ 
         success: result, 
-        bookingId: booking.bookingId,
-        phoneUsed: booking.primaryGuestPhone || user?.mobile,
+        bookingId: testBooking.bookingId,
+        phoneUsed: testBooking.primaryGuestPhone || user?.mobile,
         message: result ? 'WhatsApp sent successfully' : 'WhatsApp failed to send'
       });
     } catch (error: any) {
