@@ -1650,6 +1650,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test route to manually trigger WhatsApp for last booking
+  app.post("/api/debug/test-whatsapp-booking", async (req, res) => {
+    try {
+      console.log('🧪 MANUAL WhatsApp test triggered');
+      
+      // Get the most recent booking
+      const recentBookings = await storage.getRecentBookings(1);
+      if (recentBookings.length === 0) {
+        return res.json({ success: false, message: 'No bookings found to test' });
+      }
+      
+      const booking = recentBookings[0];
+      console.log('📋 Testing with booking:', booking.bookingId);
+      
+      // Get user and category
+      const user = await storage.getUser(booking.userId);
+      const category = await storage.getRoomCategory(booking.roomCategoryId);
+      
+      if (!category) {
+        return res.json({ success: false, message: 'Category not found' });
+      }
+      
+      console.log('📞 Phone from booking:', booking.primaryGuestPhone);
+      console.log('📞 Phone from user:', user?.mobile);
+      
+      // Test WhatsApp notification
+      const result = await whatsappService.sendBookingConfirmation(booking, user, category);
+      console.log('📱 WhatsApp test result:', result);
+      
+      res.json({ 
+        success: result, 
+        bookingId: booking.bookingId,
+        phoneUsed: booking.primaryGuestPhone || user?.mobile,
+        message: result ? 'WhatsApp sent successfully' : 'WhatsApp failed to send'
+      });
+    } catch (error) {
+      console.error('❌ WhatsApp test error:', error);
+      res.json({ success: false, error: error.message });
+    }
+  });
+
   // Manual SMTP test endpoint
   app.get("/api/test-manual-smtp", async (req, res) => {
     try {
