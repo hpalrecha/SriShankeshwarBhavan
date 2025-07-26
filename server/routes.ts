@@ -736,12 +736,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Send booking confirmation WhatsApp notification
-
+      console.log(`🚀 ATTEMPTING WhatsApp notification for booking: ${booking.bookingId}`);
+      console.log(`📞 Phone number from booking: ${booking.primaryGuestPhone}`);
+      console.log(`📞 Phone number from user: ${user?.mobile || 'N/A'}`);
+      
       try {
         const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
         console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
+        if (whatsappResult) {
+          console.log(`✅ SUCCESS: WhatsApp message sent for booking ${booking.bookingId}`);
+        } else {
+          console.log(`❌ FAILED: WhatsApp message not sent for booking ${booking.bookingId}`);
+        }
       } catch (error) {
         console.error("❌ Error sending booking confirmation WhatsApp:", error);
+        console.error("❌ Full error details:", JSON.stringify(error, null, 2));
       }
 
       // Auto-login new users by creating a session
