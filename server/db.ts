@@ -3,7 +3,17 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+// Configure WebSocket for both development and production
+if (typeof window === 'undefined') {
+  // Server-side: use ws library
+  neonConfig.webSocketConstructor = ws;
+} else {
+  // Client-side: use native WebSocket (shouldn't happen in server code but good safety)
+  neonConfig.webSocketConstructor = WebSocket;
+}
+
+// Additional configuration for production deployments
+neonConfig.fetchConnectionCache = true;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

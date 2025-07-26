@@ -66,6 +66,40 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for deployment debugging
+  app.get("/api/health", async (req, res) => {
+    const health = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: false,
+      whatsapp: false,
+      details: {} as any
+    };
+
+    try {
+      // Test database connection
+      const testQuery = await storage.getWhatsAppConfig();
+      health.database = true;
+      health.details.database = "Connected successfully";
+      
+      // Test WhatsApp configuration
+      health.whatsapp = !!(testQuery && testQuery.isEnabled);
+      health.details.whatsapp = testQuery ? {
+        enabled: testQuery.isEnabled,
+        hasToken: !!testQuery.accessToken && testQuery.accessToken.length > 50,
+        hasPhoneId: !!testQuery.phoneNumberId,
+        hasBusinessId: !!testQuery.businessAccountId
+      } : "No configuration found";
+    } catch (error: any) {
+      health.database = false;
+      health.details.error = error.message;
+      health.status = "error";
+    }
+
+    res.json(health);
+  });
+
   // Configure session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
