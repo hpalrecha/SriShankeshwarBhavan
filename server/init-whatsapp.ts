@@ -9,7 +9,10 @@ export async function initializeWhatsApp(): Promise<void> {
     
     if (config) {
       whatsappService.setConfig({
-        ...config,
+        accessToken: config.accessToken,
+        phoneNumberId: config.phoneNumberId,
+        businessAccountId: config.businessAccountId,
+        webhookVerifyToken: config.webhookVerifyToken || undefined,
         isEnabled: config.isEnabled ?? false,
       });
       console.log(`WhatsApp service initialized - Enabled: ${config.isEnabled}`);

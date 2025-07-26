@@ -99,7 +99,7 @@ class WhatsAppService {
         body: JSON.stringify(message)
       });
 
-      const result = await response.json();
+      const result = await response.json() as any;
       
       if (response.ok) {
         console.log(`✅ WhatsApp message sent successfully to ${phoneNumber}:`, result);
