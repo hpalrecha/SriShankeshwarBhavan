@@ -35,15 +35,24 @@ class WhatsAppService {
 
   setConfig(config: WhatsAppConfig) {
     this.config = config;
+    console.log(`🔧 WhatsApp config updated - Enabled: ${config.isEnabled}, HasToken: ${!!config.accessToken}, HasPhoneId: ${!!config.phoneNumberId}, HasBusinessId: ${!!config.businessAccountId}`);
   }
 
   getConfig(): WhatsAppConfig | null {
     return this.config;
   }
 
+  isConfigured(): boolean {
+    return !!(this.config && 
+      this.config.isEnabled && 
+      this.config.accessToken && 
+      this.config.phoneNumberId && 
+      this.config.businessAccountId);
+  }
+
   private async sendTemplate(phoneNumber: string, notificationType: string, parameters: string[] = []): Promise<boolean> {
-    if (!this.config || !this.config.isEnabled) {
-      console.log("WhatsApp is not configured or disabled");
+    if (!this.isConfigured()) {
+      console.log(`❌ WhatsApp not properly configured - Config exists: ${!!this.config}, Enabled: ${this.config?.isEnabled || false}, HasCredentials: ${!!(this.config?.accessToken && this.config?.phoneNumberId && this.config?.businessAccountId)}`);
       return false;
     }
 
