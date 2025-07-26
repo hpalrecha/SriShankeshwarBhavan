@@ -107,10 +107,10 @@ class WhatsAppService {
 
   async sendBookingConfirmation(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
     console.log(`🔍 WhatsApp sendBookingConfirmation called for booking: ${booking.bookingId}`);
-    console.log(`📞 Original phone from booking: ${booking.phone}`);
+    console.log(`📞 Original phone from booking: ${booking.primaryGuestPhone}`);
     console.log(`👤 User mobile: ${user?.mobile}`);
     
-    const phoneNumber = this.formatPhoneNumber(booking.phone || user?.mobile);
+    const phoneNumber = this.formatPhoneNumber(booking.primaryGuestPhone || user?.mobile);
     console.log(`📱 Formatted phone number: ${phoneNumber}`);
     
     if (!phoneNumber) {
@@ -132,7 +132,7 @@ class WhatsAppService {
     if (templateMapping && templateMapping.templateName !== 'hello_world') {
       console.log(`📝 Template ${templateMapping.templateName} supports parameters, adding 7 params`);
       parameters = [
-        user?.name || booking.name,
+        user?.name || booking.primaryGuestName || 'Guest',
         booking.bookingId,
         category.name,
         new Date(booking.checkinDate).toLocaleDateString('en-IN'),
@@ -149,11 +149,11 @@ class WhatsAppService {
   }
 
   async sendBookingCancellation(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
-    const phoneNumber = this.formatPhoneNumber(booking.phone);
+    const phoneNumber = this.formatPhoneNumber(booking.primaryGuestPhone || user?.mobile);
     if (!phoneNumber) return false;
 
     const parameters = [
-      user?.name || booking.name,
+      user?.name || booking.primaryGuestName || 'Guest',
       booking.bookingId,
       category.name
     ];
@@ -162,11 +162,11 @@ class WhatsAppService {
   }
 
   async sendPreCheckinReminder(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
-    const phoneNumber = this.formatPhoneNumber(booking.phone);
+    const phoneNumber = this.formatPhoneNumber(booking.primaryGuestPhone || user?.mobile);
     if (!phoneNumber) return false;
 
     const parameters = [
-      user?.name || booking.name,
+      user?.name || booking.primaryGuestName || 'Guest',
       booking.bookingId,
       new Date(booking.checkinDate).toLocaleDateString('en-IN'),
       category.name
@@ -176,11 +176,11 @@ class WhatsAppService {
   }
 
   async sendCheckinDayWelcome(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
-    const phoneNumber = this.formatPhoneNumber(booking.phone);
+    const phoneNumber = this.formatPhoneNumber(booking.primaryGuestPhone || user?.mobile);
     if (!phoneNumber) return false;
 
     const parameters = [
-      user?.name || booking.name,
+      user?.name || booking.primaryGuestName || 'Guest',
       booking.bookingId,
       category.name
     ];
@@ -189,18 +189,18 @@ class WhatsAppService {
   }
 
   async sendPostCheckoutFeedback(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
-    const phoneNumber = this.formatPhoneNumber(booking.phone);
+    const phoneNumber = this.formatPhoneNumber(booking.primaryGuestPhone || user?.mobile);
     if (!phoneNumber) return false;
 
     const parameters = [
-      user?.name || booking.name,
+      user?.name || booking.primaryGuestName || 'Guest',
       booking.bookingId
     ];
 
     return await this.sendTemplate(phoneNumber, 'post_checkout_feedback', parameters);
   }
 
-  private formatPhoneNumber(phone: string): string | null {
+  private formatPhoneNumber(phone: string | null | undefined): string | null {
     if (!phone) return null;
     
     // Remove all non-digit characters
@@ -251,11 +251,11 @@ class WhatsAppService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         throw new Error(`Meta API Error: ${errorData.error?.message || 'Failed to fetch templates'}`);
       }
 
-      const result = await response.json();
+      const result = await response.json() as any;
       return result.data || [];
     } catch (error: any) {
       console.error("Error fetching templates from Meta:", error);
