@@ -1628,17 +1628,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/debug/whatsapp-status", async (req, res) => {
     try {
       const config = whatsappService.getConfig();
-      const envVars = {
-        hasAccessToken: !!process.env.WHATSAPP_ACCESS_TOKEN,
-        hasBusinessId: !!process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
-        hasPhoneId: !!process.env.WHATSAPP_PHONE_NUMBER_ID,
-      };
       
       res.json({
         configExists: !!config,
         configEnabled: config?.isEnabled || false,
         configHasCredentials: !!(config?.accessToken && config?.phoneNumberId && config?.businessAccountId),
-        environmentVariables: envVars,
+        databaseConfigOnly: true,
+        hardcodedEnvVarsRemoved: true,
         isConfigured: whatsappService.isConfigured(),
         nodeEnv: process.env.NODE_ENV || 'development'
       });
