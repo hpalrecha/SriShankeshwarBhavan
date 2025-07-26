@@ -1676,7 +1676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📞 Phone from user:', user?.mobile);
       
       // Test WhatsApp notification
-      const result = await whatsappService.sendBookingConfirmation(booking, user, category);
+      const result = await whatsappService.sendBookingConfirmation(booking, user || null, category);
       console.log('📱 WhatsApp test result:', result);
       
       res.json({ 
@@ -1685,7 +1685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneUsed: booking.primaryGuestPhone || user?.mobile,
         message: result ? 'WhatsApp sent successfully' : 'WhatsApp failed to send'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ WhatsApp test error:', error);
       res.json({ success: false, error: error.message });
     }
