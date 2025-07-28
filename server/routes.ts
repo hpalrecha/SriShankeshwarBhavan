@@ -1263,33 +1263,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If status was changed to cancelled, send cancellation notifications
       if (updates.status === "cancelled" && originalBooking.status !== "cancelled") {
-        console.log(`📱 Admin cancelled booking ${originalBooking.bookingId}, sending WhatsApp notification...`);
+        console.log(`📱 Admin cancelled booking ${originalBooking.bookingId}, sending notifications asynchronously...`);
         
-        try {
-          const category = await storage.getRoomCategory(originalBooking.roomCategoryId);
-          const user = await storage.getUser(originalBooking.userId);
-          
-          if (category) {
-            // Send cancellation email
-            await sendBookingCancellationEmail({
-              booking: { ...originalBooking, status: "cancelled" },
-              user,
-              category,
-            });
+        // Send all cancellation notifications asynchronously (fire-and-forget)
+        setImmediate(async () => {
+          try {
+            const category = await storage.getRoomCategory(originalBooking.roomCategoryId);
+            const user = await storage.getUser(originalBooking.userId);
+            
+            if (category) {
+              // Send cancellation email asynchronously
+              try {
+                await sendBookingCancellationEmail({
+                  booking: { ...originalBooking, status: "cancelled" },
+                  user,
+                  category,
+                });
+                console.log(`✅ Cancellation email sent for booking: ${originalBooking.bookingId}`);
+              } catch (emailError) {
+                console.error("❌ Error sending cancellation email:", emailError);
+              }
 
-            // Send cancellation WhatsApp notification asynchronously
-            setImmediate(async () => {
+              // Send cancellation WhatsApp notification asynchronously
               try {
                 await whatsappService.sendBookingCancellation(originalBooking, user || null, category);
                 console.log(`✅ WhatsApp cancellation notification sent for booking: ${originalBooking.bookingId}`);
               } catch (whatsappError) {
                 console.error("❌ Error sending WhatsApp cancellation notification:", whatsappError);
               }
-            });
+            }
+          } catch (notificationError) {
+            console.error("Error processing booking cancellation notifications:", notificationError);
           }
-        } catch (notificationError) {
-          console.error("Error sending booking cancellation notifications:", notificationError);
-        }
+        });
       }
       
       res.json(updatedBooking);
