@@ -602,23 +602,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           createdBookings.push(booking);
           
-          // Send booking confirmation email for each booking
-          try {
-            await sendBookingConfirmationEmail({
-              booking,
-              user,
-              category: roomCategory,
-            });
-          } catch (error) {
-            console.error(`Error sending booking confirmation email for ${booking.bookingId}:`, error);
-          }
+          // Send notifications asynchronously for better performance
+          setImmediate(async () => {
+            // Send booking confirmation email for each booking
+            try {
+              await sendBookingConfirmationEmail({
+                booking,
+                user,
+                category: roomCategory,
+              });
+            } catch (error) {
+              console.error(`Error sending booking confirmation email for ${booking.bookingId}:`, error);
+            }
 
-          // Send booking confirmation WhatsApp notification for each booking
-          try {
-            await whatsappService.sendBookingConfirmation(booking, user, roomCategory);
-          } catch (error) {
-            console.error(`Error sending booking confirmation WhatsApp for ${booking.bookingId}:`, error);
-          }
+            // Send booking confirmation WhatsApp notification for each booking
+            try {
+              await whatsappService.sendBookingConfirmation(booking, user, roomCategory);
+            } catch (error) {
+              console.error(`Error sending booking confirmation WhatsApp for ${booking.bookingId}:`, error);
+            }
+          });
         }
       }
 
@@ -764,59 +767,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         foodAmount: foodAmount.toString(),
       });
 
-      // Send booking confirmation email
-      try {
-        await sendBookingConfirmationEmail({
-          booking,
-          user,
-          category,
-        });
-      } catch (error) {
-        console.error("Error sending booking confirmation email:", error);
-      }
-
-      // Send booking confirmation WhatsApp notification
-      console.log(`🚀 ATTEMPTING WhatsApp notification for booking: ${booking.bookingId}`);
-      console.log(`📞 Phone number from booking: ${booking.primaryGuestPhone}`);
-      console.log(`📞 Phone number from user: ${user?.mobile || 'N/A'}`);
-      
-      try {
-        const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
-        console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
-        if (whatsappResult) {
-          console.log(`✅ SUCCESS: WhatsApp message sent for booking ${booking.bookingId}`);
-        } else {
-          console.log(`❌ FAILED: WhatsApp message not sent for booking ${booking.bookingId}`);
+      // Send notifications asynchronously (fire-and-forget for better performance)
+      setImmediate(async () => {
+        // Send booking confirmation email
+        try {
+          await sendBookingConfirmationEmail({
+            booking,
+            user,
+            category,
+          });
+        } catch (error) {
+          console.error("Error sending booking confirmation email:", error);
         }
-      } catch (error) {
-        console.error("❌ Error sending booking confirmation WhatsApp:", error);
-        console.error("❌ Full error details:", JSON.stringify(error, null, 2));
-      }
 
-      // Auto-login new users by creating a session
-      if (isNewUser && req.session) {
+        // Send booking confirmation WhatsApp notification
+        console.log(`🚀 ATTEMPTING WhatsApp notification for booking: ${booking.bookingId}`);
+        console.log(`📞 Phone number from booking: ${booking.primaryGuestPhone}`);
+        console.log(`📞 Phone number from user: ${user?.mobile || 'N/A'}`);
+        
+        try {
+          const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
+          console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
+          if (whatsappResult) {
+            console.log(`✅ SUCCESS: WhatsApp message sent for booking ${booking.bookingId}`);
+          } else {
+            console.log(`❌ FAILED: WhatsApp message not sent for booking ${booking.bookingId}`);
+          }
+        } catch (error) {
+          console.error("❌ Error sending booking confirmation WhatsApp:", error);
+          console.error("❌ Full error details:", JSON.stringify(error, null, 2));
+        }
+      });
+
+      // Auto-login users asynchronously for better performance
+      if (req.session) {
         (req.session as any).userId = user.id;
-        await new Promise((resolve) => {
+        // Save session asynchronously
+        setImmediate(() => {
           req.session.save((err) => {
             if (err) {
-              console.error("Error saving session for new user:", err);
+              console.error("Error saving session:", err);
+            } else {
+              console.log(`🔐 Auto-logged in user: ${user.id} with session: ${req.session.id}`);
             }
-            resolve(null);
           });
         });
-        console.log(`🔐 Auto-logged in new user: ${user.id} with session: ${req.session.id}`);
-      } else if (req.session) {
-        // Also auto-login existing users for seamless experience
-        (req.session as any).userId = user.id;
-        await new Promise((resolve) => {
-          req.session.save((err) => {
-            if (err) {
-              console.error("Error saving session for existing user:", err);
-            }
-            resolve(null);
-          });
-        });
-        console.log(`🔐 Auto-logged in existing user: ${user.id} with session: ${req.session.id}`);
       }
 
       res.json({ 
