@@ -144,7 +144,12 @@ export default function MyBookings() {
                       </Badge>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">Booking ID: <span className="font-mono text-brand-orange">{item.booking.bookingId}</span></p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">Booking ID: <span className="font-mono text-brand-orange">{item.booking.bookingId}</span></p>
+                    <p className="text-sm text-gray-500">
+                      Booked on: {item.booking.createdAt ? new Date(item.booking.createdAt).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Dates and Guests */}

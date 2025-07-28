@@ -158,6 +158,10 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                     <span className="text-sm text-gray-500">Guests:</span>
                     <span className="text-sm">{booking.guests} guests, 1 room</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Booked on:</span>
+                    <span className="text-sm">{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</span>
+                  </div>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
@@ -225,6 +229,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                 <th className="text-left p-3 font-medium text-gray-700">ROOM</th>
                 <th className="text-left p-3 font-medium text-gray-700">DATES</th>
                 <th className="text-left p-3 font-medium text-gray-700">PAYMENT</th>
+                <th className="text-left p-3 font-medium text-gray-700">BOOKED ON</th>
                 <th className="text-left p-3 font-medium text-gray-700">STATUS</th>
                 <th className="text-left p-3 font-medium text-gray-700">ACTIONS</th>
               </tr>
@@ -273,6 +278,15 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                     </div>
                     <div className="text-xs text-gray-500">
                       {booking.paymentMethod === "pay_at_checkin" ? "Pay at Check-in" : booking.paymentMethod}
+                    </div>
+                  </td>
+                  
+                  <td className="p-3">
+                    <div className="text-sm text-gray-900">
+                      {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : ''}
                     </div>
                   </td>
                   
