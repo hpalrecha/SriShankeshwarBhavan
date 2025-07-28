@@ -1245,6 +1245,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const updates = req.body;
       
+      // Get the original booking before updating
+      const originalBooking = await storage.getRoomBooking(id);
+      if (!originalBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
       // Add actual check-in/out times based on status
       if (updates.status === "checked_in" && !updates.actualCheckinTime) {
         updates.actualCheckinTime = new Date();
@@ -1254,6 +1260,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedBooking = await storage.updateRoomBooking(id, updates);
+      
+      // If status was changed to cancelled, send cancellation notifications
+      if (updates.status === "cancelled" && originalBooking.status !== "cancelled") {
+        console.log(`📱 Admin cancelled booking ${originalBooking.bookingId}, sending WhatsApp notification...`);
+        
+        try {
+          const category = await storage.getRoomCategory(originalBooking.roomCategoryId);
+          const user = await storage.getUser(originalBooking.userId);
+          
+          if (category) {
+            // Send cancellation email
+            await sendBookingCancellationEmail({
+              booking: { ...originalBooking, status: "cancelled" },
+              user,
+              category,
+            });
+
+            // Send cancellation WhatsApp notification asynchronously
+            setImmediate(async () => {
+              try {
+                await whatsappService.sendBookingCancellation(originalBooking, user || null, category);
+                console.log(`✅ WhatsApp cancellation notification sent for booking: ${originalBooking.bookingId}`);
+              } catch (whatsappError) {
+                console.error("❌ Error sending WhatsApp cancellation notification:", whatsappError);
+              }
+            });
+          }
+        } catch (notificationError) {
+          console.error("Error sending booking cancellation notifications:", notificationError);
+        }
+      }
+      
       res.json(updatedBooking);
     } catch (error) {
       console.error("Error updating booking:", error);
