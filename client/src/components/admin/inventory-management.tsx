@@ -10,7 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Bed, Users, DollarSign, Trash2, Upload, Image as ImageIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Plus, Edit, Bed, Users, DollarSign, Trash2, Upload, Image as ImageIcon, Calendar, Search } from "lucide-react";
+import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { RoomCategory } from "@shared/schema";
@@ -34,6 +37,11 @@ export default function InventoryManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  
+  // Date-based availability checker states
+  const [checkinDate, setCheckinDate] = useState<Date>();
+  const [checkoutDate, setCheckoutDate] = useState<Date>();
+  const [showAvailabilityFor, setShowAvailabilityFor] = useState<'current' | 'dates'>('current');
 
   const { data: categories = [], isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
@@ -43,6 +51,16 @@ export default function InventoryManagement() {
   const { data: availabilityData = {} } = useQuery<Record<number, { available: number; booked: number }>>({
     queryKey: ["/api/admin/current-availability"],
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: showAvailabilityFor === 'current',
+  });
+
+  // Get date-based availability when specific dates are selected
+  const { data: dateAvailabilityData = {}, isLoading: isLoadingDateAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
+    queryKey: ["/api/rooms/availability", { 
+      checkinDate: checkinDate?.toISOString().split('T')[0], 
+      checkoutDate: checkoutDate?.toISOString().split('T')[0] 
+    }],
+    enabled: showAvailabilityFor === 'dates' && !!checkinDate && !!checkoutDate,
   });
 
   const form = useForm<CategoryFormData>({
@@ -260,6 +278,85 @@ export default function InventoryManagement() {
           <p className="text-gray-600">Manage room categories and availability</p>
         </div>
         
+        {/* Availability Mode Toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={showAvailabilityFor === 'current' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowAvailabilityFor('current')}
+          >
+            Current Availability
+          </Button>
+          <Button
+            variant={showAvailabilityFor === 'dates' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowAvailabilityFor('dates')}
+          >
+            <Calendar className="h-4 w-4 mr-1" />
+            Check Dates
+          </Button>
+        </div>
+      </div>
+
+      {/* Date Selection for Date-Based Availability */}
+      {showAvailabilityFor === 'dates' && (
+        <Card className="p-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex gap-2 items-center">
+              <Label className="text-sm font-medium">Check-in:</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {checkinDate ? format(checkinDate, "MMM dd, yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={checkinDate}
+                    onSelect={setCheckinDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="flex gap-2 items-center">
+              <Label className="text-sm font-medium">Check-out:</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {checkoutDate ? format(checkoutDate, "MMM dd, yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={checkoutDate}
+                    onSelect={setCheckoutDate}
+                    disabled={(date) => date < (checkinDate || new Date())}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {checkinDate && checkoutDate && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Search className="h-4 w-4" />
+                Showing availability for {format(checkinDate, "MMM dd")} to {format(checkoutDate, "MMM dd, yyyy")}
+                {isLoadingDateAvailability && <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+      
+      <div className="flex justify-between items-center">
+        <div></div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-brand-orange hover:bg-orange-600">
@@ -516,24 +613,74 @@ export default function InventoryManagement() {
                 <p className="font-semibold text-brand-orange">{category.bedConfiguration || "1 Double Bed"}</p>
               </div>
               
-              <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className={`mt-3 p-3 rounded-lg border ${
+                showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
+                  ? 'bg-gray-50 border-gray-200' 
+                  : 'bg-green-50 border-green-200'
+              }`}>
                 <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium text-green-800">Current Availability</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {availabilityData?.[category.id] ? 
-                      `${availabilityData[category.id].available} / ${category.totalUnits}` :
-                      `${category.totalUnits} / ${category.totalUnits}`
+                  <p className={`text-sm font-medium ${
+                    showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
+                      ? 'text-gray-600' 
+                      : 'text-green-800'
+                  }`}>
+                    {showAvailabilityFor === 'dates' 
+                      ? (checkinDate && checkoutDate 
+                          ? `Availability (${format(checkinDate, "MMM dd")} - ${format(checkoutDate, "MMM dd")})` 
+                          : 'Select dates to check availability'
+                        )
+                      : 'Current Availability'
                     }
                   </p>
+                  
+                  {showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) ? (
+                    <p className="text-sm text-gray-500">
+                      Select dates above
+                    </p>
+                  ) : (
+                    <p className={`text-lg font-bold ${
+                      showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
+                        ? 'text-gray-500' 
+                        : 'text-green-600'
+                    }`}>
+                      {(() => {
+                        const currentData = showAvailabilityFor === 'current' ? availabilityData : dateAvailabilityData;
+                        const availability = currentData?.[category.id];
+                        
+                        if (isLoadingDateAvailability && showAvailabilityFor === 'dates') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
+                              <span className="text-sm">Loading...</span>
+                            </div>
+                          );
+                        }
+                        
+                        return availability 
+                          ? `${availability.available} / ${category.totalUnits}` 
+                          : `${category.totalUnits} / ${category.totalUnits}`;
+                      })()}
+                    </p>
+                  )}
                 </div>
                 <p className="text-xs text-green-600 mt-1">
-                  {availabilityData?.[category.id] ? (
-                    availabilityData[category.id].available === category.totalUnits ? 
-                      'All rooms available today' : 
-                      `${category.totalUnits - availabilityData[category.id].available} rooms booked today`
-                  ) : (
-                    'All rooms available today'
-                  )}
+                  {(() => {
+                    if (showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate)) {
+                      return 'Select dates to see booking details';
+                    }
+                    
+                    const currentData = showAvailabilityFor === 'current' ? availabilityData : dateAvailabilityData;
+                    const availability = currentData?.[category.id];
+                    const timePeriod = showAvailabilityFor === 'current' ? 'today' : 'for selected dates';
+                    
+                    if (availability) {
+                      return availability.available === category.totalUnits 
+                        ? `All rooms available ${timePeriod}` 
+                        : `${category.totalUnits - availability.available} rooms booked ${timePeriod}`;
+                    } else {
+                      return `All rooms available ${timePeriod}`;
+                    }
+                  })()}
                 </p>
               </div>
             </CardContent>
