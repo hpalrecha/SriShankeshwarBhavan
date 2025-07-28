@@ -492,7 +492,7 @@ export class DatabaseStorage implements IStorage {
 
   // Trustee Reserved Dates
   async getTrusteeReservedDates(): Promise<TrusteeReservedDate[]> {
-    return await db.select().from(trusteeReservedDates).orderBy(asc(trusteeReservedDates.dayOfMonth));
+    return await db.select().from(trusteeReservedDates).orderBy(asc(trusteeReservedDates.reservedDate));
   }
 
   async createTrusteeReservedDate(reservedDate: InsertTrusteeReservedDate): Promise<TrusteeReservedDate> {
@@ -516,7 +516,7 @@ export class DatabaseStorage implements IStorage {
   async getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]> {
     return await db.select().from(trusteeReservedDates)
       .where(eq(trusteeReservedDates.isEnabled, true))
-      .orderBy(asc(trusteeReservedDates.dayOfMonth));
+      .orderBy(asc(trusteeReservedDates.reservedDate));
   }
 
   // Payment Gateways

@@ -506,8 +506,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const hasTrusteeReservedDates = bookingDates.some(bookingDate => {
-        const dayOfMonth = bookingDate.getDate();
-        return trusteeReservedDates.some(rd => rd.dayOfMonth === dayOfMonth);
+        const bookingDateString = bookingDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        return trusteeReservedDates.some(rd => {
+          const reservedDateString = new Date(rd.reservedDate).toISOString().split('T')[0];
+          return reservedDateString === bookingDateString;
+        });
       });
       
       // If there are trustee reserved dates, mark as unavailable for non-trustees
@@ -677,15 +680,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const conflictingDates = [];
       for (const bookingDate of bookingDates) {
-        const dayOfMonth = bookingDate.getDate();
-        const isReservedDate = trusteeReservedDates.some(rd => rd.dayOfMonth === dayOfMonth);
+        const bookingDateString = bookingDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const isReservedDate = trusteeReservedDates.some(rd => {
+          const reservedDateString = new Date(rd.reservedDate).toISOString().split('T')[0];
+          return reservedDateString === bookingDateString;
+        });
         
         if (isReservedDate) {
           // Only allow trustees to book on reserved dates
           if (!userData.isTrustee) {
             conflictingDates.push({
               date: bookingDate.toDateString(),
-              dayOfMonth: dayOfMonth
+              reservedDate: bookingDateString
             });
           }
         }
@@ -1852,20 +1858,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/trustee-reserved-dates", async (req, res) => {
     try {
-      const { dayOfMonth, description, isEnabled } = req.body;
+      const { reservedDate, description, isEnabled } = req.body;
       
-      // Validate day of month
-      if (dayOfMonth < 1 || dayOfMonth > 31) {
-        return res.status(400).json({ error: "Day of month must be between 1 and 31" });
+      // Validate date format
+      if (!reservedDate || !Date.parse(reservedDate)) {
+        return res.status(400).json({ error: "Valid date is required (YYYY-MM-DD format)" });
       }
       
-      const reservedDate = await storage.createTrusteeReservedDate({
-        dayOfMonth,
+      const newReservedDate = await storage.createTrusteeReservedDate({
+        reservedDate,
         description: description || "Trustee Reserved Day",
         isEnabled: isEnabled !== false, // Default to true
       });
       
-      res.status(201).json(reservedDate);
+      res.status(201).json(newReservedDate);
     } catch (error: any) {
       console.error("Error creating trustee reserved date:", error);
       res.status(500).json({ error: error.message || "Failed to create trustee reserved date" });
@@ -1877,9 +1883,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const updates = req.body;
       
-      // Validate day of month if provided
-      if (updates.dayOfMonth && (updates.dayOfMonth < 1 || updates.dayOfMonth > 31)) {
-        return res.status(400).json({ error: "Day of month must be between 1 and 31" });
+      // Validate reserved date if provided
+      if (updates.reservedDate && !Date.parse(updates.reservedDate)) {
+        return res.status(400).json({ error: "Valid date is required (YYYY-MM-DD format)" });
       }
       
       const updatedReservedDate = await storage.updateTrusteeReservedDate(id, updates);

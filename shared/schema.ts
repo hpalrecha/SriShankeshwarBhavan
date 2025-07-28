@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, uuid, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -273,10 +273,10 @@ export const whatsappTemplates = pgTable("whatsapp_templates", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
-// Trustee Reserved Dates - For blocking specific dates monthly for trustee-only bookings
+// Trustee Reserved Dates - For blocking specific dates with month and year for trustee-only bookings
 export const trusteeReservedDates = pgTable("trustee_reserved_dates", {
   id: serial("id").primaryKey(),
-  dayOfMonth: integer("day_of_month").notNull(), // 1-31, represents which day of the month
+  reservedDate: date("reserved_date").notNull(), // Full date (YYYY-MM-DD)
   isEnabled: boolean("is_enabled").default(true),
   description: varchar("description", { length: 255 }).default("Trustee Reserved Day"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -370,5 +370,7 @@ export type InsertTrusteeReservedDate = z.infer<typeof insertTrusteeReservedDate
 // Types for Payment Gateways
 export type PaymentGateway = typeof paymentGateways.$inferSelect;
 export type InsertPaymentGateway = z.infer<typeof insertPaymentGatewaySchema>;
+
+
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
