@@ -46,12 +46,11 @@ export default function InventoryManagement() {
     queryKey: ["/api/room-categories"],
   });
 
-  // Get availability data - force fresh data every time
-  const { data: availabilityData = {}, isLoading: isLoadingAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
-    queryKey: ["/api/rooms/availability-admin", checkinDate?.toISOString().split('T')[0], checkoutDate?.toISOString().split('T')[0], Date.now()],
+  // Get availability data - fresh data without caching
+  const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
+    queryKey: ["/api/rooms/availability-admin", checkinDate?.toISOString().split('T')[0], checkoutDate?.toISOString().split('T')[0]],
     enabled: !!checkinDate && !!checkoutDate,
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache results
+    staleTime: 0,
     queryFn: async () => {
       if (!checkinDate || !checkoutDate) return {};
       
@@ -61,10 +60,7 @@ export default function InventoryManagement() {
       });
       
       console.log("Fresh API Response:", response);
-      console.log("Response type:", typeof response);
-      console.log("Keys:", Object.keys(response || {}));
-      
-      return response;
+      return response as Record<number, { available: number; booked: number }>;
     }
   });
 
@@ -623,10 +619,12 @@ export default function InventoryManagement() {
                   ) : (
                     <p className="text-lg font-bold text-green-600">
                       {(() => {
+                        const availData = availabilityData as Record<number, { available: number; booked: number }> | undefined;
+                        
                         console.log(`ADMIN DEBUG: Category ${category.id} (${category.name}):`, {
                           isLoadingAvailability,
-                          availabilityData,
-                          categoryData: availabilityData[category.id],
+                          availabilityData: availData,
+                          categoryData: availData?.[category.id],
                           categoryTotalUnits: category.totalUnits
                         });
                         
@@ -639,8 +637,8 @@ export default function InventoryManagement() {
                           );
                         }
                         
-                        const categoryAvailability = availabilityData[category.id];
-                        if (categoryAvailability && categoryAvailability.available !== undefined) {
+                        const categoryAvailability = availData?.[category.id];
+                        if (categoryAvailability && typeof categoryAvailability.available === 'number') {
                           return `${categoryAvailability.available} / ${category.totalUnits}`;
                         } else {
                           return `${category.totalUnits} / ${category.totalUnits}`;
@@ -650,17 +648,25 @@ export default function InventoryManagement() {
                   )}
                 </div>
                 <p className={`text-xs mt-1 ${(!checkinDate || !checkoutDate) ? 'text-blue-600' : 'text-green-600'}`}>
-                  {(!checkinDate || !checkoutDate) ? (
-                    'Choose check-in and check-out dates to see availability'
-                  ) : isLoadingAvailability ? (
-                    'Checking availability...'
-                  ) : availabilityData[category.id] ? (
-                    availabilityData[category.id].available === category.totalUnits 
-                      ? 'All rooms available for selected dates' 
-                      : `${availabilityData[category.id].booked} rooms booked for selected dates`
-                  ) : (
-                    'All rooms available for selected dates'
-                  )}
+                  {(() => {
+                    if (!checkinDate || !checkoutDate) {
+                      return 'Choose check-in and check-out dates to see availability';
+                    }
+                    if (isLoadingAvailability) {
+                      return 'Checking availability...';
+                    }
+                    
+                    const availData = availabilityData as Record<number, { available: number; booked: number }> | undefined;
+                    const categoryAvailability = availData?.[category.id];
+                    
+                    if (categoryAvailability) {
+                      return categoryAvailability.available === category.totalUnits 
+                        ? 'All rooms available for selected dates' 
+                        : `${categoryAvailability.booked} rooms booked for selected dates`;
+                    } else {
+                      return 'All rooms available for selected dates';
+                    }
+                  })()}
                 </p>
               </div>
             </CardContent>
