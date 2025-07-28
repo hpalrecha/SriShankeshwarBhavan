@@ -621,49 +621,31 @@ export default function InventoryManagement() {
                     </p>
                   ) : (
                     <p className="text-lg font-bold text-green-600">
-                      {(() => {
-                        if (isLoadingAvailability) {
-                          return (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
-                              <span className="text-sm">Loading...</span>
-                            </div>
-                          );
-                        }
-                        
-                        const availability = availabilityData[category.id];
-                        console.log(`Debug: Category ${category.id} (${category.name}):`, {
-                          availability,
-                          availabilityData,
-                          categoryTotalUnits: category.totalUnits
-                        });
-                        return availability 
-                          ? `${availability.available} / ${category.totalUnits}` 
-                          : `${category.totalUnits} / ${category.totalUnits}`;
-                      })()}
+                      {isLoadingAvailability ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
+                          <span className="text-sm">Loading...</span>
+                        </div>
+                      ) : (
+                        availabilityData[category.id] 
+                          ? `${availabilityData[category.id].available} / ${category.totalUnits}`
+                          : `${category.totalUnits} / ${category.totalUnits}`
+                      )}
                     </p>
                   )}
                 </div>
                 <p className={`text-xs mt-1 ${(!checkinDate || !checkoutDate) ? 'text-blue-600' : 'text-green-600'}`}>
-                  {(() => {
-                    if (!checkinDate || !checkoutDate) {
-                      return 'Choose check-in and check-out dates to see availability';
-                    }
-                    
-                    if (isLoadingAvailability) {
-                      return 'Checking availability...';
-                    }
-                    
-                    const availability = availabilityData[category.id];
-                    
-                    if (availability) {
-                      return availability.available === category.totalUnits 
-                        ? 'All rooms available for selected dates' 
-                        : `${category.totalUnits - availability.available} rooms booked for selected dates`;
-                    } else {
-                      return 'All rooms available for selected dates';
-                    }
-                  })()}
+                  {(!checkinDate || !checkoutDate) ? (
+                    'Choose check-in and check-out dates to see availability'
+                  ) : isLoadingAvailability ? (
+                    'Checking availability...'
+                  ) : availabilityData[category.id] ? (
+                    availabilityData[category.id].available === category.totalUnits 
+                      ? 'All rooms available for selected dates' 
+                      : `${availabilityData[category.id].booked} rooms booked for selected dates`
+                  ) : (
+                    'All rooms available for selected dates'
+                  )}
                 </p>
               </div>
             </CardContent>
