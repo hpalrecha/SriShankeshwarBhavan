@@ -46,23 +46,24 @@ export default function InventoryManagement() {
     queryKey: ["/api/room-categories"],
   });
 
-  // Get availability data using the same logic as home page - working correctly
+  // Get availability data - force fresh data every time
   const { data: availabilityData = {}, isLoading: isLoadingAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
-    queryKey: ["/api/rooms/date-availability", { 
-      checkinDate: checkinDate?.toISOString().split('T')[0], 
-      checkoutDate: checkoutDate?.toISOString().split('T')[0] 
-    }],
+    queryKey: ["/api/rooms/availability-admin", checkinDate?.toISOString().split('T')[0], checkoutDate?.toISOString().split('T')[0], Date.now()],
     enabled: !!checkinDate && !!checkoutDate,
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache results
     queryFn: async () => {
       if (!checkinDate || !checkoutDate) return {};
       
-      // Use the same POST endpoint that works correctly in the backend
       const response = await apiRequest("POST", "/api/rooms/availability", {
         checkinDate: checkinDate.toISOString().split('T')[0],
         checkoutDate: checkoutDate.toISOString().split('T')[0]
       });
       
-      console.log("API Response for availability:", response);
+      console.log("Fresh API Response:", response);
+      console.log("Response type:", typeof response);
+      console.log("Keys:", Object.keys(response || {}));
+      
       return response;
     }
   });
@@ -621,16 +622,30 @@ export default function InventoryManagement() {
                     </p>
                   ) : (
                     <p className="text-lg font-bold text-green-600">
-                      {isLoadingAvailability ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
-                          <span className="text-sm">Loading...</span>
-                        </div>
-                      ) : (
-                        availabilityData[category.id] 
-                          ? `${availabilityData[category.id].available} / ${category.totalUnits}`
-                          : `${category.totalUnits} / ${category.totalUnits}`
-                      )}
+                      {(() => {
+                        console.log(`ADMIN DEBUG: Category ${category.id} (${category.name}):`, {
+                          isLoadingAvailability,
+                          availabilityData,
+                          categoryData: availabilityData[category.id],
+                          categoryTotalUnits: category.totalUnits
+                        });
+                        
+                        if (isLoadingAvailability) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
+                              <span className="text-sm">Loading...</span>
+                            </div>
+                          );
+                        }
+                        
+                        const categoryAvailability = availabilityData[category.id];
+                        if (categoryAvailability && categoryAvailability.available !== undefined) {
+                          return `${categoryAvailability.available} / ${category.totalUnits}`;
+                        } else {
+                          return `${category.totalUnits} / ${category.totalUnits}`;
+                        }
+                      })()}
                     </p>
                   )}
                 </div>
