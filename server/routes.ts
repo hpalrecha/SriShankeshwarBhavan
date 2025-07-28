@@ -350,62 +350,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current availability for admin dashboard
-  app.get("/api/admin/current-availability", async (req, res) => {
+  // Date-based availability check - the only useful availability endpoint
+  app.post("/api/rooms/availability", async (req, res) => {
     try {
-      const categories = await storage.getRoomCategories();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Start of today
+      const { checkinDate, checkoutDate } = req.body;
       
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (!checkinDate || !checkoutDate) {
+        return res.status(400).json({ message: "Missing required parameters: checkinDate and checkoutDate" });
+      }
 
+      const startDate = new Date(checkinDate);
+      const endDate = new Date(checkoutDate);
+      
+      if (startDate >= endDate) {
+        return res.status(400).json({ message: "Check-out date must be after check-in date" });
+      }
+
+      const categories = await storage.getRoomCategories();
       const availability: Record<number, { available: number; booked: number }> = {};
 
       for (const category of categories) {
-        // Get all active bookings (confirmed or checked in) for today
-        const allBookings = await storage.getRoomBookings();
-        // Show rooms as unavailable if they are:
-        // 1. Currently occupied (checkin <= today < checkout)
-        // 2. Confirmed for today (checkin = today) 
-        // 3. Checked in but not checked out
-        const bookedRooms = allBookings
-          .filter(booking => {
-            const checkin = new Date(booking.checkinDate);
-            const checkout = new Date(booking.checkoutDate);
-            checkin.setHours(0, 0, 0, 0);
-            checkout.setHours(0, 0, 0, 0);
-            
-            const isRoomCategoryMatch = booking.roomCategoryId === category.id;
-            const isActiveStatus = booking.status !== 'cancelled' && booking.status !== 'checked_out';
-            
-            // Room is unavailable if:
-            // - Currently occupying (checkin <= today < checkout)
-            // - OR booking is for today (checkin = today)
-            // - OR status is checked_in (regardless of dates)
-            const isCurrentlyOccupying = checkin <= today && checkout > today;
-            const isBookingForToday = checkin.getTime() === today.getTime();
-            const isCheckedIn = booking.status === 'checked_in';
-            
-            const isUnavailable = isCurrentlyOccupying || isBookingForToday || isCheckedIn;
-            
+        // Get overlapping bookings for this category and date range
+        const overlappingBookings = await storage.getBookingsByDateRange(
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0],
+          category.id
+        );
 
-            
-            return isRoomCategoryMatch && isActiveStatus && isUnavailable;
-          })
-          .reduce((sum, booking) => sum + (booking.roomsBooked || 1), 0);
+        // Calculate total rooms booked (not just number of bookings)
+        const totalRoomsBooked = overlappingBookings.reduce((sum, booking) => {
+          return sum + (booking.roomsBooked || 1);
+        }, 0);
+
+        const availableRooms = Math.max(0, category.totalUnits - totalRoomsBooked);
 
         availability[category.id] = {
-          available: Math.max(0, category.totalUnits - bookedRooms),
-          booked: bookedRooms
+          available: availableRooms,
+          booked: totalRoomsBooked
         };
       }
 
-
       res.json(availability);
     } catch (error) {
-      console.error("Error fetching current availability:", error);
-      res.status(500).json({ message: "Failed to fetch current availability" });
+      console.error("Error checking date-based availability:", error);
+      res.status(500).json({ message: "Failed to check availability" });
     }
   });
 

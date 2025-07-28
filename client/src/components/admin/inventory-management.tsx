@@ -38,29 +38,28 @@ export default function InventoryManagement() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   
-  // Date-based availability checker states
+  // Date-based availability checker states - the only useful availability check
   const [checkinDate, setCheckinDate] = useState<Date>();
   const [checkoutDate, setCheckoutDate] = useState<Date>();
-  const [showAvailabilityFor, setShowAvailabilityFor] = useState<'current' | 'dates'>('current');
 
   const { data: categories = [], isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
   });
 
-  // Get real-time availability for each category
-  const { data: availabilityData = {} } = useQuery<Record<number, { available: number; booked: number }>>({
-    queryKey: ["/api/admin/current-availability"],
-    refetchInterval: 30000, // Refresh every 30 seconds
-    enabled: showAvailabilityFor === 'current',
-  });
-
-  // Get date-based availability when specific dates are selected
-  const { data: dateAvailabilityData = {}, isLoading: isLoadingDateAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
+  // Get date-based availability when specific dates are selected - the only one we need
+  const { data: availabilityData = {}, isLoading: isLoadingAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
     queryKey: ["/api/rooms/availability", { 
       checkinDate: checkinDate?.toISOString().split('T')[0], 
       checkoutDate: checkoutDate?.toISOString().split('T')[0] 
     }],
-    enabled: showAvailabilityFor === 'dates' && !!checkinDate && !!checkoutDate,
+    enabled: !!checkinDate && !!checkoutDate,
+    queryFn: async () => {
+      if (!checkinDate || !checkoutDate) return {};
+      return apiRequest("POST", "/api/rooms/availability", {
+        checkinDate: checkinDate.toISOString().split('T')[0],
+        checkoutDate: checkoutDate.toISOString().split('T')[0]
+      });
+    }
   });
 
   const form = useForm<CategoryFormData>({
@@ -278,82 +277,63 @@ export default function InventoryManagement() {
           <p className="text-gray-600">Manage room categories and availability</p>
         </div>
         
-        {/* Availability Mode Toggle */}
-        <div className="flex gap-2">
-          <Button
-            variant={showAvailabilityFor === 'current' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowAvailabilityFor('current')}
-          >
-            Current Availability
-          </Button>
-          <Button
-            variant={showAvailabilityFor === 'dates' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowAvailabilityFor('dates')}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            Check Dates
-          </Button>
-        </div>
+
       </div>
 
-      {/* Date Selection for Date-Based Availability */}
-      {showAvailabilityFor === 'dates' && (
-        <Card className="p-4">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex gap-2 items-center">
-              <Label className="text-sm font-medium">Check-in:</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {checkinDate ? format(checkinDate, "MMM dd, yyyy") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={checkinDate}
-                    onSelect={setCheckinDate}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className="flex gap-2 items-center">
-              <Label className="text-sm font-medium">Check-out:</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {checkoutDate ? format(checkoutDate, "MMM dd, yyyy") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={checkoutDate}
-                    onSelect={setCheckoutDate}
-                    disabled={(date) => date < (checkinDate || new Date())}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            {checkinDate && checkoutDate && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Search className="h-4 w-4" />
-                Showing availability for {format(checkinDate, "MMM dd")} to {format(checkoutDate, "MMM dd, yyyy")}
-                {isLoadingDateAvailability && <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>}
-              </div>
-            )}
+      {/* Date Selection for Availability Check */}
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex gap-2 items-center">
+            <Label className="text-sm font-medium">Check-in:</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {checkinDate ? format(checkinDate, "MMM dd, yyyy") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={checkinDate}
+                  onSelect={setCheckinDate}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
-        </Card>
-      )}
+          
+          <div className="flex gap-2 items-center">
+            <Label className="text-sm font-medium">Check-out:</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {checkoutDate ? format(checkoutDate, "MMM dd, yyyy") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={checkoutDate}
+                  onSelect={setCheckoutDate}
+                  disabled={(date) => date < (checkinDate || new Date())}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          {checkinDate && checkoutDate && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Search className="h-4 w-4" />
+              Showing availability for {format(checkinDate, "MMM dd")} to {format(checkoutDate, "MMM dd, yyyy")}
+              {isLoadingAvailability && <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>}
+            </div>
+          )}
+        </div>
+      </Card>
       
       <div className="flex justify-between items-center">
         <div></div>
@@ -614,40 +594,30 @@ export default function InventoryManagement() {
               </div>
               
               <div className={`mt-3 p-3 rounded-lg border ${
-                showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
-                  ? 'bg-gray-50 border-gray-200' 
+                (!checkinDate || !checkoutDate) 
+                  ? 'bg-blue-50 border-blue-200' 
                   : 'bg-green-50 border-green-200'
               }`}>
                 <div className="flex justify-between items-center">
                   <p className={`text-sm font-medium ${
-                    showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
-                      ? 'text-gray-600' 
+                    (!checkinDate || !checkoutDate) 
+                      ? 'text-blue-800' 
                       : 'text-green-800'
                   }`}>
-                    {showAvailabilityFor === 'dates' 
-                      ? (checkinDate && checkoutDate 
-                          ? `Availability (${format(checkinDate, "MMM dd")} - ${format(checkoutDate, "MMM dd")})` 
-                          : 'Select dates to check availability'
-                        )
-                      : 'Current Availability'
+                    {checkinDate && checkoutDate 
+                      ? `Availability (${format(checkinDate, "MMM dd")} - ${format(checkoutDate, "MMM dd")})` 
+                      : 'Select dates to check availability'
                     }
                   </p>
                   
-                  {showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) ? (
-                    <p className="text-sm text-gray-500">
+                  {(!checkinDate || !checkoutDate) ? (
+                    <p className="text-sm text-blue-600 font-medium">
                       Select dates above
                     </p>
                   ) : (
-                    <p className={`text-lg font-bold ${
-                      showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate) 
-                        ? 'text-gray-500' 
-                        : 'text-green-600'
-                    }`}>
+                    <p className="text-lg font-bold text-green-600">
                       {(() => {
-                        const currentData = showAvailabilityFor === 'current' ? availabilityData : dateAvailabilityData;
-                        const availability = currentData?.[category.id];
-                        
-                        if (isLoadingDateAvailability && showAvailabilityFor === 'dates') {
+                        if (isLoadingAvailability) {
                           return (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
@@ -656,6 +626,7 @@ export default function InventoryManagement() {
                           );
                         }
                         
+                        const availability = availabilityData[category.id];
                         return availability 
                           ? `${availability.available} / ${category.totalUnits}` 
                           : `${category.totalUnits} / ${category.totalUnits}`;
@@ -663,22 +634,24 @@ export default function InventoryManagement() {
                     </p>
                   )}
                 </div>
-                <p className="text-xs text-green-600 mt-1">
+                <p className={`text-xs mt-1 ${(!checkinDate || !checkoutDate) ? 'text-blue-600' : 'text-green-600'}`}>
                   {(() => {
-                    if (showAvailabilityFor === 'dates' && (!checkinDate || !checkoutDate)) {
-                      return 'Select dates to see booking details';
+                    if (!checkinDate || !checkoutDate) {
+                      return 'Choose check-in and check-out dates to see availability';
                     }
                     
-                    const currentData = showAvailabilityFor === 'current' ? availabilityData : dateAvailabilityData;
-                    const availability = currentData?.[category.id];
-                    const timePeriod = showAvailabilityFor === 'current' ? 'today' : 'for selected dates';
+                    if (isLoadingAvailability) {
+                      return 'Checking availability...';
+                    }
+                    
+                    const availability = availabilityData[category.id];
                     
                     if (availability) {
                       return availability.available === category.totalUnits 
-                        ? `All rooms available ${timePeriod}` 
-                        : `${category.totalUnits - availability.available} rooms booked ${timePeriod}`;
+                        ? 'All rooms available for selected dates' 
+                        : `${category.totalUnits - availability.available} rooms booked for selected dates`;
                     } else {
-                      return `All rooms available ${timePeriod}`;
+                      return 'All rooms available for selected dates';
                     }
                   })()}
                 </p>
