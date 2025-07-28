@@ -371,14 +371,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const category of categories) {
         // Get overlapping bookings for this category and date range
-        const overlappingBookings = await storage.getBookingsByDateRange(
-          startDate.toISOString().split('T')[0],
-          endDate.toISOString().split('T')[0],
-          category.id
+        const overlappingBookings = await storage.getBookingsByDateRange(startDate, endDate);
+        
+        // Filter bookings for this specific room category  
+        const categoryBookings = overlappingBookings.filter(booking => 
+          booking.roomCategoryId === category.id
         );
 
         // Calculate total rooms booked (not just number of bookings)
-        const totalRoomsBooked = overlappingBookings.reduce((sum, booking) => {
+        const totalRoomsBooked = categoryBookings.reduce((sum, booking) => {
           return sum + (booking.roomsBooked || 1);
         }, 0);
 

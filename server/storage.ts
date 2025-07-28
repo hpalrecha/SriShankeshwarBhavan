@@ -35,7 +35,7 @@ import {
   type InsertPaymentTransaction,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc, lt, gt, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, lt, gt, ne, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Room Categories
@@ -60,7 +60,7 @@ export interface IStorage {
   getRoomBookingByBookingId(bookingId: string): Promise<RoomBooking | undefined>;
   createRoomBooking(booking: InsertRoomBooking & { bookingId: string }): Promise<RoomBooking>;
   updateRoomBooking(id: number, booking: Partial<RoomBooking>): Promise<RoomBooking>;
-  getBookingsByDateRange(startDate: Date, endDate: Date): Promise<RoomBooking[]>;
+  getBookingsByDateRange(startDate: Date | string, endDate: Date | string): Promise<RoomBooking[]>;
   getTodaysCheckins(): Promise<RoomBooking[]>;
   getTodaysCheckouts(): Promise<RoomBooking[]>;
   getRecentBookings(limit: number): Promise<RoomBooking[]>;
@@ -234,20 +234,26 @@ export class DatabaseStorage implements IStorage {
     return updatedBooking;
   }
 
-  async getBookingsByDateRange(startDate: Date, endDate: Date): Promise<RoomBooking[]> {
-    // Find bookings that overlap with the requested date range
-    // Overlap occurs when: booking.checkinDate < endDate AND booking.checkoutDate > startDate
-    return await db
+  async getBookingsByDateRange(startDate: Date | string, endDate: Date | string): Promise<RoomBooking[]> {
+    // Get all bookings and filter in JavaScript to avoid date conversion issues
+    const allBookings = await db
       .select()
       .from(roomBookings)
-      .where(
-        and(
-          lt(roomBookings.checkinDate, endDate),
-          gt(roomBookings.checkoutDate, startDate),
-          ne(roomBookings.status, "cancelled")
-        )
-      )
+      .where(ne(roomBookings.status, "cancelled"))
       .orderBy(asc(roomBookings.checkinDate));
+    
+    // Convert input dates to Date objects for comparison
+    const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
+    const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+    
+    // Filter bookings that overlap with the requested date range
+    // Overlap occurs when: booking.checkinDate < endDate AND booking.checkoutDate > startDate
+    return allBookings.filter(booking => {
+      const checkin = new Date(booking.checkinDate);
+      const checkout = new Date(booking.checkoutDate);
+      
+      return checkin < end && checkout > start;
+    });
   }
 
   async getTodaysCheckins(): Promise<RoomBooking[]> {
