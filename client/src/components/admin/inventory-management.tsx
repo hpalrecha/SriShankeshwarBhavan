@@ -46,19 +46,24 @@ export default function InventoryManagement() {
     queryKey: ["/api/room-categories"],
   });
 
-  // Get date-based availability when specific dates are selected - the only one we need
+  // Get availability data using the same logic as home page - working correctly
   const { data: availabilityData = {}, isLoading: isLoadingAvailability } = useQuery<Record<number, { available: number; booked: number }>>({
-    queryKey: ["/api/rooms/availability", { 
+    queryKey: ["/api/rooms/date-availability", { 
       checkinDate: checkinDate?.toISOString().split('T')[0], 
       checkoutDate: checkoutDate?.toISOString().split('T')[0] 
     }],
     enabled: !!checkinDate && !!checkoutDate,
     queryFn: async () => {
       if (!checkinDate || !checkoutDate) return {};
-      return apiRequest("POST", "/api/rooms/availability", {
+      
+      // Use the same POST endpoint that works correctly in the backend
+      const response = await apiRequest("POST", "/api/rooms/availability", {
         checkinDate: checkinDate.toISOString().split('T')[0],
         checkoutDate: checkoutDate.toISOString().split('T')[0]
       });
+      
+      console.log("API Response for availability:", response);
+      return response;
     }
   });
 
