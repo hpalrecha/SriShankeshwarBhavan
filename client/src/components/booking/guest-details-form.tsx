@@ -243,7 +243,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
 
   const navigateToMyBookings = () => {
     setShowConfirmation(false);
-    setLocation('/dashboard');
+    setLocation('/my-bookings');
   };
 
   const handlePaymentSuccess = () => {
