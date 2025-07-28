@@ -30,6 +30,83 @@ const categorySchema = z.object({
 
 type CategoryFormData = z.infer<typeof categorySchema>;
 
+// Simple availability display component to fix the display issue
+function AvailabilityDisplay({ 
+  category, 
+  checkinDate, 
+  checkoutDate, 
+  availabilityData, 
+  isLoading 
+}: {
+  category: RoomCategory;
+  checkinDate: Date | undefined;
+  checkoutDate: Date | undefined;
+  availabilityData: any;
+  isLoading: boolean;
+}) {
+  const hasValidDates = checkinDate && checkoutDate;
+  
+  console.log(`AVAILABILITY DEBUG - Category ${category.id} (${category.name}):`, {
+    availabilityData,
+    categoryData: availabilityData?.[category.id],
+    hasValidDates,
+    isLoading
+  });
+  
+  let displayText = `${category.totalUnits} / ${category.totalUnits}`;
+  let descriptionText = 'All rooms available for selected dates';
+  
+  if (hasValidDates && !isLoading && availabilityData) {
+    const categoryData = availabilityData[category.id];
+    if (categoryData && typeof categoryData.available === 'number') {
+      displayText = `${categoryData.available} / ${category.totalUnits}`;
+      descriptionText = categoryData.available === category.totalUnits 
+        ? 'All rooms available for selected dates'
+        : `${categoryData.booked} rooms booked for selected dates`;
+    }
+  }
+  
+  return (
+    <div className={`mt-3 p-3 rounded-lg border ${
+      !hasValidDates ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+    }`}>
+      <div className="flex justify-between items-center">
+        <p className={`text-sm font-medium ${
+          !hasValidDates ? 'text-blue-800' : 'text-green-800'
+        }`}>
+          {hasValidDates 
+            ? `Availability (${format(checkinDate!, "MMM dd")} - ${format(checkoutDate!, "MMM dd")})` 
+            : 'Select dates to check availability'
+          }
+        </p>
+        
+        {!hasValidDates ? (
+          <p className="text-sm text-blue-600 font-medium">Select dates above</p>
+        ) : (
+          <p className="text-lg font-bold text-green-600">
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : (
+              displayText
+            )}
+          </p>
+        )}
+      </div>
+      <p className={`text-xs mt-1 ${!hasValidDates ? 'text-blue-600' : 'text-green-600'}`}>
+        {!hasValidDates 
+          ? 'Choose check-in and check-out dates to see availability'
+          : isLoading 
+            ? 'Checking availability...'
+            : descriptionText
+        }
+      </p>
+    </div>
+  );
+}
+
 export default function InventoryManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -595,80 +672,13 @@ export default function InventoryManagement() {
                 <p className="font-semibold text-brand-orange">{category.bedConfiguration || "1 Double Bed"}</p>
               </div>
               
-              <div className={`mt-3 p-3 rounded-lg border ${
-                (!checkinDate || !checkoutDate) 
-                  ? 'bg-blue-50 border-blue-200' 
-                  : 'bg-green-50 border-green-200'
-              }`}>
-                <div className="flex justify-between items-center">
-                  <p className={`text-sm font-medium ${
-                    (!checkinDate || !checkoutDate) 
-                      ? 'text-blue-800' 
-                      : 'text-green-800'
-                  }`}>
-                    {checkinDate && checkoutDate 
-                      ? `Availability (${format(checkinDate, "MMM dd")} - ${format(checkoutDate, "MMM dd")})` 
-                      : 'Select dates to check availability'
-                    }
-                  </p>
-                  
-                  {(!checkinDate || !checkoutDate) ? (
-                    <p className="text-sm text-blue-600 font-medium">
-                      Select dates above
-                    </p>
-                  ) : (
-                    <p className="text-lg font-bold text-green-600">
-                      {(() => {
-                        const availData = availabilityData as Record<number, { available: number; booked: number }> | undefined;
-                        
-                        console.log(`ADMIN DEBUG: Category ${category.id} (${category.name}):`, {
-                          isLoadingAvailability,
-                          availabilityData: availData,
-                          categoryData: availData?.[category.id],
-                          categoryTotalUnits: category.totalUnits
-                        });
-                        
-                        if (isLoadingAvailability) {
-                          return (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
-                              <span className="text-sm">Loading...</span>
-                            </div>
-                          );
-                        }
-                        
-                        const categoryAvailability = availData?.[category.id];
-                        if (categoryAvailability && typeof categoryAvailability.available === 'number') {
-                          return `${categoryAvailability.available} / ${category.totalUnits}`;
-                        } else {
-                          return `${category.totalUnits} / ${category.totalUnits}`;
-                        }
-                      })()}
-                    </p>
-                  )}
-                </div>
-                <p className={`text-xs mt-1 ${(!checkinDate || !checkoutDate) ? 'text-blue-600' : 'text-green-600'}`}>
-                  {(() => {
-                    if (!checkinDate || !checkoutDate) {
-                      return 'Choose check-in and check-out dates to see availability';
-                    }
-                    if (isLoadingAvailability) {
-                      return 'Checking availability...';
-                    }
-                    
-                    const availData = availabilityData as Record<number, { available: number; booked: number }> | undefined;
-                    const categoryAvailability = availData?.[category.id];
-                    
-                    if (categoryAvailability) {
-                      return categoryAvailability.available === category.totalUnits 
-                        ? 'All rooms available for selected dates' 
-                        : `${categoryAvailability.booked} rooms booked for selected dates`;
-                    } else {
-                      return 'All rooms available for selected dates';
-                    }
-                  })()}
-                </p>
-              </div>
+              <AvailabilityDisplay 
+                category={category}
+                checkinDate={checkinDate}
+                checkoutDate={checkoutDate}
+                availabilityData={availabilityData}
+                isLoading={isLoadingAvailability}
+              />
             </CardContent>
           </Card>
         ))}
