@@ -1913,20 +1913,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingDates = await storage.getTrusteeReservedDates();
       
       if (existingDates.length === 0) {
-        // Create default dates: 14th and 15th of every month
+        // Create default dates for specific dates (August 14th and 15th, 2025)
         await storage.createTrusteeReservedDate({
-          dayOfMonth: 14,
-          description: "Trustee Reserved Day - 14th",
+          reservedDate: "2025-08-14",
+          description: "Trustee Reserved Day - August 14th",
           isEnabled: true,
         });
         
         await storage.createTrusteeReservedDate({
-          dayOfMonth: 15,
-          description: "Trustee Reserved Day - 15th", 
+          reservedDate: "2025-08-15",
+          description: "Trustee Reserved Day - August 15th", 
           isEnabled: true,
         });
         
-        res.json({ message: "Default trustee reserved dates (14th and 15th) created successfully" });
+        res.json({ message: "Default trustee reserved dates (August 14th and 15th, 2025) created successfully" });
       } else {
         res.json({ message: "Trustee reserved dates already exist", count: existingDates.length });
       }
