@@ -627,6 +627,11 @@ export default function InventoryManagement() {
                         }
                         
                         const availability = availabilityData[category.id];
+                        console.log(`Debug: Category ${category.id} (${category.name}):`, {
+                          availability,
+                          availabilityData,
+                          categoryTotalUnits: category.totalUnits
+                        });
                         return availability 
                           ? `${availability.available} / ${category.totalUnits}` 
                           : `${category.totalUnits} / ${category.totalUnits}`;
