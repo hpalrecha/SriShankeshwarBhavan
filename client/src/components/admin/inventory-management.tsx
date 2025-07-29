@@ -46,25 +46,35 @@ function AvailabilityDisplay({
 }) {
   const hasValidDates = checkinDate && checkoutDate;
   
-  console.log(`AVAILABILITY DEBUG - Category ${category.id} (${category.name}):`, {
+  console.log(`🏠 AVAILABILITY DEBUG - Category ${category.id} (${category.name}):`, {
     availabilityData,
     categoryData: availabilityData?.[category.id],
+    categoryDataString: availabilityData?.[String(category.id)], // Try string key
     hasValidDates,
     isLoading,
     categoryIdType: typeof category.id,
-    availabilityKeys: availabilityData ? Object.keys(availabilityData) : 'no data'
+    categoryIdValue: category.id,
+    availabilityKeys: availabilityData ? Object.keys(availabilityData) : 'no data',
+    availabilityKeysTypes: availabilityData ? Object.keys(availabilityData).map(k => typeof k) : 'no data'
   });
   
   let displayText = `${category.totalUnits} / ${category.totalUnits}`;
   let descriptionText = 'All rooms available for selected dates';
   
   if (hasValidDates && !isLoading && availabilityData) {
-    const categoryData = availabilityData[category.id];
+    // Try both numeric and string keys since API responses can vary
+    const categoryData = availabilityData[category.id] || availabilityData[String(category.id)];
+    console.log(`🔍 Found category data for ${category.id}:`, categoryData);
+    
     if (categoryData && typeof categoryData.available === 'number') {
       displayText = `${categoryData.available} / ${category.totalUnits}`;
       descriptionText = categoryData.available === category.totalUnits 
         ? 'All rooms available for selected dates'
         : `${categoryData.booked} rooms booked for selected dates`;
+      
+      console.log(`✅ Updated display for ${category.name}: ${displayText}`);
+    } else {
+      console.log(`❌ No valid data found for category ${category.id} (${category.name})`);
     }
   }
   
@@ -134,7 +144,7 @@ export default function InventoryManagement() {
     queryKey: ["/api/rooms/availability-admin", checkinDate?.toISOString().split('T')[0], checkoutDate?.toISOString().split('T')[0]],
     enabled: !!checkinDate && !!checkoutDate,
     staleTime: 30000, // Cache for 30 seconds to improve performance
-    cacheTime: 300000, // Keep in cache for 5 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes (gcTime in React Query v5)
     queryFn: async () => {
       if (!checkinDate || !checkoutDate) return {};
       
