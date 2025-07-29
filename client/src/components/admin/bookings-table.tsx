@@ -32,7 +32,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data: bookingsResponse, isLoading } = useQuery<PaginatedBookingsResponse>({
-    queryKey: ["/api/admin/recent-bookings", currentPage],
+    queryKey: ["/api/admin/bookings-table", currentPage], // Different key to avoid cache conflicts
     queryFn: async () => {
       const response = await fetch(`/api/admin/recent-bookings?page=${currentPage}&limit=30`);
       if (!response.ok) throw new Error('Failed to fetch bookings');
@@ -49,6 +49,11 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       setCurrentPage(1);
     }
   }, [pagination, currentPage]);
+
+  // Force refresh to clear any cache conflicts
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings-table"] });
+  }, [queryClient]);
 
   // Filter bookings by user if userFilter is provided
   const filteredBookings = userFilter 
