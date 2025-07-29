@@ -50,7 +50,9 @@ function AvailabilityDisplay({
     availabilityData,
     categoryData: availabilityData?.[category.id],
     hasValidDates,
-    isLoading
+    isLoading,
+    categoryIdType: typeof category.id,
+    availabilityKeys: availabilityData ? Object.keys(availabilityData) : 'no data'
   });
   
   let displayText = `${category.totalUnits} / ${category.totalUnits}`;
