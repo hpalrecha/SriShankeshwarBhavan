@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,13 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
 
   const bookings = bookingsResponse?.bookings || [];
   const pagination = bookingsResponse?.pagination;
+  
+  // Reset current page if it's beyond available pages
+  useEffect(() => {
+    if (pagination && currentPage > pagination.totalPages && pagination.totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [pagination, currentPage]);
 
   // Filter bookings by user if userFilter is provided
   const filteredBookings = userFilter 
@@ -382,7 +389,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
         </div>
         
         {/* Pagination Controls */}
-        {pagination && pagination.totalPages > 1 && (
+        {pagination && typeof pagination.totalPages === 'number' && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between p-4 border-t bg-gray-50">
             <div className="text-sm text-gray-700">
               Showing {((currentPage - 1) * pagination.limit) + 1} to {Math.min(currentPage * pagination.limit, pagination.total)} of {pagination.total} bookings
