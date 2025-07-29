@@ -215,17 +215,36 @@ class WhatsAppService {
     // Remove all non-digit characters
     const digits = phone.replace(/\D/g, '');
     
-    // If starts with 91, use as is
+    console.log(`📞 Processing phone: "${phone}" -> digits: "${digits}" (length: ${digits.length})`);
+    
+    // If starts with 91 and is 12 digits, use as is
     if (digits.startsWith('91') && digits.length === 12) {
+      console.log(`✅ Valid 91-prefixed number: ${digits}`);
       return digits;
     }
     
     // If 10 digits, add 91 prefix
     if (digits.length === 10) {
-      return '91' + digits;
+      const formatted = '91' + digits;
+      console.log(`✅ Added 91 prefix: ${formatted}`);
+      return formatted;
     }
     
-    console.error(`Invalid phone number format: ${phone}`);
+    // If 11 digits starting with 0, remove 0 and add 91
+    if (digits.length === 11 && digits.startsWith('0')) {
+      const formatted = '91' + digits.substring(1);
+      console.log(`✅ Removed leading 0 and added 91: ${formatted}`);
+      return formatted;
+    }
+    
+    // If exactly 11 digits not starting with 0, assume it's country code + number
+    if (digits.length === 11) {
+      const formatted = '91' + digits.substring(1);
+      console.log(`✅ Treated as international format, adjusted to: ${formatted}`);
+      return formatted;
+    }
+    
+    console.error(`❌ Invalid phone number format: "${phone}" -> digits: "${digits}" (${digits.length} digits)`);
     return null;
   }
 
