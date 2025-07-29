@@ -43,20 +43,12 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const bookings = bookingsResponse?.bookings || [];
   const pagination = bookingsResponse?.pagination;
   
-  // Reset current page if it's beyond available pages or if we have no bookings on pages > 1
+  // Reset current page if it's beyond available pages
   useEffect(() => {
-    if (pagination) {
-      // If we're on page > 1 and have no bookings, reset to page 1
-      if (currentPage > 1 && bookings.length === 0) {
-        setCurrentPage(1);
-        return;
-      }
-      // If current page is beyond total pages, reset to page 1
-      if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
-        setCurrentPage(1);
-      }
+    if (pagination && currentPage > pagination.totalPages && pagination.totalPages > 0) {
+      setCurrentPage(1);
     }
-  }, [pagination, currentPage, bookings.length]);
+  }, [pagination, currentPage]);
 
   // Filter bookings by user if userFilter is provided
   const filteredBookings = userFilter 
@@ -396,9 +388,8 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           </table>
         </div>
         
-        {/* Pagination Controls */}
-        {pagination && typeof pagination.totalPages === 'number' && pagination.totalPages > 1 && 
-         !(currentPage > 1 && bookings.length === 0) && (
+        {/* Pagination Controls - Only show if we actually have more than 1 page of data */}
+        {pagination && pagination.total > pagination.limit && (
           <div className="flex items-center justify-between p-4 border-t bg-gray-50">
             <div className="text-sm text-gray-700">
               Showing {((currentPage - 1) * pagination.limit) + 1} to {Math.min(currentPage * pagination.limit, pagination.total)} of {pagination.total} bookings
