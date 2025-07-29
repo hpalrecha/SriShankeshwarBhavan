@@ -115,9 +115,13 @@ export default function InventoryManagement() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   
-  // Date-based availability checker states - the only useful availability check
-  const [checkinDate, setCheckinDate] = useState<Date>();
-  const [checkoutDate, setCheckoutDate] = useState<Date>();
+  // Date-based availability checker states - set default to today and tomorrow
+  const [checkinDate, setCheckinDate] = useState<Date>(() => new Date());
+  const [checkoutDate, setCheckoutDate] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  });
 
   const { data: categories = [], isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
