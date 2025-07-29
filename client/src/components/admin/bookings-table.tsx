@@ -34,7 +34,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const { data: bookingsResponse, isLoading } = useQuery<PaginatedBookingsResponse>({
     queryKey: ["/api/admin/recent-bookings", currentPage],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/recent-bookings?page=${currentPage}&limit=50`);
+      const response = await fetch(`/api/admin/recent-bookings?page=${currentPage}&limit=30`);
       if (!response.ok) throw new Error('Failed to fetch bookings');
       return response.json();
     },

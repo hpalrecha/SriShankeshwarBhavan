@@ -17,7 +17,7 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
   const { data: bookingsResponse, isLoading: bookingsLoading } = useQuery({
     queryKey: ["/api/admin/recent-bookings", 1], // Get first page for dashboard
     queryFn: async () => {
-      const response = await fetch('/api/admin/recent-bookings?page=1&limit=5'); // Only need 5 for dashboard
+      const response = await fetch('/api/admin/recent-bookings?page=1&limit=5'); // Only need 5 for dashboard preview
       if (!response.ok) throw new Error('Failed to fetch bookings');
       return response.json();
     },
