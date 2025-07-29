@@ -1048,13 +1048,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      const totalPages = Math.ceil(totalBookings / limit);
+      
       res.json({
         bookings: bookingsWithDetails,
         pagination: {
-          page,
-          limit,
+          page: page,
+          limit: limit,
           total: totalBookings,
-          totalPages: Math.ceil(totalBookings / limit),
+          totalPages: totalPages,
           hasMore: offset + bookings.length < totalBookings
         }
       });

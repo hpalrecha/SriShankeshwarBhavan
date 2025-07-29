@@ -308,7 +308,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(roomBookings);
-    return result[0]?.count || 0;
+    return parseInt(result[0]?.count?.toString() || '0');
   }
 
   // ID Proofs
