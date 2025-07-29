@@ -3,11 +3,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Users, Calendar, CreditCard, BookOpen } from "lucide-react";
+import { Eye, Users, Calendar, CreditCard, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import BookingDetailsModal from "./booking-details-modal";
 import type { BookingWithDetails } from "@/lib/types";
+
+interface PaginatedBookingsResponse {
+  bookings: BookingWithDetails[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
 
 interface BookingsTableProps {
   userFilter?: number | null;
@@ -18,10 +29,19 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const queryClient = useQueryClient();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: bookings = [], isLoading } = useQuery<BookingWithDetails[]>({
-    queryKey: ["/api/admin/recent-bookings"],
+  const { data: bookingsResponse, isLoading } = useQuery<PaginatedBookingsResponse>({
+    queryKey: ["/api/admin/recent-bookings", currentPage],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/recent-bookings?page=${currentPage}&limit=50`);
+      if (!response.ok) throw new Error('Failed to fetch bookings');
+      return response.json();
+    },
   });
+
+  const bookings = bookingsResponse?.bookings || [];
+  const pagination = bookingsResponse?.pagination;
 
   // Filter bookings by user if userFilter is provided
   const filteredBookings = userFilter 
@@ -117,7 +137,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BookOpen className="h-5 w-5" />
-          {userFilter ? `User Bookings (${filteredBookings.length})` : `Recent Bookings (${filteredBookings.length})`}
+          {userFilter ? `User Bookings (${filteredBookings.length})` : `All Bookings (${pagination?.total || filteredBookings.length})`}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -360,6 +380,69 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 border-t bg-gray-50">
+            <div className="text-sm text-gray-700">
+              Showing {((currentPage - 1) * pagination.limit) + 1} to {Math.min(currentPage * pagination.limit, pagination.total)} of {pagination.total} bookings
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  const page = i + 1;
+                  return (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className="w-8"
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+                
+                {pagination.totalPages > 5 && (
+                  <>
+                    <span className="text-gray-500">...</span>
+                    <Button
+                      variant={currentPage === pagination.totalPages ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pagination.totalPages)}
+                      className="w-8"
+                    >
+                      {pagination.totalPages}
+                    </Button>
+                  </>
+                )}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))}
+                disabled={currentPage === pagination.totalPages}
+                className="flex items-center gap-1"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
 

@@ -14,9 +14,16 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
     queryKey: ["/api/admin/dashboard-stats"],
   });
 
-  const { data: recentBookings, isLoading: bookingsLoading } = useQuery<BookingWithDetails[]>({
-    queryKey: ["/api/admin/recent-bookings"],
+  const { data: bookingsResponse, isLoading: bookingsLoading } = useQuery({
+    queryKey: ["/api/admin/recent-bookings", 1], // Get first page for dashboard
+    queryFn: async () => {
+      const response = await fetch('/api/admin/recent-bookings?page=1&limit=5'); // Only need 5 for dashboard
+      if (!response.ok) throw new Error('Failed to fetch bookings');
+      return response.json();
+    },
   });
+
+  const recentBookings = bookingsResponse?.bookings || [];
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {

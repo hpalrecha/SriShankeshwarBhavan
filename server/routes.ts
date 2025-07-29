@@ -1033,7 +1033,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/recent-bookings", async (req, res) => {
     try {
-      const bookings = await storage.getRecentBookings(10);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50; // Show 50 by default instead of 10
+      const offset = (page - 1) * limit;
+      
+      const bookings = await storage.getRecentBookings(limit, offset);
+      const totalBookings = await storage.getTotalBookingsCount();
+      
       const bookingsWithDetails = await Promise.all(
         bookings.map(async (booking) => {
           const user = await storage.getUser(booking.userId);
@@ -1041,7 +1047,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { booking, user, category };
         })
       );
-      res.json(bookingsWithDetails);
+      
+      res.json({
+        bookings: bookingsWithDetails,
+        pagination: {
+          page,
+          limit,
+          total: totalBookings,
+          totalPages: Math.ceil(totalBookings / limit),
+          hasMore: offset + bookings.length < totalBookings
+        }
+      });
     } catch (error) {
       console.error("Error fetching recent bookings:", error);
       res.status(500).json({ message: "Failed to fetch recent bookings" });

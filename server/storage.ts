@@ -63,7 +63,8 @@ export interface IStorage {
   getBookingsByDateRange(startDate: Date | string, endDate: Date | string): Promise<RoomBooking[]>;
   getTodaysCheckins(): Promise<RoomBooking[]>;
   getTodaysCheckouts(): Promise<RoomBooking[]>;
-  getRecentBookings(limit: number): Promise<RoomBooking[]>;
+  getRecentBookings(limit: number, offset?: number): Promise<RoomBooking[]>;
+  getTotalBookingsCount(): Promise<number>;
 
   // ID Proofs
   getIdProofsByBookingId(bookingId: number): Promise<IdProof[]>;
@@ -294,12 +295,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(roomBookings.checkoutDate));
   }
 
-  async getRecentBookings(limit: number): Promise<RoomBooking[]> {
+  async getRecentBookings(limit: number, offset: number = 0): Promise<RoomBooking[]> {
     return await db
       .select()
       .from(roomBookings)
       .orderBy(desc(roomBookings.createdAt))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getTotalBookingsCount(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(roomBookings);
+    return result[0]?.count || 0;
   }
 
   // ID Proofs
