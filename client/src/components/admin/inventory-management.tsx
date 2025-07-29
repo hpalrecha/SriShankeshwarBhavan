@@ -129,21 +129,41 @@ export default function InventoryManagement() {
     queryKey: ["/api/room-categories"],
   });
 
-  // Get availability data - fresh data without caching
+  // Get availability data - optimized with caching
   const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
     queryKey: ["/api/rooms/availability-admin", checkinDate?.toISOString().split('T')[0], checkoutDate?.toISOString().split('T')[0]],
     enabled: !!checkinDate && !!checkoutDate,
-    staleTime: 0,
+    staleTime: 30000, // Cache for 30 seconds to improve performance
+    cacheTime: 300000, // Keep in cache for 5 minutes
     queryFn: async () => {
       if (!checkinDate || !checkoutDate) return {};
+      
+      console.log("🔍 Fetching availability for:", {
+        checkin: checkinDate.toISOString().split('T')[0],
+        checkout: checkoutDate.toISOString().split('T')[0]
+      });
       
       const response = await apiRequest("POST", "/api/rooms/availability", {
         checkinDate: checkinDate.toISOString().split('T')[0],
         checkoutDate: checkoutDate.toISOString().split('T')[0]
       });
       
-      console.log("Fresh API Response:", response);
-      return response as Record<number, { available: number; booked: number }>;
+      console.log("📊 API Response received:", response);
+      console.log("📋 Availability data:", JSON.stringify(response, null, 2));
+      
+      // Convert string keys to numbers if needed
+      const processedData: Record<number, { available: number; booked: number }> = {};
+      if (response && typeof response === 'object') {
+        Object.entries(response).forEach(([key, value]) => {
+          const numKey = parseInt(key, 10);
+          if (!isNaN(numKey) && value && typeof value === 'object') {
+            processedData[numKey] = value as { available: number; booked: number };
+          }
+        });
+      }
+      
+      console.log("🔧 Processed data:", processedData);
+      return processedData;
     }
   });
 
@@ -381,7 +401,7 @@ export default function InventoryManagement() {
                 <CalendarComponent
                   mode="single"
                   selected={checkinDate}
-                  onSelect={setCheckinDate}
+                  onSelect={(date) => date && setCheckinDate(date)}
                   disabled={(date) => date < new Date()}
                   initialFocus
                 />
@@ -402,7 +422,7 @@ export default function InventoryManagement() {
                 <CalendarComponent
                   mode="single"
                   selected={checkoutDate}
-                  onSelect={setCheckoutDate}
+                  onSelect={(date) => date && setCheckoutDate(date)}
                   disabled={(date) => date < (checkinDate || new Date())}
                   initialFocus
                 />
