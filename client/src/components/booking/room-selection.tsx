@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Calendar, Bed, Plus, Minus, CheckCircle } from "lucide-react";
@@ -121,9 +121,7 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
                     </div>
                   </div>
                 )}
-                <Badge className="absolute top-3 right-3 bg-green-100 text-green-800">
-                  {roomSelection.maxAvailable} Available
-                </Badge>
+
               </div>
               
               <CardContent className="p-6">

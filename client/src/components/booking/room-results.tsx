@@ -88,10 +88,7 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
                     <Bed className="w-4 h-4 mr-1" />
                     <span>{category.bedConfiguration || "1 Double Bed"}</span>
                   </span>
-                  <span className="flex items-center text-sm text-gray-500">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    <span>{availabilityData.availableUnits} Available</span>
-                  </span>
+
                 </div>
                 
                 {isAutoSelected && (
