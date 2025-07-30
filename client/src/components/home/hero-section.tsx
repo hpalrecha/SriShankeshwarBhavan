@@ -1,5 +1,6 @@
 import { Calendar, MapPin, Users } from "lucide-react";
 import { smoothScrollToSection } from "@/lib/scroll-utils";
+import ssbbLogo from "@assets/SSBB_1753878285568.png";
 
 export default function HeroSection() {
   return (
@@ -12,8 +13,12 @@ export default function HeroSection() {
         <div className="max-w-4xl mx-auto">
           {/* Logo/Brand */}
           <div className="mb-8">
-            <div className="w-20 h-20 bg-brand-orange rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-xl">SSBB</span>
+            <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <img 
+                src={ssbbLogo} 
+                alt="SSBB Logo"
+                className="w-16 h-16 rounded-lg object-cover"
+              />
             </div>
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
               Sri Shankeshwar

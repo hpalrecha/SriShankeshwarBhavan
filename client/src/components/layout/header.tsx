@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { handleSmoothNavigation } from "@/lib/scroll-utils";
 import { useState } from "react";
+import ssbbLogo from "@assets/SSBB_1753878285568.png";
 
 export default function Header() {
   const [, setLocation] = useLocation();
@@ -47,7 +48,7 @@ export default function Header() {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => setLocation("/")}>
               <img 
-                src="/attached_assets/SSBB_1753878285568.png" 
+                src={ssbbLogo} 
                 alt="SSBB Logo"
                 className="w-10 h-10 rounded-lg object-cover"
               />
@@ -224,7 +225,7 @@ export default function Header() {
               {user && typeof user === 'object' && 'name' in user && (
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <div className="px-3 py-2">
-                    <p className="text-sm text-gray-700">Welcome, {(user as any)?.name || 'Guest'}</p>
+                    <p className="text-sm text-gray-700">Welcome, {String((user as any)?.name || 'Guest')}</p>
                   </div>
                   <Button 
                     onClick={() => {

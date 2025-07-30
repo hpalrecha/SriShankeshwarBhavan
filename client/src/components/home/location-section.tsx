@@ -1,6 +1,6 @@
 import { MapPin, Clock, Plane, Train } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import templeImage from "@assets/17412441144_1753275501511.jpg";
+import templeImage from "@assets/shankeshwar2_1753881168609.jpg";
 
 export default function LocationSection() {
   const landmarks = [
