@@ -21,14 +21,10 @@ import BookingPayment from "@/components/BookingPayment";
 
 const guestSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Valid email is required"),
+  email: z.string().email("Valid email is required").optional().or(z.literal("")),
   mobile: z.string().min(10, "Valid mobile number is required"),
-  // Address fields
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  pincode: z.string().optional(),
-  country: z.string().default("India"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
 
   estimatedArrivalTime: z.string().optional(),
   estimatedDepartureTime: z.string().optional(),
@@ -40,6 +36,15 @@ const guestSchema = z.object({
     required_error: "Please select a payment method",
   }),
 });
+
+const indianStates = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", 
+  "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", 
+  "Ladakh", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", 
+  "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", 
+  "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", 
+  "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Lakshadweep", "Puducherry"
+];
 
 interface GuestDetailsFormProps {
   bookingData: BookingFormData;
@@ -74,11 +79,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       name: "",
       email: "",
       mobile: "",
-      address: "",
       city: "",
       state: "",
-      pincode: "",
-      country: "India",
       estimatedArrivalTime: "",
       estimatedDepartureTime: "",
       breakfastDays: 0,
@@ -95,11 +97,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         name: (currentUser as any).name || "",
         email: (currentUser as any).email || "",
         mobile: (currentUser as any).mobile || "",
-        address: (currentUser as any).address || "",
         city: (currentUser as any).city || "",
         state: (currentUser as any).state || "",
-        pincode: (currentUser as any).pincode || "",
-        country: (currentUser as any).country || "India",
         estimatedArrivalTime: "",
         estimatedDepartureTime: "",
         breakfastDays: 0,
@@ -112,11 +111,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         name: "",
         email: "",
         mobile: "",
-        address: "",
         city: "",
         state: "",
-        pincode: "",
-        country: "India",
         estimatedArrivalTime: "",
         estimatedDepartureTime: "",
         breakfastDays: 0,
@@ -342,7 +338,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name</FormLabel>
+                      <FormLabel>Full Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter full name" {...field} />
                       </FormControl>
@@ -352,12 +348,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 />
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="mobile"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Mobile Number *</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="Enter email address" {...field} />
+                        <Input type="tel" placeholder="Enter mobile number" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -367,74 +363,58 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
               
               <FormField
                 control={form.control}
-                name="mobile"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mobile Number</FormLabel>
+                    <FormLabel>Email (Optional)</FormLabel>
                     <FormControl>
-                      <Input type="tel" placeholder="Enter mobile number" {...field} />
+                      <Input type="email" placeholder="Enter email address" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Address Section */}
+              {/* Location Section */}
               <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center gap-2 text-gray-900 font-medium">
                   <MapPin className="h-4 w-4" />
-                  <h4>Address Details</h4>
+                  <h4>Location Details</h4>
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Address</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter complete address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input placeholder="City" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="state"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <Input placeholder="State" {...field} />
-                        </FormControl>
+                        <FormLabel>State *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select your state" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {indianStates.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="pincode"
+                    name="city"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Pincode</FormLabel>
+                        <FormLabel>City *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Pincode" {...field} />
+                          <Input placeholder="Enter your city" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

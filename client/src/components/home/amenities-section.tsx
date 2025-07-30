@@ -5,44 +5,34 @@ import roomImage from "@assets/images (7)_1753275469754.jpg";
 export default function AmenitiesSection() {
   const amenities = [
     {
-      icon: Wifi,
-      title: "Free WiFi",
-      description: "High-speed internet access throughout the property"
-    },
-    {
       icon: Car,
       title: "Free Parking",
       description: "Secure parking space for all guests"
     },
     {
-      icon: Coffee,
-      title: "Complimentary Tea/Coffee",
-      description: "24/7 tea and coffee service in all rooms"
-    },
-    {
       icon: Shield,
-      title: "24/7 Security",
-      description: "Round-the-clock security for your peace of mind"
+      title: "Driver Freshen Up Facility",
+      description: "Dedicated facilities available for drivers to freshen up"
     },
     {
       icon: Utensils,
-      title: "In-house Dining",
-      description: "Authentic vegetarian meals and snacks"
+      title: "Satvik Bhojanshala",
+      description: "Authentic Rajasthani sawad with pure vegetarian meals"
     },
     {
       icon: Users,
-      title: "Group Bookings",
+      title: "Group (Bulk) Booking",
       description: "Special arrangements for large groups and families"
     },
     {
       icon: Clock,
       title: "Flexible Check-in",
-      description: "Convenient check-in and check-out timings"
+      description: "We allow you to stay for 24 hours - you can come at any time"
     },
     {
       icon: Phone,
       title: "24/7 Support",
-      description: "Round-the-clock guest assistance and support"
+      description: "Call us at 9727079766 or 9727079765 for assistance"
     }
   ];
 
@@ -58,7 +48,16 @@ export default function AmenitiesSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {amenities.map((amenity, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
+            <Card 
+              key={index} 
+              className={`hover:shadow-lg transition-shadow duration-300 ${
+                amenity.title === "Group (Bulk) Booking" ? "cursor-pointer hover:bg-orange-50" : ""
+              }`}
+              onClick={amenity.title === "Group (Bulk) Booking" ? () => {
+                const message = encodeURIComponent("We want to book rooms in bulk in your bhavan.");
+                window.open(`https://wa.me/919902123456?text=${message}`, '_blank');
+              } : undefined}
+            >
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-brand-orange-bg rounded-lg flex items-center justify-center mx-auto mb-4">
                   <amenity.icon className="w-6 h-6 text-brand-orange" />

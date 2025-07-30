@@ -161,6 +161,24 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
           >
             {isSearching ? "Searching..." : "Search Available Rooms"}
           </Button>
+          
+          {/* Bulk Booking Button */}
+          <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-sm text-gray-700 mb-3 text-center">
+              Need more than 20 rooms? Let us help you with bulk booking!
+            </p>
+            <Button 
+              type="button"
+              variant="outline"
+              className="w-full border-orange-300 text-orange-700 hover:bg-orange-100"
+              onClick={() => {
+                const message = encodeURIComponent("We want to book rooms in bulk in your bhavan.");
+                window.open(`https://wa.me/919902123456?text=${message}`, '_blank');
+              }}
+            >
+              Contact for Bulk Booking (20+ Rooms)
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
