@@ -7,13 +7,13 @@ export default function ContactSection() {
     {
       icon: Phone,
       title: "Phone",
-      details: ["+91 2733 273342", "+91 2733 273514"],
+      details: ["+91 9727070765", "+91 9727070766"],
       subtext: "24/7 Booking & Support"
     },
     {
       icon: Mail,
-      title: "Email",
-      details: ["bookings@shankheshwar-bhavan.com", "info@shankheshwar-bhavan.com"],
+      title: "Email", 
+      details: ["booking@ssbb.in"],
       subtext: "Quick Response within 2 hours"
     },
     {
@@ -25,8 +25,9 @@ export default function ContactSection() {
     {
       icon: MessageSquare,
       title: "WhatsApp",
-      details: ["+91 98250 73342"],
-      subtext: "Instant booking assistance"
+      details: ["+91 9727070765"],
+      subtext: "Instant booking assistance",
+      action: () => window.open('https://wa.me/919727070765', '_blank')
     }
   ];
 
@@ -42,7 +43,11 @@ export default function ContactSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {contactInfo.map((contact, index) => (
-            <Card key={index} className="text-center hover:shadow-lg transition-shadow duration-300">
+            <Card 
+              key={index} 
+              className={`text-center hover:shadow-lg transition-shadow duration-300 ${contact.action ? 'cursor-pointer' : ''}`}
+              onClick={contact.action}
+            >
               <CardContent className="p-6">
                 <div className="w-12 h-12 bg-brand-orange-bg rounded-lg flex items-center justify-center mx-auto mb-4">
                   <contact.icon className="w-6 h-6 text-brand-orange" />
@@ -66,7 +71,8 @@ export default function ContactSection() {
               <h3 className="text-xl font-bold mb-4">Emergency Contact</h3>
               <p className="mb-4">For urgent matters or late-night assistance:</p>
               <div className="space-y-2">
-                <p className="text-lg font-semibold">+91 98250 73342</p>
+                <p className="text-lg font-semibold">+91 9727070765</p>
+                <p className="text-lg font-semibold">+91 9727070766</p>
                 <p className="text-sm opacity-90">Available 24/7 for emergencies</p>
               </div>
             </CardContent>
@@ -78,7 +84,7 @@ export default function ContactSection() {
               <div className="space-y-3">
                 <Button 
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => window.open('https://wa.me/919825073342', '_blank')}
+                  onClick={() => window.open('https://wa.me/919727070765', '_blank')}
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Chat on WhatsApp
@@ -86,7 +92,7 @@ export default function ContactSection() {
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.location.href = 'tel:+912733273342'}
+                  onClick={() => window.location.href = 'tel:+919727070765'}
                 >
                   <Phone className="w-4 h-4 mr-2" />
                   Call Now
@@ -94,7 +100,7 @@ export default function ContactSection() {
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.location.href = 'mailto:bookings@shankheshwar-bhavan.com'}
+                  onClick={() => window.location.href = 'mailto:booking@ssbb.in'}
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send Email

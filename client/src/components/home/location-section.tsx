@@ -17,12 +17,12 @@ export default function LocationSection() {
     {
       name: "Ahmedabad Airport",
       distance: "132 km",
-      time: "3 hours travel time"
+      time: "3 hours"
     },
     {
       name: "Mehsana Bus Stand",
       distance: "70 km",
-      time: "2 hours travel time"
+      time: "2 hours"
     },
     {
       name: "Local Market Area",
