@@ -65,7 +65,7 @@ export default function LocationSection() {
           {/* Location Details */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Nearby Attractions & Transport</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Nearby Attractions & Transportation</h3>
               <div className="grid grid-cols-1 gap-3">
                 {landmarks.map((landmark, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

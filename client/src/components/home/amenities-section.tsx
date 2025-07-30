@@ -11,7 +11,7 @@ export default function AmenitiesSection() {
     },
     {
       icon: Shield,
-      title: "Driver Freshen Up Facility",
+      title: "Driver Freshen-Up Facility",
       description: "Dedicated facilities available for drivers to freshen up"
     },
     {
@@ -22,7 +22,7 @@ export default function AmenitiesSection() {
     {
       icon: Utensils,
       title: "Satvik Bhojanshala",
-      description: "Authentic Rajasthani sawad with pure vegetarian meals"
+      description: "Authentic Rajasthani swaad with pure vegetarian meals"
     },
     {
       icon: Users,
@@ -42,7 +42,7 @@ export default function AmenitiesSection() {
     {
       icon: Phone,
       title: "24/7 Support",
-      description: "Call us at 9727079766 or 9727079765 for assistance"
+      description: "Call us at 9727070766 or 9727070765 for assistance"
     }
   ];
 

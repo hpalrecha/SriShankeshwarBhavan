@@ -14,12 +14,12 @@ export default function ContactSection() {
       icon: Mail,
       title: "Email", 
       details: ["booking@ssbb.in"],
-      subtext: "Quick Response within 2 hours"
+      subtext: "Quick response within 2 hours"
     },
     {
       icon: Clock,
       title: "Reception Hours",
-      details: ["24/7 Front Desk", "Check-in: 12:00 PM", "Check-out: 11:00 AM"],
+      details: ["24/7 front desk", "Check-in: 12:00 PM", "Check-out: 11:00 AM"],
       subtext: "Always available to assist"
     },
     {
