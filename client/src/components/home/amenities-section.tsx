@@ -15,6 +15,11 @@ export default function AmenitiesSection() {
       description: "Dedicated facilities available for drivers to freshen up"
     },
     {
+      icon: Shield,
+      title: "24/7 Security",
+      description: "Round-the-clock security for your peace of mind"
+    },
+    {
       icon: Utensils,
       title: "Satvik Bhojanshala",
       description: "Authentic Rajasthani sawad with pure vegetarian meals"
@@ -28,6 +33,11 @@ export default function AmenitiesSection() {
       icon: Clock,
       title: "Flexible Check-in",
       description: "We allow you to stay for 24 hours - you can come at any time"
+    },
+    {
+      icon: Clock,
+      title: "24 Hours Stay Policy",
+      description: "Full 24-hour accommodation from your check-in time"
     },
     {
       icon: Phone,
@@ -77,19 +87,19 @@ export default function AmenitiesSection() {
               <ul className="space-y-3 text-gray-600">
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Centrally located in Bengaluru with easy access to major attractions</span>
+                  <span>Nearest to Dherasar at 1 min walkable distance</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Clean, comfortable rooms with modern amenities</span>
+                  <span>Newly built 49 fully AC rooms with modern amenities</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Peaceful environment ideal for spiritual and business travelers</span>
+                  <span>Dedicated parking and driver freshen up facility available</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Affordable rates with exceptional service quality</span>
+                  <span>Satvik Bhojanshala with authentic Rajasthani swaad</span>
                 </li>
               </ul>
             </div>

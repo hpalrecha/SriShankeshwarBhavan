@@ -6,33 +6,28 @@ export default function LocationSection() {
   const landmarks = [
     {
       name: "Shankheshwar Parshwanath Temple",
-      distance: "0.2 km",
-      time: "2 min walk"
+      distance: "",
+      time: "1 min walk"
     },
     {
       name: "Patan Railway Station",
-      distance: "42 km", 
-      time: "1 hour drive"
+      distance: "58 km", 
+      time: "1.5 hours"
     },
     {
       name: "Ahmedabad Airport",
       distance: "132 km",
-      time: "2.5 hours drive"
+      time: "3 hours travel time"
     },
     {
       name: "Mehsana Bus Stand",
-      distance: "35 km",
-      time: "45 min drive"
-    },
-    {
-      name: "Unjha Railway Station",
-      distance: "28 km",
-      time: "35 min drive"
+      distance: "70 km",
+      time: "2 hours travel time"
     },
     {
       name: "Local Market Area",
-      distance: "0.5 km",
-      time: "5 min walk"
+      distance: "",
+      time: "1 min walk"
     }
   ];
 
@@ -85,7 +80,7 @@ export default function LocationSection() {
                       <span className="font-medium text-gray-900">{landmark.name}</span>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">{landmark.distance}</p>
+                      {landmark.distance && <p className="text-sm font-semibold text-gray-900">{landmark.distance}</p>}
                       <p className="text-xs text-gray-600">{landmark.time}</p>
                     </div>
                   </div>
@@ -101,7 +96,7 @@ export default function LocationSection() {
                   <h4 className="font-semibold text-gray-900">Transportation Tips</h4>
                 </div>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Railway connectivity via Patan & Unjha stations with connecting buses</li>
+                  <li>• Railway connectivity via Patan station with connecting buses</li>
                   <li>• Airport transfers from Ahmedabad can be arranged upon request</li>
                   <li>• Local taxi and auto-rickshaw services available</li>
                   <li>• Free parking available for guests with vehicles</li>
@@ -114,8 +109,8 @@ export default function LocationSection() {
               <CardContent className="p-6">
                 <h4 className="font-semibold text-gray-900 mb-3">Our Address</h4>
                 <p className="text-gray-700 leading-relaxed">
-                  Sri Shankeshwar Bengaluru Bhavan<br />
-                  Near Parshwanath Temple<br />
+                  Sri Shankeshwar Bengaluru Bhavan Trust<br />
+                  Near Shankeshwar Parshwanath Temple<br />
                   Shankheshwar, Patan District<br />
                   Gujarat 384246, India
                 </p>
