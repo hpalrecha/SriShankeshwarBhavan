@@ -59,11 +59,14 @@ export default function OTPLogin() {
       return await apiRequest("POST", "/api/auth/send-otp", data);
     },
     onSuccess: (response: any) => {
-      setMobile(response.mobile);
+      console.log('Send OTP success response:', response);
+      const mobileNumber = response.mobile || mobileForm.getValues().mobile;
+      setMobile(mobileNumber);
       setStep("otp");
       setTimeLeft(300); // 5 minutes
       setSuccess("OTP sent successfully! Please check your mobile for the 6-digit code.");
       setError("");
+      console.log('Mobile number set to:', mobileNumber);
     },
     onError: (error: any) => {
       setError(error.message || "Failed to send OTP");
@@ -95,6 +98,8 @@ export default function OTPLogin() {
 
   const onOTPSubmit = (data: OTPFormData) => {
     setError("");
+    console.log('Current mobile state:', mobile);
+    console.log('OTP form data:', data);
     verifyOTPMutation.mutate(data);
   };
 
@@ -138,7 +143,7 @@ export default function OTPLogin() {
           <CardDescription>
             {step === "mobile" 
               ? "Enter your mobile number to receive an OTP"
-              : `Enter the 6-digit code sent to ${mobile}`
+              : `Enter the 6-digit code sent to ${mobile || "undefined"}`
             }
           </CardDescription>
         </CardHeader>
