@@ -75,7 +75,6 @@ export default function OTPLogin() {
 
   const verifyOTPMutation = useMutation({
     mutationFn: async (data: OTPFormData) => {
-      console.log('Verifying OTP with data:', { mobile, otp: data.otp });
       return await apiRequest("POST", "/api/auth/verify-otp", {
         mobile,
         otp: data.otp,
@@ -85,7 +84,6 @@ export default function OTPLogin() {
       setLocation("/dashboard");
     },
     onError: (error: any) => {
-      console.error('OTP verification error:', error);
       setError(error.message || "OTP verification failed");
     },
   });

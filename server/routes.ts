@@ -106,10 +106,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
+    store: sessionStore,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
   }));
 
@@ -209,11 +211,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verify OTP and Login endpoint
   app.post("/api/auth/verify-otp", async (req, res) => {
     try {
-      console.log('OTP verification request body:', req.body);
+      console.log('OTP verification request:', {
+        body: req.body,
+        contentType: req.headers['content-type'],
+        method: req.method,
+        url: req.url
+      });
+      
       const { mobile, otp } = req.body;
 
       if (!mobile || !otp) {
-        console.log('Missing mobile or OTP:', { mobile, otp });
+        console.log('Missing mobile or OTP:', { mobile, otp, bodyKeys: Object.keys(req.body || {}) });
         return res.status(400).json({ message: "Mobile number and OTP are required" });
       }
 
