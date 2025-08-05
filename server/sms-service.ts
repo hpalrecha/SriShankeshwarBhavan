@@ -1,7 +1,9 @@
 import fetch from 'node-fetch';
 
-interface SMSConfig {
-  apiKey: string;
+interface ComBirdsConfig {
+  userId: string;
+  password: string;
+  otpApiKey: string;
   header: string;
   baseUrl: string;
 }
@@ -14,14 +16,20 @@ interface OTPResponse {
 }
 
 export class SMSService {
-  private config: SMSConfig;
+  private config: ComBirdsConfig;
 
   constructor() {
     this.config = {
-      apiKey: process.env.SMS_API_KEY || '0a996da85fd9461d80ff9c3c1c732de8',
-      header: process.env.SMS_HEADER || 'EDUMRC',
-      baseUrl: 'https://sms.combirds.com/api'
+      userId: process.env.COMBIRDS_USER_ID!,
+      password: process.env.COMBIRDS_PASSWORD!,
+      otpApiKey: process.env.COMBIRDS_OTP_API_KEY!,
+      header: process.env.COMBIRDS_HEADER!,
+      baseUrl: 'https://www.combirds.com/api/v2.0'
     };
+
+    if (!this.config.userId || !this.config.password || !this.config.otpApiKey || !this.config.header) {
+      throw new Error('ComBirds SMS credentials are not properly configured');
+    }
   }
 
   async sendOTP(mobile: string, otp: string): Promise<OTPResponse> {
@@ -29,41 +37,46 @@ export class SMSService {
       // Clean mobile number (remove country code if present)
       const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
       
-      // Format message
-      const message = `Your OTP for Sri Shankeshwar Bengaluru Bhavan is: ${otp}. Valid for 5 minutes. Do not share with anyone.`;
+      // Format message with header
+      const message = `${otp} is your OTP for Sri Shankeshwar Bengaluru Bhavan. Valid for 5 minutes. Do not share with anyone. - ${this.config.header}`;
       
-      const url = `${this.config.baseUrl}/send-sms`;
-      const payload = {
-        apikey: this.config.apiKey,
-        mobile: cleanMobile,
-        message: message,
-        header: this.config.header
-      };
+      const url = `${this.config.baseUrl}/sendsms.php`;
+      
+      // ComBirds API parameters
+      const params = new URLSearchParams({
+        user: this.config.userId,
+        password: this.config.password,
+        msisdn: cleanMobile,
+        sid: this.config.header,
+        msg: message,
+        fl: '0', // Flash message flag
+        gwid: '2' // Gateway ID for OTP
+      });
 
       console.log(`📱 Sending OTP to ${cleanMobile}...`);
       
-      const response = await fetch(url, {
-        method: 'POST',
+      const response = await fetch(`${url}?${params.toString()}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+          'User-Agent': 'Sri Shankeshwar Bengaluru Bhavan SMS Service'
+        }
       });
 
-      const result = await response.json() as any;
+      const result = await response.text();
       
-      if (response.ok && result.status === 'success') {
-        console.log(`✅ OTP sent successfully to ${cleanMobile}`);
+      // ComBirds returns a simple text response
+      if (response.ok && (result.includes('1701') || result.includes('success') || result.includes('submitted'))) {
+        console.log(`✅ OTP sent successfully to ${cleanMobile}, Response: ${result}`);
         return {
           success: true,
           message: 'OTP sent successfully',
-          requestId: result.request_id
+          requestId: result.trim()
         };
       } else {
-        console.error(`❌ SMS API Error:`, result);
+        console.error(`❌ ComBirds SMS API Error: ${result}`);
         return {
           success: false,
-          message: result.message || 'Failed to send OTP'
+          message: `SMS delivery failed: ${result}`
         };
       }
     } catch (error) {
