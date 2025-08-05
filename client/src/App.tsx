@@ -9,6 +9,7 @@ import Admin from "@/pages/admin";
 import AdminLogin from "@/pages/admin-login";
 import Trustee from "@/pages/trustee";
 import Login from "@/pages/login";
+import OTPLogin from "@/pages/otp-login";
 import Signup from "@/pages/signup";
 import Dashboard from "@/pages/dashboard";
 import MyBookings from "@/pages/my-bookings";
@@ -25,7 +26,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/login" component={Login} />
+      <Route path="/login" component={OTPLogin} />
+      <Route path="/login/password" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />

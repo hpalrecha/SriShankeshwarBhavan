@@ -46,6 +46,17 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// OTP Verification Table
+export const otpVerifications = pgTable("otp_verifications", {
+  id: serial("id").primaryKey(),
+  mobile: varchar("mobile", { length: 20 }).notNull(),
+  otp: varchar("otp", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false),
+  attempts: integer("attempts").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Room Bookings
 export const roomBookings = pgTable("room_bookings", {
   id: serial("id").primaryKey(),
@@ -374,3 +385,7 @@ export type InsertPaymentGateway = z.infer<typeof insertPaymentGatewaySchema>;
 
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+
+// OTP Verification types
+export type OTPVerification = typeof otpVerifications.$inferSelect;
+export type InsertOTPVerification = typeof otpVerifications.$inferInsert;

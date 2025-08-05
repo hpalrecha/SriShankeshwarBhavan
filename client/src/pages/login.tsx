@@ -56,11 +56,11 @@ export default function Login() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setLocation("/")}
+              onClick={() => setLocation("/login")}
               className="text-gray-500 hover:text-brand-orange"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Home
+              Back to OTP Login
             </Button>
             <Button
               variant="ghost"
@@ -72,10 +72,10 @@ export default function Login() {
             </Button>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
-            Welcome Back
+            Password Login
           </CardTitle>
           <CardDescription>
-            Sign in with your mobile number to manage bookings
+            Sign in with your mobile number and password
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -130,6 +130,12 @@ export default function Login() {
             <p className="text-sm text-gray-600">
               <Link href="/forgot-password" className="text-brand-orange hover:text-orange-600 font-medium">
                 Forgot your password?
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600">
+              Prefer OTP login?{" "}
+              <Link href="/login" className="text-brand-orange hover:text-orange-600 font-medium">
+                Use OTP instead
               </Link>
             </p>
             <p className="text-sm text-gray-600">

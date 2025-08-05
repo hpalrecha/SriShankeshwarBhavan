@@ -15,6 +15,7 @@ import { checkVerifiedEmails } from "./check-ses-emails";
 import { checkDomainCredentials } from "./check-domain-credentials";
 import { testAllEmailTemplates } from "./test-all-email-templates";
 import { whatsappService } from "./whatsapp";
+import { smsService } from "./sms-service";
 import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema, insertPaymentGatewaySchema } from "@shared/schema";
 import { PaymentGatewayFactory, PaymentService } from "./payment-gateways";
 import { checkEmailVerification } from "./verify-email-check";
@@ -141,6 +142,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send OTP endpoint
+  app.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { mobile } = req.body;
+
+      if (!mobile) {
+        return res.status(400).json({ message: "Mobile number is required" });
+      }
+
+      // Clean mobile number
+      const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
+      
+      // Validate mobile number format
+      if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+        return res.status(400).json({ message: "Please enter a valid 10-digit mobile number" });
+      }
+
+      // Clean up expired OTPs
+      await storage.cleanupExpiredOTPs();
+      
+      // Check for recent OTP (rate limiting)
+      const recentOTP = await storage.getLatestOTPVerification(cleanMobile);
+      if (recentOTP && recentOTP.createdAt) {
+        const timeDiff = Date.now() - new Date(recentOTP.createdAt).getTime();
+        if (timeDiff < 60000) { // 1 minute
+          return res.status(429).json({ message: "Please wait before requesting another OTP" });
+        }
+      }
+
+      // Generate OTP
+      const otp = smsService.generateOTP();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Save OTP to database
+      await storage.createOTPVerification({
+        mobile: cleanMobile,
+        otp,
+        expiresAt,
+        verified: false,
+        attempts: 0
+      });
+
+      // Send OTP via SMS
+      const smsResult = await smsService.sendOTP(cleanMobile, otp);
+      
+      if (smsResult.success) {
+        console.log(`✅ OTP sent to ${cleanMobile}: ${otp}`);
+        res.json({ 
+          message: "OTP sent successfully", 
+          mobile: cleanMobile,
+          expiresIn: 300 // 5 minutes in seconds
+        });
+      } else {
+        console.error(`❌ Failed to send OTP to ${cleanMobile}:`, smsResult.message);
+        res.status(500).json({ 
+          message: smsResult.message || "Failed to send OTP" 
+        });
+      }
+    } catch (error) {
+      console.error("Send OTP error:", error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
+  // Verify OTP and Login endpoint
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { mobile, otp } = req.body;
+
+      if (!mobile || !otp) {
+        return res.status(400).json({ message: "Mobile number and OTP are required" });
+      }
+
+      // Clean mobile number
+      const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
+      
+      // Find and validate OTP
+      const otpVerification = await storage.getOTPVerification(cleanMobile, otp);
+      
+      if (!otpVerification) {
+        return res.status(401).json({ message: "Invalid or expired OTP" });
+      }
+
+      // Check attempts limit
+      if ((otpVerification.attempts || 0) >= 3) {
+        return res.status(401).json({ message: "Too many failed attempts. Please request a new OTP" });
+      }
+
+      // Check if OTP is expired
+      if (new Date() > new Date(otpVerification.expiresAt)) {
+        return res.status(401).json({ message: "OTP has expired. Please request a new one" });
+      }
+
+      // Mark OTP as verified
+      await storage.markOTPAsVerified(otpVerification.id);
+
+      // Find or create user
+      let user = await storage.getUserByMobile(cleanMobile);
+      if (!user) {
+        // Create new user for first-time mobile users
+        const hashedPassword = await bcrypt.hash("mobile-otp-user", 10);
+        user = await storage.createUser({
+          mobile: cleanMobile,
+          name: `User ${cleanMobile}`, // Temporary name, user can update later
+          password: hashedPassword,
+          email: null // Email is optional now
+        });
+      }
+
+      // Set session
+      (req.session as any).userId = user.id;
+      (req.session as any).userMobile = user.mobile;
+
+      res.json({ 
+        message: "Login successful",
+        user: { 
+          id: user.id, 
+          name: user.name, 
+          mobile: user.mobile,
+          email: user.email,
+          isTrustee: user.isTrustee 
+        }
+      });
+    } catch (error) {
+      console.error("Verify OTP error:", error);
+      res.status(500).json({ message: "OTP verification failed" });
+    }
+  });
+
+  // Traditional password login (keep for backward compatibility)
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { mobile, password } = req.body;

@@ -11,6 +11,7 @@ import {
   trusteeReservedDates,
   paymentGateways,
   paymentTransactions,
+  otpVerifications,
   type RoomCategory,
   type User,
   type RoomBooking,
@@ -22,6 +23,7 @@ import {
   type TrusteeReservedDate,
   type PaymentGateway,
   type PaymentTransaction,
+  type OTPVerification,
   type InsertRoomCategory,
   type InsertUser,
   type InsertRoomBooking,
@@ -33,6 +35,7 @@ import {
   type InsertTrusteeReservedDate,
   type InsertPaymentGateway,
   type InsertPaymentTransaction,
+  type InsertOTPVerification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc, lt, gt, ne, sql } from "drizzle-orm";
@@ -120,6 +123,14 @@ export interface IStorage {
   getPaymentTransactionsByBookingId(bookingId: number): Promise<PaymentTransaction[]>;
   createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
   updatePaymentTransaction(id: number, transaction: Partial<PaymentTransaction>): Promise<PaymentTransaction>;
+
+  // OTP Verification
+  createOTPVerification(otpData: InsertOTPVerification): Promise<OTPVerification>;
+  getOTPVerification(mobile: string, otp: string): Promise<OTPVerification | undefined>;
+  getLatestOTPVerification(mobile: string): Promise<OTPVerification | undefined>;
+  markOTPAsVerified(id: number): Promise<void>;
+  incrementOTPAttempts(id: number): Promise<void>;
+  cleanupExpiredOTPs(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -615,6 +626,57 @@ export class DatabaseStorage implements IStorage {
       .where(eq(paymentTransactions.id, id))
       .returning();
     return updated;
+  }
+
+  // OTP Verification methods
+  async createOTPVerification(otpData: InsertOTPVerification): Promise<OTPVerification> {
+    const [newOTP] = await db.insert(otpVerifications).values(otpData).returning();
+    return newOTP;
+  }
+
+  async getOTPVerification(mobile: string, otp: string): Promise<OTPVerification | undefined> {
+    const [verification] = await db
+      .select()
+      .from(otpVerifications)
+      .where(and(
+        eq(otpVerifications.mobile, mobile),
+        eq(otpVerifications.otp, otp),
+        eq(otpVerifications.verified, false),
+        gt(otpVerifications.expiresAt, new Date())
+      ))
+      .orderBy(desc(otpVerifications.createdAt))
+      .limit(1);
+    return verification;
+  }
+
+  async getLatestOTPVerification(mobile: string): Promise<OTPVerification | undefined> {
+    const [verification] = await db
+      .select()
+      .from(otpVerifications)
+      .where(eq(otpVerifications.mobile, mobile))
+      .orderBy(desc(otpVerifications.createdAt))
+      .limit(1);
+    return verification;
+  }
+
+  async markOTPAsVerified(id: number): Promise<void> {
+    await db
+      .update(otpVerifications)
+      .set({ verified: true })
+      .where(eq(otpVerifications.id, id));
+  }
+
+  async incrementOTPAttempts(id: number): Promise<void> {
+    await db
+      .update(otpVerifications)
+      .set({ attempts: sql`${otpVerifications.attempts} + 1` })
+      .where(eq(otpVerifications.id, id));
+  }
+
+  async cleanupExpiredOTPs(): Promise<void> {
+    await db
+      .delete(otpVerifications)
+      .where(lt(otpVerifications.expiresAt, new Date()));
   }
 }
 
