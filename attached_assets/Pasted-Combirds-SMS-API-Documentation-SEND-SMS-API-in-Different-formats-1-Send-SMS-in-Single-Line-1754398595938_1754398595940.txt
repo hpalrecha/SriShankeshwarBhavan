@@ -1,0 +1,340 @@
+Combirds SMS API Documentation
+
+
+SEND SMS API in Different formats:
+
+1) Send SMS in Single Line using POST Method
+
+Api url='https://smsapi.edumarcsms.com/api/v1/sendsms'
+header = {'Content-Type':'application/json',
+             'apikey':xxxxxxxxxxxxx}
+Body = {"message":"Hello, Thank you for testing Edumarc SMS Services.","senderId":"EDUMRC","number":["9164390300"], templateId:"1707161719949940074"}
+
+Parameters Description:
+Content-type: application/json
+apikey: Unique Key String for each SMS type (provided to you in your portal account)
+message: Template Message which is approved from DLT.
+senderId: Header  string assigned to the account
+number: Array of Strings having Mobile numbers(one or many).
+templateId: Templated ID string approved from DLT portal as per content
+
+
+
+2) Send SMS CURL Request
+
+curl -X POST \
+  https://smsapi.edumarcsms.com/api/v1/sendsms \
+  -H 'Content-Type: application/json' \
+  -H 'apikey: cjlpehwde000tgdquc8avnz5l \
+   -d '{
+  "number":["8417841425","9164390300"],
+  "message":"Hello, Thank you for testing Edumarc SMS Services.",
+  "senderId": "EDUMRC",
+   templateId:"1707161719949940074"
+}'
+
+
+
+
+
+3) Send SMS in Single Line using GET method 
+
+https://smsapi.edumarcsms.com/api/v1/sendsms?apikey=cjlpehwde000ugdquxea8ta5u&senderId=EDUMRC&message=Hello, Thank you for testing Edumarc SMS Services.&number=9164390300&templateId=1707161719949940074
+
+URL encoded for browser direct request format : 
+https://smsapi.edumarcsms.com/api/v1/sendsms?apikey=cjlpehwde000ugdquxea8ta5u&senderId=EDUMRC&message=Hello,%20Thank%20you%20for%20testing%20Edumarc%20SMS%20Services.&number=9164390300&templateId=1707161719949940074 
+
+NOTE: For multiple numbers, enter comma separated mobile numbers.
+templateId: Templated ID string approved from DLT portal as per content
+For Message containing spaces, please do url encoding in GET API call.
+
+
+
+Get Delivery Status Report
+
+a] Get Delivery Status of Single mobile number By Transaction ID and mobile number:
+
+curl -X GET \
+https://api.edumarcsms.com/api/v1/org/transaction/{transaction_id}/messages/{message_id} \
+  -H 'Host: api.edumarcsms.com' \
+   -H 'apikey: xxxxxxxxxxxxxxxxxxx' \
+   -H 'content-type: application/json'
+
+b] Get Delivery Status of a Campaign By Transaction ID:
+
+curl -X GET \
+https://api.edumarcsms.com/api/v1/org/transaction/{transaction_id}/messages \
+  -H 'Host: api.edumarcsms.com' \
+   -H 'apikey: xxxxxxxxxxxxxxxxxxx' \
+   -H 'content-type: application/json'
+
+
+Parameters Description:
+In API URL, after “transaction/”,  “Transaction ID” is mentioned, which you get in response from Send SMS API
+In API URL, after “messages/”,  “Message ID” is mentioned, which is combination of transactionId:mobileNumber
+
+`
+
+
+
+5) OTP Template Details
+
+Message:
+
+Your {#var#} OTP for verification is: {#var#}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies
+
+templateId: 1707168926925165526
+
+Sender: EDUMRC
+
+
+
+
+
+Send SMS Sample Codes in Different Programming Languages
+
+
+JAVA Send SMS
+
+OkHttpClient client = new OkHttpClient();
+
+MediaType mediaType = MediaType.parse("application/json");
+RequestBody body = RequestBody.create(mediaType, "{\n  \"number\":[\"8417841425\",\"9164390300\"],\n  \"message\":\"Hello, Thank you for testing Edumarc SMS Services.\",\n  \"senderId\": \"EDUMRC\",\n \"templateId\": \"1707161719949940074\"\n }");
+Request request = new Request.Builder()
+  .url("https://smsapi.edumarcsms.com/api/v1/sendsms")
+  .post(body)
+  .addHeader("Content-Type", "application/json")
+  .addHeader("apikey", "cjlpehwde000tgdquc8avnz5l")
+   .build();
+
+Response response = client.newCall(request).execute();
+
+
+
+
+
+
+Node JS(Javascript) Send SMS
+
+var request = require("request");
+
+var options = { method: 'POST',
+  url: 'https://smsapi.edumarcsms.com/api/v1/sendsms', 
+  headers: 
+   {  apikey: 'cjlpehwde000tgdquc8avnz5l',
+     'Content-Type': 'application/json' },
+  body: 
+   { number: [ '8417841425', '9164390300' ],
+     message: 'Hello, Thank you for testing Edumarc SMS Services.',
+     senderId: 'EDUMRC',
+     templateId: '1707161719949940074' 
+   },
+  json: true };
+
+request(options, function (error, response, body) {
+  if (error) throw new Error(error);
+
+  console.log(body);
+});
+
+ASP net Send SMS
+
+using System;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Collections.Generic;
+using System.Web.Script.Serialization;
+
+namespace ConsoleApp3
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            try
+            {
+                var httpWebRequest = (HttpWebRequest)WebRequest.Create("https://smsapi.edumarcsms.com/api/v1/sendsms");
+                httpWebRequest.ContentType = "application/json";
+	    httpWebRequest.apikey =  "xxxxxxxxxxxxxxxxxxxxxxx";
+                httpWebRequest.Method = "POST";
+
+                using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
+                {
+                    Customer cust = new Customer();
+                    cust.number = new List<string>();
+
+                    cust.message = "Hello, Thank you for testing Edumarc SMS Services.";
+                    cust.senderId = "EDUMRC";
+	        cust.templateId = "1707161719949940074";
+
+                    
+                    cust.number.Add("9164390300");
+                    cust.number.Add("9663394094");  //You can add as many numbers as you want.
+
+                    string json = new JavaScriptSerializer().Serialize(cust);
+
+                    streamWriter.Write(json);
+                }
+
+                var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+                using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
+                {
+                    var result = streamReader.ReadToEnd();
+                    Console.WriteLine(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+    }
+
+    public class Customer
+    {
+        public string apikey;
+        public string message;
+        public List<string> number;
+        public string senderId;
+        public string templateId;
+    }
+}
+
+ASP net Send SMS:  using httpclient library
+// See https://aka.ms/new-console-template for more information
+
+
+
+
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.Collections.Generic;
+
+
+   try
+   {
+       var client = new HttpClient();
+       client.DefaultRequestHeaders.Add("apikey", "xxxxxxxxxxxxxx");
+
+
+
+
+       Customer cust = new Customer();
+       cust.number = new List<string>();
+       cust.message = "Hello, Thank you for testing Edumarc SMS Services.";
+       cust.senderId = "EDUMRC";
+       cust.templateId = "1707161719949940074";
+
+
+      
+       cust.number.Add("9164390300");
+       cust.number.Add("9663394094");  //You can add as many numbers as you want.
+
+
+       string json = JsonConvert.SerializeObject(cust);
+       var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+
+       var response = await client.PostAsync("https://api.edumarcsms.com/api/v1/sendsms", content);
+
+
+       if (response.IsSuccessStatusCode)
+       {
+           var result = await response.Content.ReadAsStringAsync();
+           Console.WriteLine(result);
+       }
+       else
+       {
+           Console.WriteLine($"Error: {response.StatusCode}");
+       }
+   }
+   catch (Exception ex)
+   {
+       Console.WriteLine(ex.Message);
+   }
+
+
+          
+
+
+
+
+class Customer
+{
+   public List<string> number { get; set; }
+   public string message { get; set; }
+   public string senderId { get; set; }
+   public string templateId { get; set; }
+}
+
+
+
+
+
+
+PHP Send SMS
+
+<?php
+
+$curl = curl_init();
+$numberList = json_encode(array("98xxxxxx56"));  
+$message = json_encode("Hello, Thank you for testing Edumarc SMS Services.");
+$senderId = json_encode("EDUMRC");
+$templateId = json_encode("1707161719949940074");
+
+
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => "https://smsapi.edumarcsms.com/api/v1/sendsms",
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => "",
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 30,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => "POST",
+  CURLOPT_POSTFIELDS => "{\n\"number\":$numberList,\n\"message\":$message,\n\"senderId\": $senderId,\n\"templateId\": $templateId\n}",
+  CURLOPT_HTTPHEADER => array(
+    "content-type: application/json",
+    "apikey: cjlpehwde000tgdquc8avnz5l";
+  ),
+));
+  
+$response = curl_exec($curl);
+$err = curl_error($curl);
+
+curl_close($curl);
+
+if ($err) {
+  echo "CURL Error #:" . $err;
+} else {
+  echo $response;
+}
+
+
+VBSCRIPT Send SMS
+
+
+set json = CreateObject("Chilkat_9_5_0.JsonObject")
+//success = json.UpdateString("apikey","cjlpehwde000tgdquc8avnz5l")
+success = json.UpdateString("number[0]","8417841425")
+success = json.UpdateString("number[1]","9164390300")
+success = json.UpdateString("message","Hello, Thank you for testing Edumarc SMS Services.")
+success = json.UpdateString("senderId","EDUMRC")
+success = json.UpdateString("templateId","1707161719949940074")
+
+Set restReq = CreateObject("MSXML2.ServerXMLHTTP")
+URL = "https://smsapi.edumarcsms.com/api/v1/sendsms"
+restReq.Open "POST", URL, False
+restReq.setRequestHeader "Content-Type", "application/json; charset=UTF-8";"apikey","cjlpehwde000tgdquc8avnz5l";
+
+restReq.send (json)
+
+outData = restReq.ResponseText
+statusCode = restReq.Status
+Set restReq = Nothing
+
+
