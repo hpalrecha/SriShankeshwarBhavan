@@ -37,48 +37,55 @@ export class SMSService {
       // Clean mobile number (remove country code if present)
       const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
       
-      // Format message with header
-      const message = `${otp} is your OTP for Sri Shankeshwar Bengaluru Bhavan. Valid for 5 minutes. Do not share with anyone. - ${this.config.header}`;
+      // Format message with proper DLT template format
+      const message = `${otp} is your OTP for Sri Shankeshwar Bengaluru Bhavan. Valid for 5 minutes. Do not share with anyone.`;
       
-      const url = `${this.config.baseUrl}/sendsms.php`;
+      // ComBirds SMS API endpoint with proper parameters
+      const url = 'https://combirds.com/api/sendsms.php';
       
-      // ComBirds API parameters
       const params = new URLSearchParams({
-        user: this.config.userId,
+        username: this.config.userId,
         password: this.config.password,
-        msisdn: cleanMobile,
-        sid: this.config.header,
-        msg: message,
-        fl: '0', // Flash message flag
-        gwid: '2' // Gateway ID for OTP
+        mobile: cleanMobile,
+        message: message,
+        sender: this.config.header,
+        type: 'unicode',
+        duplicate: '1' // Allow duplicate messages
       });
 
-      console.log(`📱 Sending OTP to ${cleanMobile}...`);
+      console.log(`📱 Sending OTP to ${cleanMobile} via ComBirds SMS API...`);
+      console.log(`🔗 API URL: ${url}?${params.toString()}`);
       
       const response = await fetch(`${url}?${params.toString()}`, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Sri Shankeshwar Bengaluru Bhavan SMS Service'
+          'User-Agent': 'SSBB-OTP-Service/1.0'
         }
       });
 
       const result = await response.text();
+      console.log(`📥 ComBirds Response: ${result}`);
       
-      // ComBirds returns a simple text response
-      if (response.ok && (result.includes('1701') || result.includes('success') || result.includes('submitted'))) {
-        console.log(`✅ OTP sent successfully to ${cleanMobile}, Response: ${result}`);
-        return {
-          success: true,
-          message: 'OTP sent successfully',
-          requestId: result.trim()
-        };
-      } else {
-        console.error(`❌ ComBirds SMS API Error: ${result}`);
-        return {
-          success: false,
-          message: `SMS delivery failed: ${result}`
-        };
+      // Check for successful response patterns
+      if (response.ok && result && !result.includes('DOCTYPE') && !result.includes('<html>')) {
+        // ComBirds typically returns message ID or success code
+        if (result.includes('success') || result.match(/^\d+$/) || result.includes('1701') || result.includes('submitted')) {
+          console.log(`✅ OTP sent successfully to ${cleanMobile}`);
+          return {
+            success: true,
+            message: 'OTP sent successfully',
+            requestId: result.trim()
+          };
+        }
       }
+      
+      // If we get HTML response or error
+      console.error(`❌ ComBirds SMS API Error: ${result.substring(0, 200)}...`);
+      return {
+        success: false,
+        message: 'SMS delivery failed - API endpoint error'
+      };
+      
     } catch (error) {
       console.error('SMS Service Error:', error);
       return {
