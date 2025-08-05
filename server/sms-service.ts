@@ -1,11 +1,10 @@
 import fetch from 'node-fetch';
 
 interface ComBirdsConfig {
-  userId: string;
-  password: string;
-  otpApiKey: string;
-  header: string;
+  apiKey: string;
+  senderId: string;
   baseUrl: string;
+  otpTemplateId: string;
 }
 
 interface OTPResponse {
@@ -20,14 +19,13 @@ export class SMSService {
 
   constructor() {
     this.config = {
-      userId: process.env.COMBIRDS_USER_ID!,
-      password: process.env.COMBIRDS_PASSWORD!,
-      otpApiKey: process.env.COMBIRDS_OTP_API_KEY!,
-      header: process.env.COMBIRDS_HEADER!,
-      baseUrl: 'https://www.combirds.com/api/v2.0'
+      apiKey: process.env.COMBIRDS_OTP_API_KEY!,
+      senderId: process.env.COMBIRDS_HEADER!,
+      baseUrl: 'https://smsapi.edumarcsms.com/api/v1',
+      otpTemplateId: '1707168926925165526' // From the documentation
     };
 
-    if (!this.config.userId || !this.config.password || !this.config.otpApiKey || !this.config.header) {
+    if (!this.config.apiKey || !this.config.senderId) {
       throw new Error('ComBirds SMS credentials are not properly configured');
     }
   }
@@ -37,54 +35,57 @@ export class SMSService {
       // Clean mobile number (remove country code if present)
       const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
       
-      // Format message with proper DLT template format
-      const message = `${otp} is your OTP for Sri Shankeshwar Bengaluru Bhavan. Valid for 5 minutes. Do not share with anyone.`;
+      // Use the DLT approved OTP template from documentation
+      // Template: "Your {#var#} OTP for verification is: {#var#}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies"
+      const message = `Your Sri Shankeshwar Bengaluru Bhavan OTP for verification is: ${otp}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies`;
       
-      // ComBirds SMS API endpoint with proper parameters
-      const url = 'https://combirds.com/api/sendsms.php';
+      const url = `${this.config.baseUrl}/sendsms`;
       
-      const params = new URLSearchParams({
-        username: this.config.userId,
-        password: this.config.password,
-        mobile: cleanMobile,
+      const payload = {
+        number: [cleanMobile],
         message: message,
-        sender: this.config.header,
-        type: 'unicode',
-        duplicate: '1' // Allow duplicate messages
-      });
+        senderId: this.config.senderId,
+        templateId: this.config.otpTemplateId
+      };
 
-      console.log(`📱 Sending OTP to ${cleanMobile} via ComBirds SMS API...`);
-      console.log(`🔗 API URL: ${url}?${params.toString()}`);
+      console.log(`📱 Sending OTP to ${cleanMobile} via ComBirds API...`);
+      console.log(`🔗 Payload:`, JSON.stringify(payload, null, 2));
       
-      const response = await fetch(`${url}?${params.toString()}`, {
-        method: 'GET',
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
-          'User-Agent': 'SSBB-OTP-Service/1.0'
-        }
+          'Content-Type': 'application/json',
+          'apikey': this.config.apiKey
+        },
+        body: JSON.stringify(payload)
       });
 
-      const result = await response.text();
-      console.log(`📥 ComBirds Response: ${result}`);
+      const result = await response.json();
+      console.log(`📥 ComBirds Response:`, result);
       
-      // Check for successful response patterns
-      if (response.ok && result && !result.includes('DOCTYPE') && !result.includes('<html>')) {
-        // ComBirds typically returns message ID or success code
-        if (result.includes('success') || result.match(/^\d+$/) || result.includes('1701') || result.includes('submitted')) {
+      // Check for successful response
+      if (response.ok && result) {
+        if (result.success || result.status === 'success' || result.transactionId) {
           console.log(`✅ OTP sent successfully to ${cleanMobile}`);
           return {
             success: true,
             message: 'OTP sent successfully',
-            requestId: result.trim()
+            requestId: result.transactionId || result.id || 'sent'
+          };
+        } else {
+          console.error(`❌ ComBirds API Error:`, result);
+          return {
+            success: false,
+            message: result.message || 'SMS delivery failed'
           };
         }
+      } else {
+        console.error(`❌ HTTP Error ${response.status}:`, result);
+        return {
+          success: false,
+          message: `API request failed: ${response.status}`
+        };
       }
-      
-      // If we get HTML response or error
-      console.error(`❌ ComBirds SMS API Error: ${result.substring(0, 200)}...`);
-      return {
-        success: false,
-        message: 'SMS delivery failed - API endpoint error'
-      };
       
     } catch (error) {
       console.error('SMS Service Error:', error);
