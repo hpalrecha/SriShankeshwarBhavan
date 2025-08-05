@@ -209,9 +209,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verify OTP and Login endpoint
   app.post("/api/auth/verify-otp", async (req, res) => {
     try {
+      console.log('OTP verification request body:', req.body);
       const { mobile, otp } = req.body;
 
       if (!mobile || !otp) {
+        console.log('Missing mobile or OTP:', { mobile, otp });
         return res.status(400).json({ message: "Mobile number and OTP are required" });
       }
 

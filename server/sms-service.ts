@@ -60,7 +60,7 @@ export class SMSService {
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
+      const result = await response.json() as any;
       console.log(`📥 ComBirds Response:`, result);
       
       // Check for successful response
