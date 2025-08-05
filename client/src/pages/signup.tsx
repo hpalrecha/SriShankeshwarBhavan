@@ -14,8 +14,8 @@ import { ArrowLeft, Home } from "lucide-react";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email"),
   mobile: z.string().min(10, "Please enter a valid mobile number"),
+  email: z.string().email("Please enter a valid email").optional().or(z.literal("")), // Email is optional now
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -90,7 +90,7 @@ export default function Signup() {
             Create Account
           </CardTitle>
           <CardDescription>
-            Join us to start booking your perfect stay
+            Join us to start booking your perfect stay. We'll use your mobile number for account access and booking updates.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -123,31 +123,33 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                {...form.register("email")}
-                className="w-full"
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-red-600">
-                  {form.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="mobile">Mobile Number <span className="text-red-500">*</span></Label>
               <Input
                 id="mobile"
                 type="tel"
+                placeholder="+91 9876543210"
                 {...form.register("mobile")}
                 className="w-full"
               />
               {form.formState.errors.mobile && (
                 <p className="text-sm text-red-600">
                   {form.formState.errors.mobile.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email <span className="text-gray-400">(Optional)</span></Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your.email@example.com"
+                {...form.register("email")}
+                className="w-full"
+              />
+              {form.formState.errors.email && (
+                <p className="text-sm text-red-600">
+                  {form.formState.errors.email.message}
                 </p>
               )}
             </div>

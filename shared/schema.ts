@@ -20,8 +20,8 @@ export const roomCategories = pgTable("room_categories", {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  mobile: varchar("mobile", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }), // Optional now
+  mobile: varchar("mobile", { length: 20 }).notNull().unique(), // Primary identifier
   password: varchar("password", { length: 255 }).notNull(),
   // Full Address fields
   address: text("address"),

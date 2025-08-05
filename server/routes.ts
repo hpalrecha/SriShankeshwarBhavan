@@ -117,10 +117,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, mobile, password } = req.body;
       
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
+      // Check if user already exists by mobile number (primary identifier)
+      const existingUser = await storage.getUserByMobile(mobile);
       if (existingUser) {
-        return res.status(400).json({ message: "Email already registered" });
+        return res.status(400).json({ message: "Mobile number already registered" });
       }
 
       // Hash password
@@ -129,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user
       const user = await storage.createUser({
         name,
-        email,
+        email: email || null, // Email is optional now
         mobile,
         password: hashedPassword,
       });
@@ -143,29 +143,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { mobile, password } = req.body;
 
-      // Find user
-      const user = await storage.getUserByEmail(email);
+      // Find user by mobile number (primary identifier)
+      const user = await storage.getUserByMobile(mobile);
       if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid mobile number or password" });
       }
 
       // Check password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid mobile number or password" });
       }
 
       // Set session
       (req.session as any).userId = user.id;
-      (req.session as any).userEmail = user.email;
+      (req.session as any).userMobile = user.mobile;
 
       res.json({ 
         message: "Login successful", 
         user: { 
           id: user.id, 
           name: user.name, 
+          mobile: user.mobile,
           email: user.email,
           isTrustee: user.isTrustee 
         } 
@@ -224,17 +225,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Forgot Password endpoint
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
-      const { email } = req.body;
+      const { mobile } = req.body;
 
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
+      if (!mobile) {
+        return res.status(400).json({ message: "Mobile number is required" });
       }
 
-      // Find user by email
-      const user = await storage.getUserByEmail(email);
+      // Find user by mobile number
+      const user = await storage.getUserByMobile(mobile);
       if (!user) {
-        // Don't reveal if email exists or not for security
-        return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+        // Don't reveal if mobile number exists or not for security
+        return res.json({ message: "If an account with that mobile number exists, a password reset link has been sent." });
       }
 
       // Generate reset token
@@ -244,13 +245,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save reset token
       await storage.createPasswordResetToken(user.id, resetToken, expiresAt);
 
-      // Send password reset email
+      // Send password reset email if user has email
       const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
-      console.log(`🔗 Password reset URL for ${user.email}: ${resetUrl}`);
-      const emailSent = await sendPasswordResetEmail(user.email, user.name, resetUrl);
-      console.log(`📧 Password reset email sent to ${user.email}: ${emailSent}`);
+      console.log(`🔗 Password reset URL for ${user.mobile}: ${resetUrl}`);
+      
+      if (user.email) {
+        const emailSent = await sendPasswordResetEmail(user.email, user.name, resetUrl);
+        console.log(`📧 Password reset email sent to ${user.email}: ${emailSent}`);
+      } else {
+        console.log(`⚠️ No email found for user ${user.mobile}, reset link: ${resetUrl}`);
+      }
 
-      res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+      res.json({ message: "If an account with that mobile number exists, a password reset link has been sent." });
     } catch (error) {
       console.error("Error in forgot password:", error);
       res.status(500).json({ message: "Failed to process password reset request" });
@@ -320,6 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         id: user.id, 
         name: user.name, 
+        mobile: user.mobile,
         email: user.email,
         isTrustee: user.isTrustee 
       });
@@ -711,8 +718,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check if user exists or create new user
-      let user = await storage.getUserByEmail(userData.email);
+      // Check if user exists or create new user (by mobile number)
+      let user = await storage.getUserByMobile(userData.mobile);
       let isNewUser = false;
       if (!user) {
         // Create user with a default password for guest bookings
