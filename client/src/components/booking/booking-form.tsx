@@ -33,6 +33,7 @@ interface BookingFormProps {
 export default function BookingForm({ onSearch }: BookingFormProps) {
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
+  const [checkinDate, setCheckinDate] = useState<string>("");
 
   const { data: roomCategories, isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
@@ -152,12 +153,13 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                         min={new Date().toISOString().split('T')[0]} 
                         {...field}
                         onChange={(e) => {
+                          const newCheckinDate = e.target.value;
+                          setCheckinDate(newCheckinDate);
                           field.onChange(e);
                           // Auto-update checkout date if it's before the new checkin date
-                          const checkinDate = e.target.value;
                           const checkoutDate = form.getValues('checkoutDate');
-                          if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
-                            form.setValue('checkoutDate', checkinDate);
+                          if (checkoutDate && newCheckinDate && new Date(checkoutDate) < new Date(newCheckinDate)) {
+                            form.setValue('checkoutDate', newCheckinDate);
                           }
                         }}
                       />
@@ -175,17 +177,19 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                     <FormControl>
                       <Input 
                         type="date" 
-                        min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
+                        min={checkinDate || new Date().toISOString().split('T')[0]}
                         {...field}
                         onChange={(e) => {
-                          const checkinDate = form.getValues('checkinDate');
                           const selectedCheckout = e.target.value;
                           
                           // Prevent selecting checkout date before checkin date
                           if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
-                            e.target.value = checkinDate; // Reset to checkin date
-                            field.onChange(checkinDate);
-                            return;
+                            toast({
+                              title: "Invalid Date",
+                              description: "Check-out date cannot be before check-in date.",
+                              variant: "destructive",
+                            });
+                            return; // Don't update the field
                           }
                           
                           field.onChange(e);

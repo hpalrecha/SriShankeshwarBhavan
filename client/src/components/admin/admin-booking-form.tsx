@@ -73,6 +73,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [roomSelections, setRoomSelections] = useState<Record<number, number>>({});
+  const [checkinDate, setCheckinDate] = useState<string>("");
 
   const { data: roomCategories = [] } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
@@ -379,12 +380,13 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 {...form.register("checkinDate")}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => {
-                  form.setValue('checkinDate', e.target.value);
+                  const newCheckinDate = e.target.value;
+                  setCheckinDate(newCheckinDate);
+                  form.setValue('checkinDate', newCheckinDate);
                   // Auto-update checkout date if it's before the new checkin date
-                  const checkinDate = e.target.value;
                   const checkoutDate = form.getValues('checkoutDate');
-                  if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
-                    form.setValue('checkoutDate', checkinDate);
+                  if (checkoutDate && newCheckinDate && new Date(checkoutDate) < new Date(newCheckinDate)) {
+                    form.setValue('checkoutDate', newCheckinDate);
                   }
                 }}
               />
@@ -399,16 +401,18 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 id="checkoutDate"
                 type="date"
                 {...form.register("checkoutDate")}
-                min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
+                min={checkinDate || new Date().toISOString().split('T')[0]}
                 onChange={(e) => {
-                  const checkinDate = form.getValues('checkinDate');
                   const selectedCheckout = e.target.value;
                   
                   // Prevent selecting checkout date before checkin date
                   if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
-                    e.target.value = checkinDate; // Reset to checkin date
-                    form.setValue('checkoutDate', checkinDate);
-                    return;
+                    toast({
+                      title: "Invalid Date",
+                      description: "Check-out date cannot be before check-in date.",
+                      variant: "destructive",
+                    });
+                    return; // Don't update the field
                   }
                   
                   form.setValue('checkoutDate', selectedCheckout);
