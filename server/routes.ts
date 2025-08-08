@@ -106,7 +106,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
-    store: sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
@@ -855,6 +854,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `Insufficient room capacity. ${bookingData.guests || 0} guests need at least ${minRoomsNeeded} rooms of ${category.name} (max ${category.maxOccupancy} guests per room). Currently booking ${roomsBooked} rooms.`,
           suggestedRooms: minRoomsNeeded,
           roomCapacity: category.maxOccupancy,
+          totalGuests: bookingData.guests
+        });
+      }
+
+      // Validate that rooms booked don't exceed number of guests
+      if (bookingData.guests && roomsBooked > bookingData.guests) {
+        return res.status(400).json({ 
+          message: `Cannot book more rooms than guests. You have ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'} but are trying to book ${roomsBooked} room${roomsBooked === 1 ? '' : 's'}. Maximum rooms you can book: ${bookingData.guests}.`,
+          maxRoomsAllowed: bookingData.guests,
+          roomsRequested: roomsBooked,
           totalGuests: bookingData.guests
         });
       }
