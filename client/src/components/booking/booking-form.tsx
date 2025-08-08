@@ -50,6 +50,20 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
   const onSubmit = async (values: BookingFormData) => {
     setIsSearching(true);
     try {
+      // CRITICAL: Check date validity before proceeding
+      const checkinDate = new Date(values.checkinDate);
+      const checkoutDate = new Date(values.checkoutDate);
+      
+      if (checkoutDate < checkinDate) {
+        toast({
+          title: "Invalid Dates",
+          description: "Check-out date cannot be before check-in date. Please select valid dates.",
+          variant: "destructive",
+        });
+        setIsSearching(false);
+        return;
+      }
+      
       // Find the best available room category for the guest count
       const bestCategory = roomCategories?.find(cat => (cat.maxOccupancy || 2) >= values.guests) || roomCategories?.[0];
       
