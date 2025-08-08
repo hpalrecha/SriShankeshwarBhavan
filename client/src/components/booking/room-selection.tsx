@@ -36,13 +36,25 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
   const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
 
   const updateRoomQuantity = (categoryId: number, quantity: number) => {
-    setSelectedRooms(prev => 
-      prev.map(room => 
+    setSelectedRooms(prev => {
+      // Calculate what total rooms would be if we make this change
+      const newRooms = prev.map(room => 
         room.category.id === categoryId 
           ? { ...room, quantity: Math.max(0, Math.min(quantity, room.maxAvailable)) }
           : room
-      )
-    );
+      );
+      
+      // Calculate total rooms that would be selected
+      const newTotalRooms = newRooms.reduce((sum, room) => sum + room.quantity, 0);
+      
+      // CRITICAL: Prevent selecting more rooms than guests
+      if (newTotalRooms > bookingData.guests) {
+        // Don't allow this change - return previous state
+        return prev;
+      }
+      
+      return newRooms;
+    });
   };
 
   const totalRoomsSelected = selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
@@ -151,6 +163,11 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
 
                   <div className="space-y-3">
                     <Label htmlFor={`quantity-${category.id}`}>Number of rooms</Label>
+                    {totalRoomsSelected >= bookingData.guests && (
+                      <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                        ⚠️ Cannot select more than {bookingData.guests} room{bookingData.guests === 1 ? '' : 's'} for {bookingData.guests} guest{bookingData.guests === 1 ? '' : 's'}
+                      </div>
+                    )}
                     <div className="flex items-center space-x-3">
                       <Button
                         type="button"
@@ -175,7 +192,8 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
                         variant="outline"
                         size="sm"
                         onClick={() => updateRoomQuantity(category.id, roomSelection.quantity + 1)}
-                        disabled={roomSelection.quantity >= roomSelection.maxAvailable}
+                        disabled={roomSelection.quantity >= roomSelection.maxAvailable || totalRoomsSelected >= bookingData.guests}
+                        title={totalRoomsSelected >= bookingData.guests ? `Cannot book more than ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'} for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}` : ''}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
