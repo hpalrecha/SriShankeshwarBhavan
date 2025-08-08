@@ -19,13 +19,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
 import BookingPayment from "@/components/BookingPayment";
 
-const guestSchema = z.object({
+const createGuestSchema = (maxGuests: number) => z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Valid email is required").optional().or(z.literal("")),
   mobile: z.string().min(10, "Valid mobile number is required"),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
-  roomsToBook: z.number().min(1, "At least 1 room required"),
+  roomsToBook: z.number()
+    .min(1, "At least 1 room required")
+    .max(maxGuests, `Cannot book more than ${maxGuests} room${maxGuests === 1 ? '' : 's'} for ${maxGuests} guest${maxGuests === 1 ? '' : 's'}`),
   estimatedArrivalTime: z.string().optional(),
   estimatedDepartureTime: z.string().optional(),
   // Food options
@@ -73,6 +75,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     retry: false,
   });
 
+  const guestSchema = createGuestSchema(bookingData.guests);
   const form = useForm<z.infer<typeof guestSchema>>({
     resolver: zodResolver(guestSchema),
     defaultValues: {
@@ -452,16 +455,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                           max={bookingData.guests}
                           value={field.value}
                           onChange={(e) => {
-                            const value = parseInt(e.target.value) || 1;
-                            if (value <= bookingData.guests) {
-                              field.onChange(value);
-                            } else {
-                              // Show error message if user tries to book more rooms than guests
-                              form.setError("roomsToBook", {
-                                type: "manual",
-                                message: `Cannot book more than ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'} for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}`
-                              });
-                            }
+                            let value = parseInt(e.target.value) || 1;
+                            // Clamp the value to be within valid range
+                            value = Math.max(1, Math.min(value, bookingData.guests));
+                            field.onChange(value);
                           }}
                         />
                       </FormControl>
