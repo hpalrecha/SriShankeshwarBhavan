@@ -47,6 +47,14 @@ const adminBookingSchema = z.object({
   ),
   paymentMethod: z.enum(["upi", "cash", "card", "bank_transfer", "checkin"]),
   paymentReference: z.string().optional(),
+}).refine((data) => {
+  if (!data.checkinDate || !data.checkoutDate) return true; // Let required validation handle empty fields
+  const checkin = new Date(data.checkinDate);
+  const checkout = new Date(data.checkoutDate);
+  return checkout >= checkin;
+}, {
+  message: "Check-out date must be on or after check-in date",
+  path: ["checkoutDate"],
 });
 
 type AdminBookingFormData = z.infer<typeof adminBookingSchema>;

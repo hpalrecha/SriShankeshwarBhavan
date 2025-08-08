@@ -16,6 +16,14 @@ const formSchema = z.object({
   checkinDate: z.string().min(1, "Check-in date is required"),
   checkoutDate: z.string().min(1, "Check-out date is required"),
   guests: z.number().min(1, "At least 1 guest required").max(10, "Maximum 10 guests allowed"),
+}).refine((data) => {
+  if (!data.checkinDate || !data.checkoutDate) return true; // Let required validation handle empty fields
+  const checkin = new Date(data.checkinDate);
+  const checkout = new Date(data.checkoutDate);
+  return checkout >= checkin;
+}, {
+  message: "Check-out date must be on or after check-in date",
+  path: ["checkoutDate"],
 });
 
 interface BookingFormProps {
@@ -125,7 +133,20 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                   <FormItem>
                     <FormLabel>Check-in Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        min={new Date().toISOString().split('T')[0]} 
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          // Auto-update checkout date if it's before the new checkin date
+                          const checkinDate = e.target.value;
+                          const checkoutDate = form.getValues('checkoutDate');
+                          if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
+                            form.setValue('checkoutDate', checkinDate);
+                          }
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -138,7 +159,11 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                   <FormItem>
                     <FormLabel>Check-out Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
