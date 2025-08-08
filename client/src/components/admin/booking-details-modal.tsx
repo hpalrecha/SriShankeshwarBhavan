@@ -160,7 +160,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
 
   const checkinDate = new Date(booking.booking.checkinDate);
   const checkoutDate = new Date(booking.booking.checkoutDate);
-  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   return (
     <>

@@ -33,7 +33,7 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
 
   const checkinDate = new Date(bookingData.checkinDate);
   const checkoutDate = new Date(bookingData.checkoutDate);
-  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   const updateRoomQuantity = (categoryId: number, quantity: number) => {
     setSelectedRooms(prev => {

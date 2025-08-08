@@ -692,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalRooms = 0;
       const checkinDate = new Date(bookingData.checkinDate);
       const checkoutDate = new Date(bookingData.checkoutDate);
-      const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+      const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
 
       // Create separate bookings for each room type selected
       const createdBookings = [];
@@ -886,7 +886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const checkinDate = new Date(bookingData.checkinDate);
       const checkoutDate = new Date(bookingData.checkoutDate);
-      const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+      const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
       const roomAmount = parseFloat(category.price) * nights * roomsBooked;
       
       // Calculate food amount

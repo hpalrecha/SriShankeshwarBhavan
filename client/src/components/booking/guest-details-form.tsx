@@ -177,7 +177,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   // Calculate booking details
   const checkinDate = new Date(bookingData.checkinDate);
   const checkoutDate = new Date(bookingData.checkoutDate);
-  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
   
   // Handle both single room and multiple room selections
   const selectedRooms = form.watch('roomsToBook') || availabilityData.roomsNeeded || 1;

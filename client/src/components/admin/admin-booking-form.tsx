@@ -221,7 +221,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
     
     if (!checkinDate || !checkoutDate) return 0;
     
-    const nights = Math.ceil((new Date(checkoutDate).getTime() - new Date(checkinDate).getTime()) / (1000 * 60 * 60 * 24));
+    const nights = Math.max(1, Math.ceil((new Date(checkoutDate).getTime() - new Date(checkinDate).getTime()) / (1000 * 60 * 60 * 24)));
     
     return Object.entries(roomSelections).reduce((total, [categoryId, quantity]) => {
       const category = roomCategories.find(cat => cat.id === parseInt(categoryId));

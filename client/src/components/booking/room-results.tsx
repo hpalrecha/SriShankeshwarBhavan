@@ -23,7 +23,7 @@ export default function RoomResults({ bookingData, availabilityData }: RoomResul
   const { category } = availabilityData;
   const checkinDate = new Date(bookingData.checkinDate);
   const checkoutDate = new Date(bookingData.checkoutDate);
-  const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
   const totalPrice = parseFloat(category.price) * nights;
 
   // Find all suitable categories for the guest count
