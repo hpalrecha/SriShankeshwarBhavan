@@ -378,6 +378,15 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 type="date"
                 {...form.register("checkinDate")}
                 min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  form.setValue('checkinDate', e.target.value);
+                  // Auto-update checkout date if it's before the new checkin date
+                  const checkinDate = e.target.value;
+                  const checkoutDate = form.getValues('checkoutDate');
+                  if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
+                    form.setValue('checkoutDate', checkinDate);
+                  }
+                }}
               />
               {form.formState.errors.checkinDate && (
                 <p className="text-sm text-red-600">{form.formState.errors.checkinDate.message}</p>
@@ -390,7 +399,20 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                 id="checkoutDate"
                 type="date"
                 {...form.register("checkoutDate")}
-                min={new Date().toISOString().split('T')[0]}
+                min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const checkinDate = form.getValues('checkinDate');
+                  const selectedCheckout = e.target.value;
+                  
+                  // Prevent selecting checkout date before checkin date
+                  if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
+                    e.target.value = checkinDate; // Reset to checkin date
+                    form.setValue('checkoutDate', checkinDate);
+                    return;
+                  }
+                  
+                  form.setValue('checkoutDate', selectedCheckout);
+                }}
               />
               {form.formState.errors.checkoutDate && (
                 <p className="text-sm text-red-600">{form.formState.errors.checkoutDate.message}</p>

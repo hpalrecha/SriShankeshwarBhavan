@@ -176,7 +176,20 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                       <Input 
                         type="date" 
                         min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
-                        {...field} 
+                        {...field}
+                        onChange={(e) => {
+                          const checkinDate = form.getValues('checkinDate');
+                          const selectedCheckout = e.target.value;
+                          
+                          // Prevent selecting checkout date before checkin date
+                          if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
+                            e.target.value = checkinDate; // Reset to checkin date
+                            field.onChange(checkinDate);
+                            return;
+                          }
+                          
+                          field.onChange(e);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
