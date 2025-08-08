@@ -60,7 +60,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
-  const [formData, setFormData] = useState<z.infer<typeof guestSchema> | null>(null);
+  const [formData, setFormData] = useState<any>(null);
   const [bookingFor, setBookingFor] = useState<"self" | "others">("others");
 
   // Check if user is authenticated
@@ -76,7 +76,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   });
 
   const guestSchema = createGuestSchema(bookingData.guests);
-  const form = useForm<z.infer<typeof guestSchema>>({
+  type GuestSchemaType = z.infer<typeof guestSchema>;
+  const form = useForm<GuestSchemaType>({
     resolver: zodResolver(guestSchema),
     defaultValues: {
       name: "",
@@ -185,7 +186,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
-  const onSubmit = (values: z.infer<typeof guestSchema>) => {
+  const onSubmit = (values: GuestSchemaType) => {
     console.log("Form submitted with values:", values);
     console.log("Payment method selected:", values.paymentMethod);
     
@@ -216,7 +217,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     }
   };
 
-  const createBookingFromFormData = (values: z.infer<typeof guestSchema>) => {
+  const createBookingFromFormData = (values: GuestSchemaType) => {
     // Calculate food costs
     const breakfastPrice = parseFloat(foodSettings?.breakfastPrice || "50");
     const lunchPrice = parseFloat(foodSettings?.lunchPrice || "100");
@@ -500,6 +501,14 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                           ` We recommend ${availabilityData.roomsNeeded} rooms for ${bookingData.guests} guests.`
                         }
                       </p>
+                      {form.watch('roomsToBook') > bookingData.guests && (
+                        <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
+                          <p className="text-sm text-red-700 font-medium">
+                            ⚠️ Cannot book {form.watch('roomsToBook')} rooms for {bookingData.guests} guest{bookingData.guests === 1 ? '' : 's'}. 
+                            Maximum allowed: {bookingData.guests} room{bookingData.guests === 1 ? '' : 's'}.
+                          </p>
+                        </div>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -755,9 +764,15 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 <Button 
                   type="submit" 
                   className="flex-1 bg-brand-orange hover:bg-brand-orange-light"
-                  disabled={createBookingMutation.isPending}
+                  disabled={
+                    createBookingMutation.isPending || 
+                    (form.watch('roomsToBook') > bookingData.guests) ||
+                    !form.formState.isValid
+                  }
                 >
-                  {createBookingMutation.isPending ? "Creating Booking..." : "Confirm Booking"}
+                  {createBookingMutation.isPending ? "Creating Booking..." : 
+                   (form.watch('roomsToBook') > bookingData.guests) ? "Invalid Room Selection" :
+                   "Confirm Booking"}
                 </Button>
               </div>
             </form>
