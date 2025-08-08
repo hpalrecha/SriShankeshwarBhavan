@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, User, MapPin, Utensils, Clock } from "lucide-react";
+import { CheckCircle, User, MapPin, Utensils, Clock, Bed } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -25,7 +25,7 @@ const guestSchema = z.object({
   mobile: z.string().min(10, "Valid mobile number is required"),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
-
+  roomsToBook: z.number().min(1, "At least 1 room required"),
   estimatedArrivalTime: z.string().optional(),
   estimatedDepartureTime: z.string().optional(),
   // Food options
@@ -81,6 +81,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       mobile: "",
       city: "",
       state: "",
+      roomsToBook: availabilityData.roomsNeeded || 1,
       estimatedArrivalTime: "",
       estimatedDepartureTime: "",
       breakfastDays: 0,
@@ -99,6 +100,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         mobile: (currentUser as any).mobile || "",
         city: (currentUser as any).city || "",
         state: (currentUser as any).state || "",
+        roomsToBook: availabilityData.roomsNeeded || 1,
         estimatedArrivalTime: "",
         estimatedDepartureTime: "",
         breakfastDays: 0,
@@ -113,6 +115,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         mobile: "",
         city: "",
         state: "",
+        roomsToBook: availabilityData.roomsNeeded || 1,
         estimatedArrivalTime: "",
         estimatedDepartureTime: "",
         breakfastDays: 0,
@@ -173,8 +176,9 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
   
   // Handle both single room and multiple room selections
+  const selectedRooms = form.watch('roomsToBook') || availabilityData.roomsNeeded || 1;
   const totalAmount = availabilityData.totalCost || 
-    (parseFloat(availabilityData.category?.price || "0") * nights * (availabilityData.roomsNeeded || 1));
+    (parseFloat(availabilityData.category?.price || "0") * nights * selectedRooms);
   
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
@@ -226,7 +230,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,
-        roomsBooked: availabilityData.totalRoomsSelected || availabilityData.roomsNeeded || 1,
+        roomsBooked: values.roomsToBook,
       },
     });
   };
@@ -303,7 +307,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
           </CardTitle>
           
           {/* Book for Self/Others Selection - Only show if user is logged in */}
-          {currentUser && typeof currentUser === 'object' && currentUser !== null && 'name' in currentUser && (
+          {currentUser && (currentUser as any).name && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <Label className="text-sm font-medium text-gray-700 mb-3 block">
                 Who are you booking for?
@@ -421,6 +425,56 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     )}
                   />
                 </div>
+              </div>
+
+              {/* Room Selection Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <Bed className="h-4 w-4" />
+                  <h4>Room Selection</h4>
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="roomsToBook"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Number of Rooms *
+                        <span className="text-sm text-gray-500 ml-2">
+                          (Maximum: {bookingData.guests} room{bookingData.guests === 1 ? '' : 's'} for {bookingData.guests} guest{bookingData.guests === 1 ? '' : 's'})
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          max={bookingData.guests}
+                          value={field.value}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 1;
+                            if (value <= bookingData.guests) {
+                              field.onChange(value);
+                            } else {
+                              // Show error message if user tries to book more rooms than guests
+                              form.setError("roomsToBook", {
+                                type: "manual",
+                                message: `Cannot book more than ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'} for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}`
+                              });
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                      <p className="text-sm text-gray-600">
+                        Each {primaryCategory?.name || "room"} can accommodate up to {primaryCategory?.maxOccupancy || 2} guests.
+                        {availabilityData.roomsNeeded && availabilityData.roomsNeeded > 1 && 
+                          ` We recommend ${availabilityData.roomsNeeded} rooms for ${bookingData.guests} guests.`
+                        }
+                      </p>
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {/* Travel Timing Section */}
@@ -609,6 +663,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   <div className="flex justify-between">
                     <span>Total Guests:</span>
                     <span className="font-medium">{bookingData.guests}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Rooms Selected:</span>
+                    <span className="font-medium">{selectedRooms}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Check-in:</span>

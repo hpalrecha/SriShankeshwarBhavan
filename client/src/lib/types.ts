@@ -17,7 +17,7 @@ export interface BookingFormData {
 
 export interface GuestFormData {
   name: string;
-  email: string;
+  email?: string;
   mobile: string;
   // Full address
   address?: string;
