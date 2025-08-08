@@ -189,6 +189,19 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     console.log("Form submitted with values:", values);
     console.log("Payment method selected:", values.paymentMethod);
     
+    // CRITICAL: Double-check room validation before proceeding
+    if (values.roomsToBook > bookingData.guests) {
+      toast({
+        title: "Invalid Room Selection",
+        description: `Cannot book ${values.roomsToBook} rooms for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}. Maximum allowed: ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'}.`,
+        variant: "destructive",
+      });
+      
+      // Force reset the room selection to maximum allowed
+      form.setValue('roomsToBook', bookingData.guests);
+      return; // STOP submission completely
+    }
+    
     // Store form data for later use
     setFormData(values);
     
@@ -456,9 +469,27 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                           value={field.value}
                           onChange={(e) => {
                             let value = parseInt(e.target.value) || 1;
-                            // Clamp the value to be within valid range
-                            value = Math.max(1, Math.min(value, bookingData.guests));
+                            // Strict validation: Force value to be within valid range
+                            if (value > bookingData.guests) {
+                              value = bookingData.guests;
+                              toast({
+                                title: "Room Limit Reached",
+                                description: `Maximum ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'} allowed for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}.`,
+                                variant: "destructive",
+                              });
+                            }
+                            if (value < 1) {
+                              value = 1;
+                            }
                             field.onChange(value);
+                          }}
+                          onBlur={(e) => {
+                            // Additional validation on blur to catch any bypassed values
+                            let value = parseInt(e.target.value) || 1;
+                            if (value > bookingData.guests) {
+                              value = bookingData.guests;
+                              field.onChange(value);
+                            }
                           }}
                         />
                       </FormControl>
