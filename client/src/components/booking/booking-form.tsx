@@ -33,7 +33,6 @@ interface BookingFormProps {
 export default function BookingForm({ onSearch }: BookingFormProps) {
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
-  const [checkinDate, setCheckinDate] = useState<string>("");
 
   const { data: roomCategories, isLoading } = useQuery<RoomCategory[]>({
     queryKey: ["/api/room-categories"],
@@ -55,14 +54,31 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
       const checkinDate = new Date(values.checkinDate);
       const checkoutDate = new Date(values.checkoutDate);
       
-      if (checkoutDate < checkinDate) {
+      // ABSOLUTE VALIDATION: Prevent any submission with invalid dates
+      if (!values.checkinDate || !values.checkoutDate) {
         toast({
-          title: "Invalid Dates",
-          description: "Check-out date cannot be before check-in date. Please select valid dates.",
+          title: "Missing Dates",
+          description: "Please select both check-in and check-out dates.",
           variant: "destructive",
         });
         setIsSearching(false);
         return;
+      }
+      
+      if (checkoutDate < checkinDate) {
+        // FORCE correction and stop submission
+        form.setValue('checkoutDate', values.checkinDate);
+        toast({
+          title: "Invalid Dates",
+          description: "Check-out date cannot be before check-in date. Corrected to same day.",
+          variant: "destructive",
+        });
+        setIsSearching(false);
+        return;
+      }
+      
+      if (checkoutDate.getTime() === checkinDate.getTime()) {
+        console.log("Same day booking detected - will charge 1 night");
       }
       
       // Find the best available room category for the guest count
@@ -153,13 +169,12 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                         min={new Date().toISOString().split('T')[0]} 
                         {...field}
                         onChange={(e) => {
-                          const newCheckinDate = e.target.value;
-                          setCheckinDate(newCheckinDate);
                           field.onChange(e);
                           // Auto-update checkout date if it's before the new checkin date
+                          const checkinDate = e.target.value;
                           const checkoutDate = form.getValues('checkoutDate');
-                          if (checkoutDate && newCheckinDate && new Date(checkoutDate) < new Date(newCheckinDate)) {
-                            form.setValue('checkoutDate', newCheckinDate);
+                          if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
+                            form.setValue('checkoutDate', checkinDate);
                           }
                         }}
                       />
@@ -177,22 +192,21 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
                     <FormControl>
                       <Input 
                         type="date" 
-                        min={checkinDate || new Date().toISOString().split('T')[0]}
+                        min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
                         {...field}
-                        onChange={(e) => {
+                        onBlur={(e) => {
+                          const checkinDate = form.getValues('checkinDate');
                           const selectedCheckout = e.target.value;
                           
-                          // Prevent selecting checkout date before checkin date
+                          // Force checkout date to be same or after checkin date
                           if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
+                            form.setValue('checkoutDate', checkinDate);
                             toast({
                               title: "Invalid Date",
-                              description: "Check-out date cannot be before check-in date.",
+                              description: "Check-out date automatically set to check-in date. Cannot be before check-in.",
                               variant: "destructive",
                             });
-                            return; // Don't update the field
                           }
-                          
-                          field.onChange(e);
                         }}
                       />
                     </FormControl>
