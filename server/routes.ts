@@ -1939,6 +1939,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send test daily room report
+  app.post("/api/test-daily-report", async (req, res) => {
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      
+      const recipients = await storage.getActiveWhatsAppNotificationRecipients('daily_report');
+      
+      let successCount = 0;
+      for (const recipient of recipients) {
+        const success = await whatsappService.sendDailyRoomReport(
+          recipient.phoneNumber,
+          7,     // totalRoomsBooked
+          8,     // totalRoomsAvailable  
+          14,    // totalGuests
+          dateStr // targetDate
+        );
+        
+        if (success) successCount++;
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Daily report sent to ${successCount}/${recipients.length} recipients`,
+        recipients: recipients.length
+      });
+    } catch (error: any) {
+      console.error("Test daily report error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || "Internal server error" 
+      });
+    }
+  });
+
+  // Send test sold out alert
+  app.post("/api/test-sold-out", async (req, res) => {
+    try {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const timeStr = today.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+      
+      const recipients = await storage.getActiveWhatsAppNotificationRecipients('sold_out_alert');
+      
+      let successCount = 0;
+      for (const recipient of recipients) {
+        const success = await whatsappService.sendSoldOutAlert(
+          recipient.phoneNumber,
+          dateStr // targetDate
+        );
+        
+        if (success) successCount++;
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Sold out alert sent to ${successCount}/${recipients.length} recipients`,
+        recipients: recipients.length
+      });
+    } catch (error: any) {
+      console.error("Test sold out alert error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || "Internal server error" 
+      });
+    }
+  });
+
   // Test route to manually trigger WhatsApp for last booking
   app.post("/api/debug/test-whatsapp-booking", async (req, res) => {
     try {
