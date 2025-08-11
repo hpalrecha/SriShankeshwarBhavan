@@ -70,6 +70,40 @@ class WhatsAppService {
       }
 
       console.log(`📱 Sending WhatsApp notification: ${notificationType} to ${phoneNumber} using template: ${templateMapping.templateName}`);
+      console.log(`📋 Parameters being sent:`, parameters);
+
+      // Build components based on template type
+      let components: any[] = [];
+      
+      if (notificationType === 'daily_room_report') {
+        // Daily template has header + body parameters
+        // parameters[0] = header, parameters[1-6] = body
+        components = [
+          {
+            type: 'header',
+            parameters: [{
+              type: 'text',
+              text: parameters[0] || new Date().toLocaleDateString() // Date for header
+            }]
+          },
+          {
+            type: 'body',
+            parameters: parameters.slice(1).map(param => ({
+              type: 'text',
+              text: param
+            }))
+          }
+        ];
+      } else if (parameters.length > 0) {
+        // Other templates just need body parameters
+        components = [{
+          type: 'body',
+          parameters: parameters.map(param => ({
+            type: 'text',
+            text: param
+          }))
+        }];
+      }
 
       const message: WhatsAppMessage = {
         messaging_product: 'whatsapp',
@@ -80,13 +114,7 @@ class WhatsAppService {
           language: {
             code: 'en'
           },
-          components: parameters.length > 0 ? [{
-            type: 'body',
-            parameters: parameters.map(param => ({
-              type: 'text',
-              text: param
-            }))
-          }] : undefined
+          components: components.length > 0 ? components : undefined
         }
       };
 
@@ -220,11 +248,19 @@ class WhatsAppService {
     const formattedPhone = this.formatPhoneNumber(phoneNumber);
     if (!formattedPhone) return false;
 
+    // Meta template expects: Date (header), Date, Total, Available, Booked, Guests, Categories (body)
+    const totalRooms = totalRoomsBooked + totalRoomsAvailable;
+    const roomBreakdown = `2 Beds Room: ${totalRoomsAvailable} available, ${totalRoomsBooked} booked`;
+    
+    // Meta template structure: Header(Date) + Body(Date, Total, Available, Booked, Guests, Categories)
     const parameters = [
-      targetDate,
-      totalRoomsBooked.toString(),
-      totalRoomsAvailable.toString(),
-      totalGuests.toString(),
+      targetDate,                     // Header parameter: {{1}} Date  
+      targetDate,                     // Body {{1}} Date
+      totalRooms.toString(),          // Body {{2}} Total Rooms
+      totalRoomsAvailable.toString(), // Body {{3}} Available
+      totalRoomsBooked.toString(),    // Body {{4}} Booked
+      totalGuests.toString(),         // Body {{5}} Expected Guests
+      roomBreakdown                   // Body {{6}} Room Categories breakdown
     ];
 
     return this.sendTemplate(formattedPhone, "daily_room_report", parameters);
@@ -238,7 +274,19 @@ class WhatsAppService {
     const formattedPhone = this.formatPhoneNumber(phoneNumber);
     if (!formattedPhone) return false;
 
-    const parameters = [targetDate];
+    // Meta template expects: Total rooms, Date, Alert time
+    const totalRooms = "15"; // Total rooms in hotel
+    const alertTime = new Date().toLocaleTimeString('en-IN', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    
+    const parameters = [
+      totalRooms,  // {{1}} Total rooms count
+      targetDate,  // {{2}} Sold out date
+      alertTime    // {{3}} Alert time
+    ];
 
     return this.sendTemplate(formattedPhone, "sold_out_alert", parameters);
   }

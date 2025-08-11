@@ -1939,6 +1939,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch WhatsApp templates from Meta
+  app.get("/api/debug/whatsapp-templates", async (req, res) => {
+    try {
+      const templates = await whatsappService.fetchTemplatesFromMeta();
+      res.json({
+        success: true,
+        templates: templates.map(t => ({
+          name: t.name,
+          status: t.status,
+          language: t.language,
+          components: t.components
+        }))
+      });
+    } catch (error: any) {
+      console.error("Error fetching WhatsApp templates:", error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message || "Failed to fetch templates" 
+      });
+    }
+  });
+
   // Send test daily room report
   app.post("/api/test-daily-report", async (req, res) => {
     try {
