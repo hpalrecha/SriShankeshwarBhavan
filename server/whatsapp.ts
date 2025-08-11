@@ -90,10 +90,10 @@ class WhatsAppService {
         }
       };
 
-      const response = await fetch(`https://graph.facebook.com/v18.0/${this.config.phoneNumberId}/messages`, {
+      const response = await fetch(`https://graph.facebook.com/v18.0/${this.config!.phoneNumberId}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.config.accessToken}`,
+          'Authorization': `Bearer ${this.config!.accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(message)
@@ -207,6 +207,40 @@ class WhatsAppService {
     ];
 
     return await this.sendTemplate(phoneNumber, 'post_checkout_feedback', parameters);
+  }
+
+  // Send daily room availability report
+  async sendDailyRoomReport(
+    phoneNumber: string,
+    totalRoomsBooked: number,
+    totalRoomsAvailable: number,
+    totalGuests: number,
+    targetDate: string
+  ): Promise<boolean> {
+    const formattedPhone = this.formatPhoneNumber(phoneNumber);
+    if (!formattedPhone) return false;
+
+    const parameters = [
+      targetDate,
+      totalRoomsBooked.toString(),
+      totalRoomsAvailable.toString(),
+      totalGuests.toString(),
+    ];
+
+    return this.sendTemplate(formattedPhone, "daily_room_report", parameters);
+  }
+
+  // Send sold out alert
+  async sendSoldOutAlert(
+    phoneNumber: string,
+    targetDate: string
+  ): Promise<boolean> {
+    const formattedPhone = this.formatPhoneNumber(phoneNumber);
+    if (!formattedPhone) return false;
+
+    const parameters = [targetDate];
+
+    return this.sendTemplate(formattedPhone, "sold_out_alert", parameters);
   }
 
   private formatPhoneNumber(phone: string | null | undefined): string | null {

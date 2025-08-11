@@ -8,6 +8,7 @@ import {
   passwordResetTokens,
   whatsappConfig,
   whatsappTemplates,
+  whatsappNotificationRecipients,
   trusteeReservedDates,
   paymentGateways,
   paymentTransactions,
@@ -20,6 +21,7 @@ import {
   type FoodSettings,
   type WhatsAppConfig,
   type WhatsAppTemplate,
+  type WhatsAppNotificationRecipient,
   type TrusteeReservedDate,
   type PaymentGateway,
   type PaymentTransaction,
@@ -32,6 +34,7 @@ import {
   type InsertFoodSettings,
   type InsertWhatsAppConfig,
   type InsertWhatsAppTemplate,
+  type InsertWhatsAppNotificationRecipient,
   type InsertTrusteeReservedDate,
   type InsertPaymentGateway,
   type InsertPaymentTransaction,
@@ -520,6 +523,43 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWhatsAppTemplate(id: number): Promise<void> {
     await db.delete(whatsappTemplates).where(eq(whatsappTemplates.id, id));
+  }
+
+  // WhatsApp Notification Recipients operations
+  async getWhatsAppNotificationRecipients(): Promise<WhatsAppNotificationRecipient[]> {
+    return await db.select().from(whatsappNotificationRecipients).orderBy(whatsappNotificationRecipients.name);
+  }
+
+  async getActiveWhatsAppNotificationRecipients(notificationType: 'daily_report' | 'sold_out_alert'): Promise<WhatsAppNotificationRecipient[]> {
+    const column = notificationType === 'daily_report' ? whatsappNotificationRecipients.receiveDailyReport : whatsappNotificationRecipients.receiveSoldOutAlert;
+    return await db.select().from(whatsappNotificationRecipients)
+      .where(
+        and(
+          eq(whatsappNotificationRecipients.isActive, true),
+          eq(column, true)
+        )
+      );
+  }
+
+  async createWhatsAppNotificationRecipient(data: InsertWhatsAppNotificationRecipient): Promise<WhatsAppNotificationRecipient> {
+    const [recipient] = await db
+      .insert(whatsappNotificationRecipients)
+      .values(data)
+      .returning();
+    return recipient;
+  }
+
+  async updateWhatsAppNotificationRecipient(id: number, data: Partial<InsertWhatsAppNotificationRecipient>): Promise<WhatsAppNotificationRecipient> {
+    const [updated] = await db
+      .update(whatsappNotificationRecipients)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(whatsappNotificationRecipients.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWhatsAppNotificationRecipient(id: number): Promise<void> {
+    await db.delete(whatsappNotificationRecipients).where(eq(whatsappNotificationRecipients.id, id));
   }
 
   // Trustee Reserved Dates

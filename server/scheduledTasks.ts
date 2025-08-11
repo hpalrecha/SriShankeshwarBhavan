@@ -190,11 +190,140 @@ export function startPostCheckoutFeedbackTask() {
   console.log("Post-checkout feedback task scheduled for 6:00 PM daily");
 }
 
+// Send daily WhatsApp room availability reports at 7:00 PM daily for next day
+export function startDailyRoomReportTask() {
+  cron.schedule("0 19 * * *", async () => {
+    console.log("Running daily room availability report task...");
+    
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const dayAfterTomorrow = new Date(tomorrow);
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+      
+      // Get tomorrow's bookings
+      const tomorrowBookings = await storage.getBookingsByDateRange(tomorrow, dayAfterTomorrow);
+      const confirmedBookings = tomorrowBookings.filter(booking => booking.status === "confirmed");
+      
+      // Calculate statistics
+      let totalRoomsBooked = 0;
+      let totalGuests = 0;
+      
+      confirmedBookings.forEach(booking => {
+        totalRoomsBooked += booking.roomsBooked || 1;
+        totalGuests += booking.guests;
+      });
+      
+      // Get room categories to calculate total available rooms
+      const roomCategories = await storage.getRoomCategories();
+      const totalRoomsAvailable = roomCategories.reduce((sum, cat) => sum + cat.totalUnits, 0) - totalRoomsBooked;
+      
+      // Format date for message
+      const formattedDate = tomorrow.toLocaleDateString('en-IN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      // Get notification recipients for daily reports
+      const recipients = await storage.getActiveWhatsAppNotificationRecipients('daily_report');
+      
+      console.log(`Sending daily report to ${recipients.length} recipients: ${totalRoomsBooked} booked, ${totalRoomsAvailable} available, ${totalGuests} guests for ${formattedDate}`);
+      
+      // Send to all recipients
+      for (const recipient of recipients) {
+        try {
+          await whatsappService.sendDailyRoomReport(
+            recipient.phoneNumber,
+            totalRoomsBooked,
+            totalRoomsAvailable,
+            totalGuests,
+            formattedDate
+          );
+        } catch (error) {
+          console.error(`Failed to send daily report to ${recipient.name} (${recipient.phoneNumber}):`, error);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error in daily room report task:", error);
+    }
+  });
+  
+  console.log("Daily room report task scheduled for 7:00 PM daily");
+}
+
+// Check for sold out inventory and send alerts
+export function startSoldOutAlertTask() {
+  cron.schedule("0 */4 * * *", async () => { // Run every 4 hours
+    console.log("Running sold out alert check task...");
+    
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Check next 7 days for sold out dates
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() + i);
+        
+        const nextDay = new Date(checkDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        
+        // Get bookings for this date
+        const dateBookings = await storage.getBookingsByDateRange(checkDate, nextDay);
+        const confirmedBookings = dateBookings.filter(booking => booking.status === "confirmed");
+        
+        // Calculate total booked rooms
+        const totalRoomsBooked = confirmedBookings.reduce((sum, booking) => sum + (booking.roomsBooked || 1), 0);
+        
+        // Get total available rooms
+        const roomCategories = await storage.getRoomCategories();
+        const totalRoomsAvailable = roomCategories.reduce((sum, cat) => sum + cat.totalUnits, 0);
+        
+        // Check if sold out (100% occupancy)
+        if (totalRoomsBooked >= totalRoomsAvailable && totalRoomsAvailable > 0) {
+          const formattedDate = checkDate.toLocaleDateString('en-IN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+          
+          // Get notification recipients for sold out alerts
+          const recipients = await storage.getActiveWhatsAppNotificationRecipients('sold_out_alert');
+          
+          console.log(`SOLD OUT ALERT: ${formattedDate} - sending to ${recipients.length} recipients`);
+          
+          // Send alerts to all recipients
+          for (const recipient of recipients) {
+            try {
+              await whatsappService.sendSoldOutAlert(recipient.phoneNumber, formattedDate);
+            } catch (error) {
+              console.error(`Failed to send sold out alert to ${recipient.name} (${recipient.phoneNumber}):`, error);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error in sold out alert task:", error);
+    }
+  });
+  
+  console.log("Sold out alert task scheduled for every 4 hours");
+}
+
 // Start all scheduled tasks
 export function initializeScheduledTasks() {
   startPreCheckinReminderTask();
   startCheckinDayReminderTask();
   startCheckoutReminderTask();
   startPostCheckoutFeedbackTask();
-  console.log("All email notification tasks initialized");
+  startDailyRoomReportTask();
+  startSoldOutAlertTask();
+  console.log("All notification tasks initialized (email + WhatsApp)");
 }

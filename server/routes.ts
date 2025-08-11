@@ -36,6 +36,13 @@ const requireAuth = (req: any, res: any, next: any) => {
   next();
 };
 
+const isAdminAuthenticated = (req: any, res: any, next: any) => {
+  if (!req.session?.adminId) {
+    return res.status(401).json({ message: "Admin authentication required" });
+  }
+  next();
+};
+
 // Configure multer for file uploads
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -1844,6 +1851,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting WhatsApp template:", error);
       res.status(500).json({ error: error.message || "Failed to delete WhatsApp template" });
+    }
+  });
+
+  // WhatsApp Notification Recipients Routes
+  app.get("/api/whatsapp/recipients", isAdminAuthenticated, async (req, res) => {
+    try {
+      const recipients = await storage.getWhatsAppNotificationRecipients();
+      res.json(recipients);
+    } catch (error: any) {
+      console.error("Error fetching WhatsApp notification recipients:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch recipients" });
+    }
+  });
+
+  app.post("/api/whatsapp/recipients", isAdminAuthenticated, async (req, res) => {
+    try {
+      const recipient = await storage.createWhatsAppNotificationRecipient(req.body);
+      res.json(recipient);
+    } catch (error: any) {
+      console.error("Error creating WhatsApp notification recipient:", error);
+      res.status(500).json({ error: error.message || "Failed to create recipient" });
+    }
+  });
+
+  app.put("/api/whatsapp/recipients/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const recipient = await storage.updateWhatsAppNotificationRecipient(id, req.body);
+      res.json(recipient);
+    } catch (error: any) {
+      console.error("Error updating WhatsApp notification recipient:", error);
+      res.status(500).json({ error: error.message || "Failed to update recipient" });
+    }
+  });
+
+  app.delete("/api/whatsapp/recipients/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteWhatsAppNotificationRecipient(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting WhatsApp notification recipient:", error);
+      res.status(500).json({ error: error.message || "Failed to delete recipient" });
     }
   });
 

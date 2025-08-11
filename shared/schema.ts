@@ -349,6 +349,25 @@ export const insertWhatsAppTemplateSchema = createInsertSchema(whatsappTemplates
   updatedAt: true,
 });
 
+// WhatsApp notification recipients (for daily reports and alerts)
+export const whatsappNotificationRecipients = pgTable("whatsapp_notification_recipients", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  // What types of notifications this recipient should receive
+  receiveDailyReport: boolean("receive_daily_report").default(true),
+  receiveSoldOutAlert: boolean("receive_sold_out_alert").default(true),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertWhatsAppNotificationRecipientSchema = createInsertSchema(whatsappNotificationRecipients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertTrusteeReservedDateSchema = createInsertSchema(trusteeReservedDates).omit({
   id: true,
   createdAt: true,
@@ -373,6 +392,9 @@ export type WhatsAppConfig = typeof whatsappConfig.$inferSelect;
 export type InsertWhatsAppConfig = z.infer<typeof insertWhatsAppConfigSchema>;
 export type WhatsAppTemplate = typeof whatsappTemplates.$inferSelect;
 export type InsertWhatsAppTemplate = z.infer<typeof insertWhatsAppTemplateSchema>;
+
+export type WhatsAppNotificationRecipient = typeof whatsappNotificationRecipients.$inferSelect;
+export type InsertWhatsAppNotificationRecipient = z.infer<typeof insertWhatsAppNotificationRecipientSchema>;
 
 // Types for Trustee Reserved Dates
 export type TrusteeReservedDate = typeof trusteeReservedDates.$inferSelect;
