@@ -76,8 +76,7 @@ class WhatsAppService {
       let components: any[] = [];
       
       if (notificationType === 'daily_room_report') {
-        // Daily template has header + body parameters
-        // parameters[0] = header, parameters[1-6] = body
+        // MARKETING template requires both header and body components
         components = [
           {
             type: 'header',
@@ -117,6 +116,8 @@ class WhatsAppService {
           components: components.length > 0 ? components : undefined
         }
       };
+
+
 
       const response = await fetch(`https://graph.facebook.com/v18.0/${this.config!.phoneNumberId}/messages`, {
         method: 'POST',
