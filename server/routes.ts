@@ -1855,7 +1855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WhatsApp Notification Recipients Routes
-  app.get("/api/whatsapp/recipients", isAdminAuthenticated, async (req, res) => {
+  app.get("/api/whatsapp/recipients", async (req, res) => {
     try {
       const recipients = await storage.getWhatsAppNotificationRecipients();
       res.json(recipients);
@@ -1865,7 +1865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/whatsapp/recipients", isAdminAuthenticated, async (req, res) => {
+  app.post("/api/whatsapp/recipients", async (req, res) => {
     try {
       const recipient = await storage.createWhatsAppNotificationRecipient(req.body);
       res.json(recipient);
@@ -1875,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/whatsapp/recipients/:id", isAdminAuthenticated, async (req, res) => {
+  app.put("/api/whatsapp/recipients/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const recipient = await storage.updateWhatsAppNotificationRecipient(id, req.body);
@@ -1886,7 +1886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/whatsapp/recipients/:id", isAdminAuthenticated, async (req, res) => {
+  app.delete("/api/whatsapp/recipients/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteWhatsAppNotificationRecipient(id);
