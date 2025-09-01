@@ -2512,38 +2512,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payment webhook routes (for different gateways)
   app.post("/api/payment/razorpay/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
     try {
-      // Implement Razorpay webhook verification
-      // This would handle payment success/failure notifications from Razorpay
+      console.log("📡 Razorpay webhook received:", req.headers);
+      
+      // Get webhook signature from headers
+      const webhookSignature = req.headers['x-razorpay-signature'] as string;
+      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      
+      if (!webhookSecret) {
+        console.error("❌ Razorpay webhook secret not configured");
+        return res.status(400).json({ error: "Webhook secret not configured" });
+      }
+
+      // Verify webhook signature
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(req.body, 'utf8')
+        .digest('hex');
+
+      if (webhookSignature !== expectedSignature) {
+        console.error("❌ Invalid Razorpay webhook signature");
+        return res.status(400).json({ error: "Invalid signature" });
+      }
+
+      const event = JSON.parse(req.body.toString());
+      console.log("✅ Razorpay webhook verified:", event.event, event.payload?.payment?.entity?.id);
+
+      // Handle different events
+      switch (event.event) {
+        case 'payment.captured':
+        case 'payment.authorized':
+          await handleRazorpayPaymentSuccess(event.payload.payment.entity);
+          break;
+        case 'payment.failed':
+          await handleRazorpayPaymentFailure(event.payload.payment.entity);
+          break;
+        default:
+          console.log("ℹ️ Unhandled Razorpay event:", event.event);
+      }
+
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Razorpay webhook error:", error);
+      console.error("❌ Razorpay webhook error:", error);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
 
   app.post("/api/payment/payu/success", async (req, res) => {
     try {
-      // Handle PayU success callback
+      console.log("📡 PayU success callback received:", req.body);
       const paymentData = req.body;
-      // Process success response and update transaction
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-success?txn=${paymentData.txnid}`);
+      
+      // Verify PayU payment hash
+      const gateways = await storage.getActivePaymentGateways();
+      const activeGateway = gateways.find(g => g.gatewayName === 'payu');
+      if (activeGateway) {
+        const gateway = PaymentGatewayFactory.createGateway(activeGateway);
+        const isValid = await gateway.verifyPayment(paymentData);
+        
+        if (isValid) {
+          await handlePayUPaymentSuccess(paymentData);
+          res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-success?txn=${paymentData.txnid}&status=success`);
+        } else {
+          console.error("❌ PayU payment verification failed");
+          res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.txnid}&error=verification_failed`);
+        }
+      } else {
+        console.error("❌ PayU gateway not configured");
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=gateway_not_configured`);
+      }
     } catch (error: any) {
-      console.error("PayU success callback error:", error);
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed`);
+      console.error("❌ PayU success callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=processing_failed`);
     }
   });
 
   app.post("/api/payment/payu/failure", async (req, res) => {
     try {
-      // Handle PayU failure callback
+      console.log("📡 PayU failure callback received:", req.body);
       const paymentData = req.body;
-      // Process failure response and update transaction
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.txnid}`);
+      
+      // Log payment failure
+      await handlePayUPaymentFailure(paymentData);
+      
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.txnid}&status=failed&reason=${encodeURIComponent(paymentData.error_Message || 'Payment failed')}`);
     } catch (error: any) {
-      console.error("PayU failure callback error:", error);
-      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed`);
+      console.error("❌ PayU failure callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=callback_error`);
     }
   });
+
+  // Webhook helper functions
+  async function handleRazorpayPaymentSuccess(payment: any) {
+    try {
+      console.log("✅ Processing Razorpay payment success:", payment.id);
+      
+      // Extract booking ID from receipt
+      const receipt = payment.notes?.receipt || payment.description || '';
+      const bookingIdMatch = receipt.match(/booking_(.+)/);
+      
+      if (!bookingIdMatch) {
+        console.error("❌ Could not extract booking ID from Razorpay payment:", receipt);
+        return;
+      }
+      
+      const bookingId = bookingIdMatch[1];
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(payment.id, {
+        status: 'completed',
+        gatewayTransactionId: payment.id,
+        gatewayResponse: JSON.stringify(payment)
+      });
+
+      // Update booking payment status
+      await storage.updateRoomBooking(bookingId, {
+        paymentStatus: 'paid_online',
+        paymentReference: payment.id
+      });
+      
+      console.log("✅ Razorpay payment success processed for booking:", bookingId);
+    } catch (error) {
+      console.error("❌ Error processing Razorpay payment success:", error);
+    }
+  }
+
+  async function handleRazorpayPaymentFailure(payment: any) {
+    try {
+      console.log("❌ Processing Razorpay payment failure:", payment.id);
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(payment.id, {
+        status: 'failed',
+        gatewayTransactionId: payment.id,
+        gatewayResponse: JSON.stringify(payment),
+        failureReason: payment.error_description || 'Payment failed'
+      });
+      
+      console.log("❌ Razorpay payment failure processed:", payment.id);
+    } catch (error) {
+      console.error("❌ Error processing Razorpay payment failure:", error);
+    }
+  }
+
+  async function handlePayUPaymentSuccess(paymentData: any) {
+    try {
+      console.log("✅ Processing PayU payment success:", paymentData.txnid);
+      
+      // Extract booking ID from transaction ID
+      const bookingIdMatch = paymentData.txnid.match(/TXN_(.+)_\d+/);
+      
+      if (!bookingIdMatch) {
+        console.error("❌ Could not extract booking ID from PayU transaction:", paymentData.txnid);
+        return;
+      }
+      
+      const bookingId = bookingIdMatch[1];
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(paymentData.txnid, {
+        status: 'completed',
+        gatewayTransactionId: paymentData.mihpayid,
+        gatewayResponse: JSON.stringify(paymentData)
+      });
+
+      // Update booking payment status
+      await storage.updateRoomBooking(bookingId, {
+        paymentStatus: 'paid_online',
+        paymentReference: paymentData.mihpayid
+      });
+      
+      console.log("✅ PayU payment success processed for booking:", bookingId);
+    } catch (error) {
+      console.error("❌ Error processing PayU payment success:", error);
+    }
+  }
+
+  async function handlePayUPaymentFailure(paymentData: any) {
+    try {
+      console.log("❌ Processing PayU payment failure:", paymentData.txnid);
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(paymentData.txnid, {
+        status: 'failed',
+        gatewayResponse: JSON.stringify(paymentData),
+        failureReason: paymentData.error_Message || paymentData.error || 'Payment failed'
+      });
+      
+      console.log("❌ PayU payment failure processed:", paymentData.txnid);
+    } catch (error) {
+      console.error("❌ Error processing PayU payment failure:", error);
+    }
+  }
 
   // Payment Transactions Management
   app.get("/api/admin/payment-transactions", async (req, res) => {
