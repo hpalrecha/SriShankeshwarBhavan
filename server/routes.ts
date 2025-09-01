@@ -2510,6 +2510,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment webhook routes (for different gateways)
+  
+  // ICICI Bank Direct Integration Webhook
+  app.post("/api/payment/icici/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      console.log("📡 ICICI Bank webhook received:", req.headers);
+      console.log("📋 ICICI webhook body:", req.body.toString());
+      
+      // Parse the webhook data from ICICI Bank
+      let webhookData;
+      try {
+        webhookData = JSON.parse(req.body.toString());
+      } catch (parseError) {
+        // Handle URL-encoded data if ICICI sends form data
+        webhookData = req.body;
+      }
+      
+      console.log("📊 ICICI webhook data:", webhookData);
+      
+      // ICICI Bank webhook verification (implement based on their documentation)
+      const isValid = await verifyICICIWebhook(webhookData, req.headers);
+      
+      if (!isValid) {
+        console.error("❌ Invalid ICICI Bank webhook signature");
+        return res.status(400).json({ error: "Invalid webhook signature" });
+      }
+      
+      // Handle different ICICI transaction statuses
+      switch (webhookData.status || webhookData.transaction_status) {
+        case 'SUCCESS':
+        case 'COMPLETED':
+        case 'CAPTURED':
+          await handleICICIPaymentSuccess(webhookData);
+          break;
+        case 'FAILED':
+        case 'DECLINED':
+        case 'CANCELLED':
+          await handleICICIPaymentFailure(webhookData);
+          break;
+        case 'PENDING':
+        case 'PROCESSING':
+          await handleICICIPaymentPending(webhookData);
+          break;
+        default:
+          console.log("ℹ️ Unhandled ICICI transaction status:", webhookData.status);
+      }
+      
+      // ICICI expects specific response format
+      res.json({ 
+        status: "SUCCESS",
+        message: "Webhook processed successfully",
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error("❌ ICICI webhook error:", error);
+      res.status(500).json({ 
+        status: "FAILED",
+        message: "Webhook processing failed",
+        error: error.message 
+      });
+    }
+  });
+
+  // ICICI Bank Response URLs (for redirect-based flows)
+  app.post("/api/payment/icici/success", async (req, res) => {
+    try {
+      console.log("📡 ICICI success callback received:", req.body);
+      const paymentData = req.body;
+      
+      // Verify ICICI payment response
+      const isValid = await verifyICICIResponse(paymentData);
+      
+      if (isValid) {
+        await handleICICIPaymentSuccess(paymentData);
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-success?txn=${paymentData.transaction_id || paymentData.txnid}&status=success&gateway=icici`);
+      } else {
+        console.error("❌ ICICI payment verification failed");
+        res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.transaction_id}&error=verification_failed&gateway=icici`);
+      }
+    } catch (error: any) {
+      console.error("❌ ICICI success callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=processing_failed&gateway=icici`);
+    }
+  });
+
+  app.post("/api/payment/icici/failure", async (req, res) => {
+    try {
+      console.log("📡 ICICI failure callback received:", req.body);
+      const paymentData = req.body;
+      
+      await handleICICIPaymentFailure(paymentData);
+      
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?txn=${paymentData.transaction_id || paymentData.txnid}&status=failed&reason=${encodeURIComponent(paymentData.error_message || 'Payment failed')}&gateway=icici`);
+    } catch (error: any) {
+      console.error("❌ ICICI failure callback error:", error);
+      res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=callback_error&gateway=icici`);
+    }
+  });
   app.post("/api/payment/razorpay/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
     try {
       console.log("📡 Razorpay webhook received:", req.headers);
@@ -2600,6 +2698,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5000'}/booking-failed?error=callback_error`);
     }
   });
+
+  // ICICI Bank webhook helper functions
+  async function verifyICICIWebhook(webhookData: any, headers: any): Promise<boolean> {
+    try {
+      // ICICI Bank signature verification - implement based on their documentation
+      const signature = headers['x-icici-signature'] || headers['authorization'];
+      const merchantKey = process.env.ICICI_MERCHANT_KEY;
+      
+      if (!signature || !merchantKey) {
+        console.log("⚠️ Missing ICICI signature or merchant key");
+        return true; // Allow for testing - implement proper verification in production
+      }
+      
+      // Implement ICICI's specific signature verification algorithm
+      // This varies based on their API documentation
+      return true; // Placeholder - implement actual verification
+    } catch (error) {
+      console.error("❌ ICICI webhook verification error:", error);
+      return false;
+    }
+  }
+
+  async function verifyICICIResponse(paymentData: any): Promise<boolean> {
+    try {
+      // ICICI response verification for redirect flows
+      const expectedHash = paymentData.hash || paymentData.checksum;
+      if (!expectedHash) return true; // Allow if no hash provided
+      
+      // Implement ICICI's hash verification logic
+      return true; // Placeholder - implement actual verification
+    } catch (error) {
+      console.error("❌ ICICI response verification error:", error);
+      return false;
+    }
+  }
+
+  async function handleICICIPaymentSuccess(paymentData: any) {
+    try {
+      console.log("✅ Processing ICICI payment success:", paymentData.transaction_id || paymentData.txnid);
+      
+      // Extract booking ID from transaction ID or reference
+      const transactionId = paymentData.transaction_id || paymentData.txnid || paymentData.merchant_transaction_id;
+      const bookingIdMatch = transactionId?.match(/(BOOK_|booking_)(.+)/);
+      
+      if (!bookingIdMatch) {
+        console.error("❌ Could not extract booking ID from ICICI transaction:", transactionId);
+        return;
+      }
+      
+      const bookingId = bookingIdMatch[2];
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(transactionId, {
+        status: 'completed',
+        gatewayTransactionId: paymentData.bank_transaction_id || paymentData.payment_id,
+        gatewayResponse: JSON.stringify(paymentData)
+      });
+
+      // Update booking payment status
+      await storage.updateRoomBooking(bookingId, {
+        paymentStatus: 'paid_online',
+        paymentReference: paymentData.bank_transaction_id || paymentData.payment_id
+      });
+      
+      console.log("✅ ICICI payment success processed for booking:", bookingId);
+    } catch (error) {
+      console.error("❌ Error processing ICICI payment success:", error);
+    }
+  }
+
+  async function handleICICIPaymentFailure(paymentData: any) {
+    try {
+      const transactionId = paymentData.transaction_id || paymentData.txnid;
+      console.log("❌ Processing ICICI payment failure:", transactionId);
+      
+      // Update payment transaction
+      await storage.updatePaymentTransaction(transactionId, {
+        status: 'failed',
+        gatewayResponse: JSON.stringify(paymentData),
+        failureReason: paymentData.error_message || paymentData.failure_reason || 'Payment failed'
+      });
+      
+      console.log("❌ ICICI payment failure processed:", transactionId);
+    } catch (error) {
+      console.error("❌ Error processing ICICI payment failure:", error);
+    }
+  }
+
+  async function handleICICIPaymentPending(paymentData: any) {
+    try {
+      const transactionId = paymentData.transaction_id || paymentData.txnid;
+      console.log("⏳ Processing ICICI payment pending:", transactionId);
+      
+      // Update payment transaction to pending status
+      await storage.updatePaymentTransaction(transactionId, {
+        status: 'pending',
+        gatewayResponse: JSON.stringify(paymentData)
+      });
+      
+      console.log("⏳ ICICI payment pending status updated:", transactionId);
+    } catch (error) {
+      console.error("❌ Error processing ICICI payment pending:", error);
+    }
+  }
 
   // Webhook helper functions
   async function handleRazorpayPaymentSuccess(payment: any) {
