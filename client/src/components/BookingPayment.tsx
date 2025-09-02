@@ -114,6 +114,8 @@ export default function BookingPayment({
         await handleStripePayment(orderData, gateway);
       } else if (gateway.gatewayName === "paypal") {
         await handlePayPalPayment(orderData, gateway);
+      } else if (gateway.gatewayName === "icici_bank") {
+        await handleICICIPayment(orderData, gateway);
       } else {
         onPaymentError("Unsupported payment gateway");
       }
@@ -169,6 +171,37 @@ export default function BookingPayment({
 
     const rzp = new (window as any).Razorpay(options);
     rzp.open();
+  };
+
+  // ICICI Bank payment handler
+  const handleICICIPayment = async (orderData: any, gateway: PaymentGateway) => {
+    try {
+      const response = await fetch("/api/payment/icici/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: bookingId,
+          amount: totalAmount,
+          customerData: {
+            email: "guest@ssbb.in",
+            mobile: "9999999999"
+          }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.redirectUrl) {
+        // Redirect to ICICI payment gateway
+        window.location.href = result.redirectUrl;
+      } else {
+        onPaymentError(result.error || "Failed to create ICICI payment order");
+      }
+    } catch (error: any) {
+      onPaymentError(error.message || "ICICI payment processing failed");
+    }
   };
 
   // PayU payment handler
