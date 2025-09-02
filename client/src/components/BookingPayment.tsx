@@ -176,28 +176,13 @@ export default function BookingPayment({
   // ICICI Bank payment handler
   const handleICICIPayment = async (orderData: any, gateway: PaymentGateway) => {
     try {
-      const response = await fetch("/api/payment/icici/create-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bookingId: bookingId,
-          amount: totalAmount,
-          customerData: {
-            email: "guest@ssbb.in",
-            mobile: "9999999999"
-          }
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success && result.redirectUrl) {
+      // For ICICI Bank, the orderData contains the redirect URL from the create-order response
+      if (orderData.gatewayData && orderData.gatewayData.redirectUrl) {
+        console.log("Redirecting to ICICI payment gateway:", orderData.gatewayData.redirectUrl);
         // Redirect to ICICI payment gateway
-        window.location.href = result.redirectUrl;
+        window.location.href = orderData.gatewayData.redirectUrl;
       } else {
-        onPaymentError(result.error || "Failed to create ICICI payment order");
+        onPaymentError("ICICI payment gateway redirect URL not found");
       }
     } catch (error: any) {
       onPaymentError(error.message || "ICICI payment processing failed");

@@ -2447,7 +2447,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Payment gateway not available" });
       }
 
-      // Create payment gateway instance
+      // Handle ICICI Bank separately since it uses a different integration pattern
+      if (gateway.gatewayName === "icici_bank") {
+        const iciciGateway = createICICIGateway();
+        const orderResult = await iciciGateway.createOrder(parseFloat(amount), currency, bookingId);
+        
+        if (orderResult.success) {
+          const transactionId = `TXN_${bookingId}_${Date.now()}`;
+          
+          res.json({
+            success: true,
+            transactionId,
+            gatewayData: {
+              id: orderResult.orderId,
+              redirectUrl: orderResult.redirectUrl,
+              merchantTxnNo: orderResult.merchantTxnNo
+            },
+            gateway: {
+              name: gateway.gatewayName,
+              displayName: gateway.displayName,
+            },
+          });
+          return;
+        } else {
+          return res.status(400).json({ error: orderResult.error });
+        }
+      }
+
+      // Create payment gateway instance for other gateways
       const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
       
       // Process payment

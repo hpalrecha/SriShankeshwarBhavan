@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 - **Database Provider**: Neon Database (serverless PostgreSQL)
 - **Session Management**: Connect-pg-simple
 - **Build Tools**: ESBuild (production), TSX (development)
-- **Technical Implementations**: Asynchronous processing for notifications (email, WhatsApp) to optimize booking confirmation time. Secure token-based password reset flow. Comprehensive email and WhatsApp notification system for booking updates.
+- **Technical Implementations**: Asynchronous processing for notifications (email, WhatsApp) to optimize booking confirmation time. Secure token-based password reset flow. Comprehensive email and WhatsApp notification system for booking updates. ICICI Bank payment gateway integration with HMAC SHA-256 secure hash verification and webhook processing.
 - **Feature Specifications**:
     - **User Management**: Customer portal, admin dashboard for booking/guest management, and trustee management system.
     - **Room Management**: Configurable room types, real-time availability engine, and support for online/pay-at-check-in options.
@@ -42,7 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS
 - **Email Service**: AWS SES with SMTP fallback
 - **Messaging**: Meta WhatsApp Business API (WABA) for notifications
-- **Payment Gateway**: Razorpay (for online payments)
+- **Payment Gateway**: ICICI Bank PhiCommerce API (primary), Razorpay (secondary)
 - **File Upload**: Multer (for ID proof storage)
 - **Scheduled Tasks**: Cron jobs (for automated email reminders)
 ```

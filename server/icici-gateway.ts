@@ -245,10 +245,20 @@ export class ICICIGateway implements PaymentGatewayInterface {
   }
 
   private calculateSecureHash(data: ICICIPaymentData): string {
-    // TEMPORARY: For UAT testing, use a placeholder hash since the documentation hash doesn't work
-    // In production, ICICI will provide the correct hash algorithm or configuration
-    console.log("⚠️ Using temporary hash for UAT testing");
-    return "test_hash_placeholder";
+    // Hash calculation as per ICICI documentation using HMAC SHA-256
+    // hashKey = addlParam1addlParam2amountcurrencyCodecustomerEmailIDcustomerMobileNomerchantIdmerchantTxnNopayTypereturnURLtransactionTypetxnDate
+    const hashText = `${data.addlParam1 || ''}${data.addlParam2 || ''}${data.amount}${data.currencyCode}${data.customerEmailID}${data.customerMobileNo}${data.merchantId}${data.merchantTxnNo}${data.payType}${data.returnURL}${data.transactionType}${data.txnDate}`;
+    
+    console.log("ICICI hash text:", hashText);
+    
+    // Using HMAC SHA-256 with merchant secret key as per ICICI documentation
+    const hash = crypto
+      .createHmac('sha256', this.config.merchantSecretKey)
+      .update(hashText)
+      .digest('hex');
+    
+    console.log("ICICI calculated HMAC hash:", hash);
+    return hash;
   }
 
   private calculateResponseHash(data: any): string {

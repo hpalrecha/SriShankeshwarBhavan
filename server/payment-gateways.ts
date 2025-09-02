@@ -122,6 +122,10 @@ export class PaymentGatewayFactory {
         return new RazorpayGateway(config);
       case "payu":
         return new PayUGateway(config);
+      case "icici_bank":
+        // For ICICI Bank, use the direct endpoint instead of the factory pattern
+        const { createICICIGateway } = require("./icici-gateway");
+        return createICICIGateway();
       default:
         throw new Error(`Unsupported payment gateway: ${config.gatewayName}`);
     }
