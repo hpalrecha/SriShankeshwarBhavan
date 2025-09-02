@@ -1,0 +1,104 @@
+UAT KIT
+
+MerchantId: T_03342
+
+Merchant Secret key: abc 
+
+card No:411111111111111111
+CardExp: 08/2024 Cvv: 123
+VPA: test@ybl
+NB: Please select the Payphi Test Bank
+OTP: 123456
+
+
+====================================================
+InitiateSale Redirect API:
+
+https://qa.phicommerce.com/pg/api/v2/initiateSale
+
+JSON:
+{
+    "merchantId": "T_03342",
+    "merchantTxnNo": "2711202422233",
+    "amount": "300.00",
+    "currencyCode": "356",
+    "payType": "0",       // This is to capture payment details on PG payament page
+    "customerEmailID": "vaibhav.walunj1@phicommerce.com",
+    "transactionType": "SALE",
+    "txnDate": "202412051620545",
+    "returnURL": "https://qa.phicommerce.com/pg/api/merchant",
+    "secureHash": "197613d5ade172104bfd65e72bc07c80a14c65e64ec7335209768d83371243b4",
+    "customerMobileNo": "917498791441",
+    "addlParam1": "Test1",
+    "addlParam2": "Test2"
+}
+================================================================================
+SecureHash sample calculation:
+hashKey = addlParam1addlParam2amountcurrencyCodecustomerEmailIDcustomerMobileNomerchantIdmerchantTxnNopayTypereturnURLtransactionTypetxnDate
+hashText = Test1Test2300.00356vaibhav.walunj1@phicommerce.com917498791441T_0334227112024222330https://qa.phicommerce.com/pg/api/merchantSALE202412051620545
+Server secure hash with key 0:197613d5ade172104bfd65e72bc07c80a14c65e64ec7335209768d83371243b4
+
+
+======================================
+
+curl --location 'https://qa.phicommerce.com/pg/api/v2/initiateSale' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "merchantId": "T_03342",
+    "merchantTxnNo": "2711202422233",
+    "amount": "300.00",
+    
+    "currencyCode": "356",
+    "payType": "0",
+    "customerEmailID": "vaibhav.walunj1@phicommerce.com",
+    "transactionType": "SALE",
+    "txnDate": "202412051620545",
+    "returnURL": "https://qa.phicommerce.com/pg/api/merchant",
+    "secureHash": "197613d5ade172104bfd65e72bc07c80a14c65e64ec7335209768d83371243b4",
+    "customerMobileNo": "917498791441",
+    "addlParam1": "Test1",
+    "addlParam2": "Test2"
+}'
+
+
+Response:
+
+{"responseCode":"R1000","merchantId":"T_03342","aggregatorID":null,"merchantTxnNo":"2711202422233",
+"redirectURI":"https://qa.phicommerce.com/pg/api/v2/authRedirect",
+"showOTPCapturePage":"N","generateOTPURI":null,"verifyOTPURI":null,"authorizeURI":null,
+"tranCtx":"Rf58f59c1-48ba-4951-9584-ff2caee2a56c","secureHash":"9a8dcf4c3865eb068941256ba756bc7df722db456ead76ad8687031302151de0"}
+================================================================================
+
+RedirectURL logic:
+redirectURI?tranCtx=value
+
+https://qa.phicommerce.com/pg/api/v2/authRedirect?tranCtx=R312130e1-49fd-4614-89ae-551efd82277f
+
+
+==================================================================================
+Status check API:
+
+
+curl --location 'https://qa.phicommerce.com/pg/api/command' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'merchantID=T_03342' \
+--data-urlencode 'merchantTxnNo=HCI17301905408459' \ both will same 
+--data-urlencode 'originalTxnNo=HCI17301905408459' \both will same
+--data-urlencode 'transactionType=STATUS' \ 
+--data-urlencode 'secureHash=8be33d9071db5087263140d0675a5b991b8bd890cde18cc6a7746686d4909923' \
+--data-urlencode 'aggregatorID=J_03345' \
+--data-urlencode 'amount=10.00'
+
+
+====================================
+Refund:
+
+curl --location 'https://qa.phicommerce.com/pg/api/command' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'merchantID=T_03342' \
+--data-urlencode 'merchantTxnNo=New12345' \ new referenve no for refund txn
+--data-urlencode 'originalTxnNo=HCI17301905408459' \same as original txn merchantTxnNo
+--data-urlencode 'transactionType=REFUND' \ 
+--data-urlencode 'secureHash=8be33d9071db5087263140d0675a5b991b8bd890cde18cc6a7746686d4909923' \
+--data-urlencode 'aggregatorID=J_03345' \
+--data-urlencode 'amount=10.00' //Full & Partial

@@ -18,6 +18,7 @@ import { whatsappService } from "./whatsapp";
 import { smsService } from "./sms-service";
 import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema, insertPaymentGatewaySchema } from "@shared/schema";
 import { PaymentGatewayFactory, PaymentService } from "./payment-gateways";
+import { createICICIGateway } from "./icici-gateway";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
 import path from "path";
@@ -2366,6 +2367,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: "Payment endpoint working without auth!", body: req.body });
   });
 
+  // ICICI Bank payment order endpoint
+  app.post("/api/payment/icici/create-order", async (req, res) => {
+    try {
+      const { bookingId, amount, customerData } = req.body;
+
+      if (!bookingId || !amount) {
+        return res.status(400).json({ error: "Booking ID and amount are required" });
+      }
+
+      console.log("Creating ICICI payment order:", { bookingId, amount });
+
+      const iciciGateway = createICICIGateway();
+      const orderResult = await iciciGateway.createOrder(amount, "INR", bookingId, customerData);
+
+      if (orderResult.success) {
+        // Save payment transaction to database
+        await storage.createPaymentTransaction({
+          bookingId: parseInt(bookingId),
+          gatewayId: 1, // ICICI gateway ID
+          transactionId: orderResult.merchantTxnNo || `ICICI_${Date.now()}`,
+          amount: amount.toString(),
+          currency: "INR",
+          status: "pending",
+          paymentMethod: "icici_bank",
+          gatewayResponse: JSON.stringify(orderResult.gatewayResponse)
+        });
+
+        res.json({
+          success: true,
+          orderId: orderResult.orderId,
+          redirectUrl: orderResult.redirectUrl,
+          merchantTxnNo: orderResult.merchantTxnNo
+        });
+      } else {
+        console.error("ICICI order creation failed:", orderResult.error);
+        res.status(500).json({
+          success: false,
+          error: orderResult.error || "Failed to create payment order"
+        });
+      }
+
+    } catch (error: any) {
+      console.error("ICICI create order error:", error);
+      res.status(500).json({ error: error.message || "Failed to create payment order" });
+    }
+  });
+
   // Payment Processing Routes (NO AUTH REQUIRED for pre-booking payments)
   app.post("/api/payment/create-order", async (req, res) => {
     console.log("Payment create-order endpoint hit:", req.body);
@@ -2528,8 +2576,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("📊 ICICI webhook data:", webhookData);
       
-      // ICICI Bank webhook verification (implement based on their documentation)
-      const isValid = await verifyICICIWebhook(webhookData, req.headers);
+      // ICICI Bank webhook verification 
+      const iciciGateway = createICICIGateway();
+      const isValid = await iciciGateway.verifyPayment(webhookData);
       
       if (!isValid) {
         console.error("❌ Invalid ICICI Bank webhook signature");
@@ -2580,7 +2629,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentData = req.body;
       
       // Verify ICICI payment response
-      const isValid = await verifyICICIResponse(paymentData);
+      const iciciGateway = createICICIGateway();
+      const isValid = await iciciGateway.verifyPayment(paymentData);
       
       if (isValid) {
         await handleICICIPaymentSuccess(paymentData);
@@ -2736,30 +2786,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function handleICICIPaymentSuccess(paymentData: any) {
     try {
-      console.log("✅ Processing ICICI payment success:", paymentData.transaction_id || paymentData.txnid);
+      console.log("✅ Processing ICICI payment success:", paymentData.merchantTxnNo || paymentData.transaction_id);
       
-      // Extract booking ID from transaction ID or reference
-      const transactionId = paymentData.transaction_id || paymentData.txnid || paymentData.merchant_transaction_id;
-      const bookingIdMatch = transactionId?.match(/(BOOK_|booking_)(.+)/);
+      // Extract booking ID from merchant transaction number
+      const merchantTxnNo = paymentData.merchantTxnNo || paymentData.transaction_id;
+      const bookingIdMatch = merchantTxnNo?.match(/BOOK_(.+)_\d+/);
       
       if (!bookingIdMatch) {
-        console.error("❌ Could not extract booking ID from ICICI transaction:", transactionId);
+        console.error("❌ Could not extract booking ID from ICICI transaction:", merchantTxnNo);
         return;
       }
       
-      const bookingId = bookingIdMatch[2];
+      const bookingId = bookingIdMatch[1];
       
       // Update payment transaction
-      await storage.updatePaymentTransaction(transactionId, {
+      await storage.updatePaymentTransaction(merchantTxnNo, {
         status: 'completed',
-        gatewayTransactionId: paymentData.bank_transaction_id || paymentData.payment_id,
+        gatewayTransactionId: paymentData.phiTxnId || paymentData.txnId || paymentData.bank_transaction_id,
         gatewayResponse: JSON.stringify(paymentData)
       });
 
       // Update booking payment status
       await storage.updateRoomBooking(bookingId, {
         paymentStatus: 'paid_online',
-        paymentReference: paymentData.bank_transaction_id || paymentData.payment_id
+        paymentReference: paymentData.phiTxnId || paymentData.txnId
       });
       
       console.log("✅ ICICI payment success processed for booking:", bookingId);
