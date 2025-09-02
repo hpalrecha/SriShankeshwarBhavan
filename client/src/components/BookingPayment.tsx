@@ -66,7 +66,7 @@ export default function BookingPayment({
   const createOrderMutation = useMutation({
     mutationFn: async (data: { bookingId: string; gatewayName: string; amount: number }) => {
       const response = await apiRequest("POST", "/api/payment/create-order", data);
-      return response;
+      return response.json();
     },
     onSuccess: (data) => {
       handleGatewayPayment(data);
@@ -182,40 +182,16 @@ export default function BookingPayment({
   // ICICI Bank payment handler
   const handleICICIPayment = async (orderData: any, gateway: PaymentGateway) => {
     try {
-      console.log("ICICI orderData received:", JSON.stringify(orderData, null, 2));
+      console.log("ICICI orderData received:", orderData);
       
-      // Temporary debug alert - remove after fixing
-      // alert(`ICICI Debug: Has gatewayData: ${!!orderData.gatewayData}, Has redirectUrl: ${!!orderData.gatewayData?.redirectUrl}`);
-      
-      // Check multiple possible locations for the redirect URL
-      const redirectUrl = orderData.gatewayData?.redirectUrl || 
-                         orderData.redirectUrl || 
-                         orderData.data?.redirectUrl ||
-                         orderData.gatewayData?.data?.redirectUrl;
-      
-      if (redirectUrl) {
-        console.log("Redirecting to ICICI payment gateway:", redirectUrl);
+      // For ICICI Bank, the orderData contains the redirect URL from the create-order response
+      if (orderData.gatewayData && orderData.gatewayData.redirectUrl) {
+        console.log("Redirecting to ICICI payment gateway:", orderData.gatewayData.redirectUrl);
         // Redirect to ICICI payment gateway
-        window.location.href = redirectUrl;
+        window.location.href = orderData.gatewayData.redirectUrl;
       } else {
-        console.error("ICICI redirect URL not found in orderData structure:", {
-          orderData,
-          gatewayData: orderData.gatewayData,
-          keys: Object.keys(orderData || {}),
-          gatewayDataKeys: Object.keys(orderData.gatewayData || {})
-        });
-        
-        // Temporary debug - check exact structure
-        const debugInfo = {
-          hasOrderData: !!orderData,
-          hasGatewayData: !!orderData?.gatewayData,
-          gatewayDataKeys: orderData?.gatewayData ? Object.keys(orderData.gatewayData) : 'no gatewayData',
-          directRedirectUrl: orderData?.redirectUrl,
-          gatewayRedirectUrl: orderData?.gatewayData?.redirectUrl
-        };
-        console.error("Debug info:", debugInfo);
-        
-        onPaymentError(`ICICI payment gateway redirect URL not found. Debug: ${JSON.stringify(debugInfo)}`);
+        console.error("ICICI redirect URL not found in orderData:", orderData);
+        onPaymentError("ICICI payment gateway redirect URL not found");
       }
     } catch (error: any) {
       console.error("ICICI payment error:", error);
