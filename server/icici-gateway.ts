@@ -97,11 +97,14 @@ export class ICICIGateway implements PaymentGatewayInterface {
       }
 
       if (result.responseCode === "R1000") {
-        // Success response
+        // Success response - construct complete redirect URL
+        const completeRedirectUrl = `${result.redirectURI}?tranCtx=${result.tranCtx}`;
+        console.log("ICICI complete redirect URL:", completeRedirectUrl);
+        
         return {
           success: true,
           orderId: merchantTxnNo,
-          redirectUrl: `${result.redirectURI}?tranCtx=${result.tranCtx}`,
+          redirectUrl: completeRedirectUrl,
           tranCtx: result.tranCtx,
           merchantTxnNo: merchantTxnNo,
           gatewayResponse: result

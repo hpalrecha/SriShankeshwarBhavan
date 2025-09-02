@@ -176,15 +176,19 @@ export default function BookingPayment({
   // ICICI Bank payment handler
   const handleICICIPayment = async (orderData: any, gateway: PaymentGateway) => {
     try {
+      console.log("ICICI orderData received:", orderData);
+      
       // For ICICI Bank, the orderData contains the redirect URL from the create-order response
       if (orderData.gatewayData && orderData.gatewayData.redirectUrl) {
         console.log("Redirecting to ICICI payment gateway:", orderData.gatewayData.redirectUrl);
         // Redirect to ICICI payment gateway
         window.location.href = orderData.gatewayData.redirectUrl;
       } else {
+        console.error("ICICI redirect URL not found in orderData:", orderData);
         onPaymentError("ICICI payment gateway redirect URL not found");
       }
     } catch (error: any) {
+      console.error("ICICI payment error:", error);
       onPaymentError(error.message || "ICICI payment processing failed");
     }
   };
