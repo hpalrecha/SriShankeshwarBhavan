@@ -99,11 +99,15 @@ export default function BookingPayment({
 
   // Handle gateway-specific payment processing
   const handleGatewayPayment = async (orderData: any) => {
+    console.log("handleGatewayPayment called with data:", JSON.stringify(orderData, null, 2));
+    
     const gateway = paymentGateways.find((g: PaymentGateway) => g.gatewayName === selectedGateway);
     if (!gateway) {
       onPaymentError("Payment gateway not found");
       return;
     }
+
+    console.log("Found gateway:", gateway.gatewayName);
 
     try {
       if (gateway.gatewayName === "razorpay") {
@@ -115,11 +119,13 @@ export default function BookingPayment({
       } else if (gateway.gatewayName === "paypal") {
         await handlePayPalPayment(orderData, gateway);
       } else if (gateway.gatewayName === "icici_bank") {
+        console.log("About to call handleICICIPayment");
         await handleICICIPayment(orderData, gateway);
       } else {
         onPaymentError("Unsupported payment gateway");
       }
     } catch (error: any) {
+      console.error("Error in handleGatewayPayment:", error);
       setIsProcessing(false);
       onPaymentError(error.message || "Payment processing failed");
     }
@@ -178,6 +184,9 @@ export default function BookingPayment({
     try {
       console.log("ICICI orderData received:", JSON.stringify(orderData, null, 2));
       
+      // Temporary debug alert - remove after fixing
+      // alert(`ICICI Debug: Has gatewayData: ${!!orderData.gatewayData}, Has redirectUrl: ${!!orderData.gatewayData?.redirectUrl}`);
+      
       // Check multiple possible locations for the redirect URL
       const redirectUrl = orderData.gatewayData?.redirectUrl || 
                          orderData.redirectUrl || 
@@ -195,7 +204,18 @@ export default function BookingPayment({
           keys: Object.keys(orderData || {}),
           gatewayDataKeys: Object.keys(orderData.gatewayData || {})
         });
-        onPaymentError("ICICI payment gateway redirect URL not found");
+        
+        // Temporary debug - check exact structure
+        const debugInfo = {
+          hasOrderData: !!orderData,
+          hasGatewayData: !!orderData?.gatewayData,
+          gatewayDataKeys: orderData?.gatewayData ? Object.keys(orderData.gatewayData) : 'no gatewayData',
+          directRedirectUrl: orderData?.redirectUrl,
+          gatewayRedirectUrl: orderData?.gatewayData?.redirectUrl
+        };
+        console.error("Debug info:", debugInfo);
+        
+        onPaymentError(`ICICI payment gateway redirect URL not found. Debug: ${JSON.stringify(debugInfo)}`);
       }
     } catch (error: any) {
       console.error("ICICI payment error:", error);
