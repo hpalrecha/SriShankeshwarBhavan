@@ -19,6 +19,7 @@ interface RoomSelection {
   category: RoomCategory;
   quantity: number;
   maxAvailable: number;
+  extraBeds: number;
 }
 
 export default function RoomSelection({ bookingData, availabilityData }: RoomSelectionProps) {
@@ -26,7 +27,8 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
     availabilityData.availableRooms.map(room => ({
       category: room.category,
       quantity: 0,
-      maxAvailable: room.availableUnits
+      maxAvailable: room.availableUnits,
+      extraBeds: 0
     }))
   );
   const [showGuestForm, setShowGuestForm] = useState(false);
@@ -38,11 +40,16 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
   const updateRoomQuantity = (categoryId: number, quantity: number) => {
     setSelectedRooms(prev => {
       // Calculate what total rooms would be if we make this change
-      const newRooms = prev.map(room => 
-        room.category.id === categoryId 
-          ? { ...room, quantity: Math.max(0, Math.min(quantity, room.maxAvailable)) }
-          : room
-      );
+      const newRooms = prev.map(room => {
+        if (room.category.id === categoryId) {
+          const newQuantity = Math.max(0, Math.min(quantity, room.maxAvailable));
+          // Clamp extra beds when room quantity is reduced
+          const maxExtraBeds = (room.category.extraBedMax ?? 1) * newQuantity;
+          const newExtraBeds = Math.min(room.extraBeds, maxExtraBeds);
+          return { ...room, quantity: newQuantity, extraBeds: newExtraBeds };
+        }
+        return room;
+      });
       
       // Calculate total rooms that would be selected
       const newTotalRooms = newRooms.reduce((sum, room) => sum + room.quantity, 0);
@@ -57,9 +64,25 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
     });
   };
 
+  const updateExtraBeds = (categoryId: number, extraBeds: number) => {
+    setSelectedRooms(prev => 
+      prev.map(room => {
+        if (room.category.id === categoryId) {
+          const maxExtraBeds = (room.category.extraBedMax ?? 1) * room.quantity;
+          return { ...room, extraBeds: Math.max(0, Math.min(extraBeds, maxExtraBeds)) };
+        }
+        return room;
+      })
+    );
+  };
+
   const totalRoomsSelected = selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
   const totalCapacity = selectedRooms.reduce((sum, room) => sum + (room.quantity * (room.category.maxOccupancy || 2)), 0);
-  const totalCost = selectedRooms.reduce((sum, room) => sum + (room.quantity * parseFloat(room.category.price) * nights), 0);
+  const totalExtraBeds = selectedRooms.reduce((sum, room) => sum + room.extraBeds, 0);
+  const extraBedPricePerNight = 200;
+  const extraBedsCost = totalExtraBeds * extraBedPricePerNight * nights;
+  const roomsCost = selectedRooms.reduce((sum, room) => sum + (room.quantity * parseFloat(room.category.price) * nights), 0);
+  const totalCost = roomsCost + extraBedsCost;
   const hasValidSelection = totalRoomsSelected > 0 && totalCapacity >= availabilityData.totalGuests;
 
   const handleProceedToBooking = () => {
@@ -84,7 +107,9 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
       category: primaryRoom.category,
       selectedRooms: selectedRoomsList,
       totalCost,
-      totalRoomsSelected
+      totalRoomsSelected,
+      totalExtraBeds,
+      extraBedsCost
     };
   };
 
@@ -207,6 +232,54 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
                       </div>
                     )}
                   </div>
+
+                  {/* Extra Bed Selection - Only show when rooms are selected */}
+                  {roomSelection.quantity > 0 && (category.extraBedMax ?? 1) > 0 && (
+                    <div className="mt-4 pt-4 border-t border-dashed">
+                      <Label htmlFor={`extra-beds-${category.id}`} className="flex items-center gap-2 mb-2">
+                        <Bed className="h-4 w-4 text-orange-500" />
+                        Extra Beds (₹{extraBedPricePerNight}/bed/night)
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateExtraBeds(category.id, roomSelection.extraBeds - 1)}
+                          disabled={roomSelection.extraBeds === 0}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          id={`extra-beds-${category.id}`}
+                          type="number"
+                          min="0"
+                          max={(category.extraBedMax ?? 1) * roomSelection.quantity}
+                          value={roomSelection.extraBeds}
+                          onChange={(e) => updateExtraBeds(category.id, parseInt(e.target.value) || 0)}
+                          className="w-16 text-center"
+                          data-testid={`input-extra-beds-${category.id}`}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateExtraBeds(category.id, roomSelection.extraBeds + 1)}
+                          disabled={roomSelection.extraBeds >= (category.extraBedMax ?? 1) * roomSelection.quantity}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Max {(category.extraBedMax ?? 1) * roomSelection.quantity} extra bed{((category.extraBedMax ?? 1) * roomSelection.quantity) !== 1 ? 's' : ''} ({category.extraBedMax ?? 1} per room)
+                      </p>
+                      {roomSelection.extraBeds > 0 && (
+                        <p className="text-sm text-orange-600 mt-1">
+                          +₹{(roomSelection.extraBeds * extraBedPricePerNight * nights).toLocaleString()} for {roomSelection.extraBeds} extra bed{roomSelection.extraBeds > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -236,9 +309,17 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
 
             <div className="space-y-2 mb-4">
               {selectedRooms.filter(room => room.quantity > 0).map(room => (
-                <div key={room.category.id} className="flex justify-between text-sm">
-                  <span>{room.quantity} × {room.category.name}</span>
-                  <span>₹{(room.quantity * parseFloat(room.category.price) * nights).toLocaleString()}</span>
+                <div key={room.category.id} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>{room.quantity} × {room.category.name}</span>
+                    <span>₹{(room.quantity * parseFloat(room.category.price) * nights).toLocaleString()}</span>
+                  </div>
+                  {room.extraBeds > 0 && (
+                    <div className="flex justify-between text-sm text-orange-600 pl-4">
+                      <span>+ {room.extraBeds} extra bed{room.extraBeds > 1 ? 's' : ''}</span>
+                      <span>₹{(room.extraBeds * extraBedPricePerNight * nights).toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
