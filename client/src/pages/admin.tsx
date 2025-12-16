@@ -12,6 +12,7 @@ import WhatsAppSettings from "./admin/WhatsAppSettings";
 import WhatsAppNotifications from "./admin/WhatsAppNotifications";
 import TrusteeReservations from "./admin/TrusteeReservations";
 import PaymentGatewaySettings from "@/components/PaymentGatewaySettings";
+import ExtraBedInventory from "@/components/admin/extra-bed-inventory";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,7 +33,8 @@ import {
   Hotel,
   Menu,
   CreditCard,
-  Bell
+  Bell,
+  Bed
 } from "lucide-react";
 
 interface UserWithBookings {
@@ -125,6 +127,8 @@ export default function Admin() {
         return <WhatsAppNotifications />;
       case "payment-gateways":
         return <PaymentGatewaySettings />;
+      case "extra-beds":
+        return <ExtraBedInventory />;
       default:
         return <DashboardStats onViewBookingDetails={handleViewBookingDetails} />;
     }
@@ -133,6 +137,7 @@ export default function Admin() {
   const sidebarItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "inventory", label: "Room Inventory", icon: Package },
+    { id: "extra-beds", label: "Extra Beds", icon: Bed },
     { id: "bookings", label: "Bookings", icon: BookOpen },
     { id: "create-booking", label: "New Booking", icon: PlusCircle },
     { id: "checkin", label: "Check-in/out", icon: CheckCircle },
