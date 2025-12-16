@@ -292,14 +292,10 @@ export default function RoomSelection({ bookingData, availabilityData }: RoomSel
         <Card className="mb-6 border-2 border-brand-orange">
           <CardContent className="p-6">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">Booking Summary</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <p className="text-2xl font-bold text-brand-orange">{totalRoomsSelected}</p>
                 <p className="text-sm text-gray-600">Room{totalRoomsSelected > 1 ? 's' : ''} Selected</p>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-brand-orange">{totalCapacity}</p>
-                <p className="text-sm text-gray-600">Total Capacity</p>
               </div>
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <p className="text-2xl font-bold text-brand-orange">₹{totalCost.toLocaleString()}</p>
