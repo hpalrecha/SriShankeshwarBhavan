@@ -316,6 +316,12 @@ export default function BookingPayment({
           </p>
         </div>
 
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+          <p className="text-sm text-amber-800">
+            <strong>Important Notice:</strong> The management reserves the right to cancel any booking at any time due to unforeseen circumstances such as overbooking, non-availability of beds, maintenance, special events, or any other operational reasons. In case of cancellation by management, guests will be notified and any payments made will be refunded.
+          </p>
+        </div>
+
         {/* Gateway Selection - Show only if more than one gateway */}
         {paymentGateways.length > 1 ? (
           <div className="space-y-3">

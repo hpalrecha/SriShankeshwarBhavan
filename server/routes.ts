@@ -683,6 +683,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { user: userData, booking: bookingData } = req.body;
 
+      // Validate booking dates are within 12 months from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const maxBookingDate = new Date();
+      maxBookingDate.setFullYear(maxBookingDate.getFullYear() + 1);
+      maxBookingDate.setHours(23, 59, 59, 999);
+      
+      const checkinDateCheck = new Date(bookingData.checkinDate);
+      const checkoutDateCheck = new Date(bookingData.checkoutDate);
+      
+      if (checkinDateCheck > maxBookingDate || checkoutDateCheck > maxBookingDate) {
+        return res.status(400).json({ 
+          message: "Booking dates cannot be more than 12 months from today. Please select dates within the next 12 months."
+        });
+      }
+
       // Create or get user
       let user = await storage.getUserByEmail(userData.email);
       if (!user) {
@@ -807,6 +823,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const { user: userData, booking: bookingData } = bookingSchema.parse(req.body);
+
+      // Validate booking dates are within 12 months from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const maxBookingDate = new Date();
+      maxBookingDate.setFullYear(maxBookingDate.getFullYear() + 1);
+      maxBookingDate.setHours(23, 59, 59, 999);
+      
+      const checkinDateCheck = new Date(bookingData.checkinDate);
+      const checkoutDateCheck = new Date(bookingData.checkoutDate);
+      
+      if (checkinDateCheck > maxBookingDate || checkoutDateCheck > maxBookingDate) {
+        return res.status(400).json({ 
+          message: "Booking dates cannot be more than 12 months from today. Please select dates within the next 12 months."
+        });
+      }
 
       // Get room category to check capacity
       const category = await storage.getRoomCategory(bookingData.roomCategoryId);

@@ -113,6 +113,11 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
                 type="date"
                 {...form.register("checkinDate")}
                 min={new Date().toISOString().split('T')[0]}
+                max={(() => {
+                  const maxDate = new Date();
+                  maxDate.setFullYear(maxDate.getFullYear() + 1);
+                  return maxDate.toISOString().split('T')[0];
+                })()}
               />
               {form.formState.errors.checkinDate && (
                 <p className="text-sm text-red-600">{form.formState.errors.checkinDate.message}</p>
@@ -129,6 +134,11 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
                 type="date"
                 {...form.register("checkoutDate")}
                 min={new Date().toISOString().split('T')[0]}
+                max={(() => {
+                  const maxDate = new Date();
+                  maxDate.setFullYear(maxDate.getFullYear() + 1);
+                  return maxDate.toISOString().split('T')[0];
+                })()}
               />
               {form.formState.errors.checkoutDate && (
                 <p className="text-sm text-red-600">{form.formState.errors.checkoutDate.message}</p>
