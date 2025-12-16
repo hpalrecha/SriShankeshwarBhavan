@@ -5,6 +5,7 @@ import {
   idProofs,
   adminUsers,
   foodSettings,
+  extraBedInventory,
   passwordResetTokens,
   whatsappConfig,
   whatsappTemplates,
@@ -19,6 +20,7 @@ import {
   type IdProof,
   type AdminUser,
   type FoodSettings,
+  type ExtraBedInventory,
   type WhatsAppConfig,
   type WhatsAppTemplate,
   type WhatsAppNotificationRecipient,
@@ -32,6 +34,7 @@ import {
   type InsertIdProof,
   type InsertAdminUser,
   type InsertFoodSettings,
+  type InsertExtraBedInventory,
   type InsertWhatsAppConfig,
   type InsertWhatsAppTemplate,
   type InsertWhatsAppNotificationRecipient,
@@ -86,6 +89,11 @@ export interface IStorage {
   // Food Settings
   getFoodSettings(): Promise<FoodSettings | undefined>;
   updateFoodSettings(settings: Partial<InsertFoodSettings>): Promise<FoodSettings>;
+
+  // Extra Bed Inventory
+  getExtraBedInventory(): Promise<ExtraBedInventory | undefined>;
+  updateExtraBedInventory(updates: Partial<InsertExtraBedInventory>): Promise<ExtraBedInventory>;
+  getExtraBedsReservedForDateRange(startDate: Date | string, endDate: Date | string): Promise<number>;
 
   // Password Reset Tokens
   createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
@@ -418,6 +426,49 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Extra Bed Inventory
+  async getExtraBedInventory(): Promise<ExtraBedInventory | undefined> {
+    const [inventory] = await db.select().from(extraBedInventory).limit(1);
+    return inventory;
+  }
+
+  async updateExtraBedInventory(updates: Partial<InsertExtraBedInventory>): Promise<ExtraBedInventory> {
+    const existing = await this.getExtraBedInventory();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(extraBedInventory)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(extraBedInventory.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(extraBedInventory)
+        .values(updates)
+        .returning();
+      return created;
+    }
+  }
+
+  async getExtraBedsReservedForDateRange(startDate: Date | string, endDate: Date | string): Promise<number> {
+    const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
+    const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+    
+    const result = await db
+      .select({ totalExtraBeds: sql<number>`COALESCE(SUM(${roomBookings.extraBeds}), 0)` })
+      .from(roomBookings)
+      .where(
+        and(
+          ne(roomBookings.status, 'cancelled'),
+          lte(roomBookings.checkinDate, end),
+          gte(roomBookings.checkoutDate, start)
+        )
+      );
+    
+    return Number(result[0]?.totalExtraBeds || 0);
   }
 
   // Password Reset Tokens

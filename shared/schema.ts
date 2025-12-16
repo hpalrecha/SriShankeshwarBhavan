@@ -13,6 +13,7 @@ export const roomCategories = pgTable("room_categories", {
   maxOccupancy: integer("max_occupancy").notNull().default(2),
   bedConfiguration: varchar("bed_configuration", { length: 100 }).notNull().default("1 Double Bed"),
   imageUrl: text("image_url"), // Room category image URL
+  extraBedMax: integer("extra_bed_max").notNull().default(0), // Max extra beds allowed per room (0=none, 1=2-bed rooms, 2=3-bed/3XL rooms)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -103,6 +104,9 @@ export const roomBookings = pgTable("room_bookings", {
   lunchDays: integer("lunch_days").default(0),
   dinnerDays: integer("dinner_days").default(0),
   foodAmount: decimal("food_amount", { precision: 10, scale: 2 }).default("0"),
+  // Extra bed booking
+  extraBeds: integer("extra_beds").default(0), // Number of extra beds requested
+  extraBedAmount: decimal("extra_bed_amount", { precision: 10, scale: 2 }).default("0"), // Extra bed cost (₹200 per bed)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -135,6 +139,14 @@ export const foodSettings = pgTable("food_settings", {
   breakfastPrice: decimal("breakfast_price", { precision: 10, scale: 2 }).notNull().default("50"),
   lunchPrice: decimal("lunch_price", { precision: 10, scale: 2 }).notNull().default("100"),
   dinnerPrice: decimal("dinner_price", { precision: 10, scale: 2 }).notNull().default("100"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Extra Bed Inventory (single row for global inventory tracking)
+export const extraBedInventory = pgTable("extra_bed_inventory", {
+  id: serial("id").primaryKey(),
+  totalInventory: integer("total_inventory").notNull().default(50), // Total extra beds available
+  pricePerBed: decimal("price_per_bed", { precision: 10, scale: 2 }).notNull().default("200"), // Price per extra bed
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -233,6 +245,11 @@ export const insertFoodSettingsSchema = createInsertSchema(foodSettings).omit({
   updatedAt: true,
 });
 
+export const insertExtraBedInventorySchema = createInsertSchema(extraBedInventory).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Trustee auto-booking insert schema - REMOVED
 // export const insertTrusteeAutoBookingSchema = createInsertSchema(trusteeAutoBookings).omit({
 //   id: true,
@@ -257,6 +274,9 @@ export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
 
 export type FoodSettings = typeof foodSettings.$inferSelect;
 export type InsertFoodSettings = z.infer<typeof insertFoodSettingsSchema>;
+
+export type ExtraBedInventory = typeof extraBedInventory.$inferSelect;
+export type InsertExtraBedInventory = z.infer<typeof insertExtraBedInventorySchema>;
 
 // Trustee auto-booking types - REMOVED
 // export type TrusteeAutoBooking = typeof trusteeAutoBookings.$inferSelect;

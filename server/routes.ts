@@ -908,6 +908,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Validate extra beds
+      const extraBedsRequested = bookingData.extraBeds || 0;
+      if (extraBedsRequested > 0) {
+        // Check per-room max extra beds
+        const maxExtraBedsPerRoom = category.extraBedMax || 0;
+        const maxExtraBeds = maxExtraBedsPerRoom * roomsBooked;
+        
+        if (extraBedsRequested > maxExtraBeds) {
+          return res.status(400).json({ 
+            message: `Maximum ${maxExtraBedsPerRoom} extra bed${maxExtraBedsPerRoom === 1 ? '' : 's'} allowed per ${category.name}. You can book up to ${maxExtraBeds} extra beds for ${roomsBooked} room${roomsBooked === 1 ? '' : 's'}.`,
+            maxExtraBedsPerRoom,
+            maxExtraBeds,
+            requestedExtraBeds: extraBedsRequested
+          });
+        }
+        
+        // Check global inventory availability
+        const inventory = await storage.getExtraBedInventory();
+        const totalInventory = inventory?.totalInventory || 50;
+        const reservedBeds = await storage.getExtraBedsReservedForDateRange(
+          bookingData.checkinDate,
+          bookingData.checkoutDate
+        );
+        const availableBeds = Math.max(0, totalInventory - reservedBeds);
+        
+        if (extraBedsRequested > availableBeds) {
+          return res.status(400).json({ 
+            message: `Only ${availableBeds} extra bed${availableBeds === 1 ? '' : 's'} available for your selected dates. Please reduce the number of extra beds.`,
+            availableBeds,
+            requestedExtraBeds: extraBedsRequested
+          });
+        }
+      }
+
       // Check if user exists or create new user (by mobile number)
       let user = await storage.getUserByMobile(userData.mobile);
       let isNewUser = false;
@@ -939,7 +973,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         (bookingData.lunchDays || 0) * lunchPrice + 
                         (bookingData.dinnerDays || 0) * dinnerPrice;
       
-      const totalAmount = roomAmount + foodAmount;
+      // Calculate extra bed amount
+      const extraBedInventory = await storage.getExtraBedInventory();
+      const extraBedPricePerNight = extraBedInventory ? parseFloat(extraBedInventory.pricePerBed) : 200;
+      const extraBedAmount = (bookingData.extraBeds || 0) * extraBedPricePerNight * nights;
+      
+      const totalAmount = roomAmount + foodAmount + extraBedAmount;
 
       const booking = await storage.createRoomBooking({
         ...bookingData,
@@ -951,6 +990,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         estimatedDepartureTime: bookingData.estimatedDepartureTime ? new Date(bookingData.estimatedDepartureTime) : undefined,
         totalAmount: totalAmount.toString(),
         foodAmount: foodAmount.toString(),
+        extraBeds: bookingData.extraBeds || 0,
+        extraBedAmount: extraBedAmount.toString(),
       });
 
       // Send notifications asynchronously (fire-and-forget for better performance)
@@ -1528,6 +1569,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating food settings:", error);
       res.status(500).json({ message: "Failed to update food settings" });
+    }
+  });
+
+  // Extra Bed Inventory Routes
+  app.get("/api/admin/extra-bed-inventory", async (req, res) => {
+    try {
+      const inventory = await storage.getExtraBedInventory();
+      res.json(inventory || { totalInventory: 50, pricePerBed: "200" });
+    } catch (error) {
+      console.error("Error fetching extra bed inventory:", error);
+      res.status(500).json({ message: "Failed to fetch extra bed inventory" });
+    }
+  });
+
+  app.patch("/api/admin/extra-bed-inventory", async (req, res) => {
+    try {
+      const updates = req.body;
+      const updatedInventory = await storage.updateExtraBedInventory(updates);
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error("Error updating extra bed inventory:", error);
+      res.status(500).json({ message: "Failed to update extra bed inventory" });
+    }
+  });
+
+  // Get available extra beds for a date range (for booking form)
+  app.get("/api/extra-beds/availability", async (req, res) => {
+    try {
+      const { checkinDate, checkoutDate } = req.query;
+      if (!checkinDate || !checkoutDate) {
+        return res.status(400).json({ message: "Check-in and check-out dates are required" });
+      }
+      
+      const inventory = await storage.getExtraBedInventory();
+      const totalInventory = inventory?.totalInventory || 50;
+      const pricePerBed = inventory?.pricePerBed || "200";
+      
+      const reservedBeds = await storage.getExtraBedsReservedForDateRange(
+        checkinDate as string, 
+        checkoutDate as string
+      );
+      
+      const availableBeds = Math.max(0, totalInventory - reservedBeds);
+      
+      res.json({ 
+        totalInventory,
+        reservedBeds,
+        availableBeds,
+        pricePerBed
+      });
+    } catch (error) {
+      console.error("Error checking extra bed availability:", error);
+      res.status(500).json({ message: "Failed to check extra bed availability" });
     }
   });
 
@@ -2206,6 +2300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxOccupancy: 4,
         bedConfiguration: "3 Single Beds",
         imageUrl: null,
+        extraBedMax: 2,
         createdAt: new Date()
       };
 

@@ -34,6 +34,8 @@ const createGuestSchema = (maxGuests: number) => z.object({
   breakfastDays: z.number().default(0),
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
+  // Extra bed option
+  extraBeds: z.number().default(0),
   paymentMethod: z.enum(["pay_at_checkin", "pay_online"], {
     required_error: "Please select a payment method",
   }),
@@ -91,6 +93,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       breakfastDays: 0,
       lunchDays: 0,
       dinnerDays: 0,
+      extraBeds: 0,
       paymentMethod: "pay_at_checkin",
     },
   });
@@ -110,6 +113,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         breakfastDays: 0,
         lunchDays: 0,
         dinnerDays: 0,
+        extraBeds: 0,
         paymentMethod: "pay_at_checkin",
       });
     } else if (bookingFor === "others") {
@@ -125,6 +129,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         breakfastDays: 0,
         lunchDays: 0,
         dinnerDays: 0,
+        extraBeds: 0,
         paymentMethod: "pay_at_checkin",
       });
     }
@@ -227,8 +232,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                       (values.lunchDays * lunchPrice) + 
                       (values.dinnerDays * dinnerPrice);
     
+    // Calculate extra bed costs (₹200 per bed per night)
+    const extraBedPricePerNight = 200;
+    const extraBedAmount = (values.extraBeds || 0) * extraBedPricePerNight * nights;
+    
     const roomAmount = totalAmount;
-    const finalTotalAmount = roomAmount + foodAmount;
+    const finalTotalAmount = roomAmount + foodAmount + extraBedAmount;
 
     createBookingMutation.mutate({
       user: values,
@@ -242,6 +251,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         breakfastDays: values.breakfastDays,
         lunchDays: values.lunchDays,
         dinnerDays: values.dinnerDays,
+        extraBeds: values.extraBeds || 0,
         paymentMethod: values.paymentMethod,
         paymentStatus: values.paymentMethod === "pay_online" ? "paid" : "unpaid",
         totalAmount: finalTotalAmount.toString(),
@@ -279,7 +289,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     });
   };
 
-  // Calculate total amount including food
+  // Calculate total amount including food and extra beds
   const calculateTotalAmount = () => {
     const breakfastPrice = parseFloat(foodSettings?.breakfastPrice || "50");
     const lunchPrice = parseFloat(foodSettings?.lunchPrice || "100");
@@ -289,8 +299,12 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                       (form.watch('lunchDays') * lunchPrice) + 
                       (form.watch('dinnerDays') * dinnerPrice);
     
+    // Calculate extra bed costs (₹200 per bed per night)
+    const extraBedPricePerNight = 200;
+    const extraBedAmount = (form.watch('extraBeds') || 0) * extraBedPricePerNight * nights;
+    
     const roomAmount = totalAmount;
-    return roomAmount + foodAmount;
+    return roomAmount + foodAmount + extraBedAmount;
   };
 
   // If payment step is showing, render payment component
@@ -644,6 +658,69 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                   />
                 </div>
               </div>
+
+              {/* Extra Bed Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-gray-900 font-medium">
+                  <Bed className="h-4 w-4" />
+                  <h4>Extra Bed (Optional)</h4>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Need additional beds? Extra beds are available at ₹200 per bed per night. Maximum beds vary by room type.
+                </p>
+                
+                <FormField
+                  control={form.control}
+                  name="extraBeds"
+                  render={({ field }) => {
+                    // Use backend-provided extraBedMax from room category (default to 1 if not set)
+                    const maxExtraBeds = primaryCategory?.extraBedMax ?? 1;
+                    const roomsSelected = form.watch('roomsToBook') || 1;
+                    const totalMaxBeds = maxExtraBeds * roomsSelected;
+                    
+                    // If no extra beds allowed for this category, show a disabled state
+                    if (maxExtraBeds === 0) {
+                      return (
+                        <FormItem className="max-w-xs">
+                          <FormLabel className="text-gray-500">Number of Extra Beds</FormLabel>
+                          <p className="text-sm text-gray-500">
+                            Extra beds are not available for this room type.
+                          </p>
+                        </FormItem>
+                      );
+                    }
+                    
+                    return (
+                      <FormItem className="max-w-xs">
+                        <FormLabel>
+                          Number of Extra Beds
+                          <span className="text-sm text-gray-500 ml-1">
+                            (₹200/bed/night × {nights} night{nights > 1 ? 's' : ''})
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            max={totalMaxBeds}
+                            placeholder="0"
+                            data-testid="input-extra-beds"
+                            {...field} 
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              field.onChange(Math.min(value, totalMaxBeds));
+                            }}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-gray-500">
+                          Maximum {totalMaxBeds} extra bed{totalMaxBeds !== 1 ? 's' : ''} for {roomsSelected} room{roomsSelected !== 1 ? 's' : ''} ({maxExtraBeds} per room)
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              </div>
               
               <FormField
                 control={form.control}
@@ -742,6 +819,17 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                     </div>
                   )}
                   
+                  {/* Extra Bed Summary */}
+                  {(form.watch('extraBeds') || 0) > 0 && (
+                    <div className="border-t pt-2 space-y-1">
+                      <div className="font-medium text-gray-900">Extra Beds:</div>
+                      <div className="flex justify-between text-sm pl-4">
+                        <span>{form.watch('extraBeds')} extra bed{form.watch('extraBeds') > 1 ? 's' : ''} × {nights} night{nights > 1 ? 's' : ''}</span>
+                        <span>₹{((form.watch('extraBeds') || 0) * 200 * nights).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                     <span>Total Donation:</span>
                     <span className="text-brand-orange">
@@ -750,7 +838,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                         const foodAmount = (form.watch('breakfastDays') * parseFloat(foodSettings?.breakfastPrice || "50")) + 
                                           (form.watch('lunchDays') * parseFloat(foodSettings?.lunchPrice || "100")) + 
                                           (form.watch('dinnerDays') * parseFloat(foodSettings?.dinnerPrice || "100"));
-                        return (roomAmount + foodAmount).toLocaleString();
+                        const extraBedAmount = (form.watch('extraBeds') || 0) * 200 * nights;
+                        return (roomAmount + foodAmount + extraBedAmount).toLocaleString();
                       })()}
                     </span>
                   </div>
