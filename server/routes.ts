@@ -1576,7 +1576,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/extra-bed-inventory", async (req, res) => {
     try {
       const inventory = await storage.getExtraBedInventory();
-      res.json(inventory || { totalInventory: 50, pricePerBed: "200" });
+      const bedsInUse = await storage.getExtraBedsReservedForDateRange(
+        new Date().toISOString().split('T')[0],
+        new Date(Date.now() + 86400000).toISOString().split('T')[0]
+      );
+      
+      // Transform to frontend expected field names
+      res.json({
+        id: inventory?.id || 1,
+        totalBeds: inventory?.totalInventory || 50,
+        bedsInUse: bedsInUse || 0,
+        pricePerNight: inventory?.pricePerBed || "200",
+        lastUpdated: inventory?.updatedAt || new Date().toISOString()
+      });
     } catch (error) {
       console.error("Error fetching extra bed inventory:", error);
       res.status(500).json({ message: "Failed to fetch extra bed inventory" });
@@ -1585,9 +1597,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/admin/extra-bed-inventory", async (req, res) => {
     try {
-      const updates = req.body;
+      const { totalBeds, pricePerNight } = req.body;
+      
+      // Map frontend field names to database field names
+      const updates: any = {};
+      if (totalBeds !== undefined) updates.totalInventory = totalBeds;
+      if (pricePerNight !== undefined) updates.pricePerBed = pricePerNight;
+      
       const updatedInventory = await storage.updateExtraBedInventory(updates);
-      res.json(updatedInventory);
+      
+      // Return in frontend expected format
+      res.json({
+        id: updatedInventory.id,
+        totalBeds: updatedInventory.totalInventory,
+        bedsInUse: 0,
+        pricePerNight: updatedInventory.pricePerBed,
+        lastUpdated: updatedInventory.updatedAt
+      });
     } catch (error) {
       console.error("Error updating extra bed inventory:", error);
       res.status(500).json({ message: "Failed to update extra bed inventory" });
