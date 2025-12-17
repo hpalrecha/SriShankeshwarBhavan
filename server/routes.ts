@@ -2688,8 +2688,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/verify", async (req, res) => {
     try {
       const { transactionId, paymentData, gatewayName } = req.body;
+      
+      console.log("Payment verification request:", { transactionId, gatewayName, paymentData });
 
-      // Get transaction
+      // For temporary bookings (pre-booking payments), verify directly without database lookup
+      if (transactionId.includes('TEMP_')) {
+        console.log("Processing temporary booking payment verification");
+        
+        // Get gateway by name
+        const gateway = await storage.getPaymentGatewayByName(gatewayName);
+        if (!gateway) {
+          return res.status(400).json({ error: "Payment gateway not found" });
+        }
+        
+        // Create payment gateway instance and verify
+        const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
+        const verificationResult = await PaymentService.verifyPayment(paymentGateway, paymentData);
+        
+        console.log("Temp booking verification result:", verificationResult);
+        
+        if (verificationResult.success && verificationResult.isValid) {
+          return res.json({
+            success: true,
+            message: "Payment verified successfully",
+            paymentId: paymentData.razorpay_payment_id || paymentData.mihpayid,
+            orderId: paymentData.razorpay_order_id,
+          });
+        } else {
+          return res.status(400).json({ error: "Payment verification failed" });
+        }
+      }
+
+      // Get transaction from database for regular bookings
       const transaction = await storage.getPaymentTransactionByTransactionId(transactionId);
       if (!transaction) {
         return res.status(404).json({ error: "Transaction not found" });
