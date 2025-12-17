@@ -146,6 +146,17 @@ export default function BookingPayment({
   };
 
   const processRazorpayPayment = (orderData: any, gateway: PaymentGateway) => {
+    console.log("processRazorpayPayment called with orderData:", orderData);
+    console.log("Gateway config:", { publicKey: gateway.publicKey, isTestMode: gateway.isTestMode });
+    
+    // Validate that we have a valid order ID from Razorpay
+    if (!orderData.gatewayData || !orderData.gatewayData.id) {
+      console.error("Razorpay order ID missing from gateway response:", orderData);
+      setIsProcessing(false);
+      onPaymentError("Failed to create Razorpay order. Please check your API credentials.");
+      return;
+    }
+    
     const options = {
       key: gateway.publicKey,
       amount: Math.round(totalAmount * 100), // Convert to paise
@@ -154,6 +165,8 @@ export default function BookingPayment({
       description: `Booking Donation - ${bookingId}`,
       order_id: orderData.gatewayData.id,
       handler: (response: any) => {
+        console.log("Razorpay payment successful, verifying:", response);
+        setIsProcessing(false);
         verifyPaymentMutation.mutate({
           transactionId: orderData.transactionId,
           paymentData: response,
@@ -161,22 +174,39 @@ export default function BookingPayment({
         });
       },
       prefill: {
-        name: "Guest",
-        email: "guest@example.com",
+        name: formData?.name || "Guest",
+        email: formData?.email || "guest@example.com",
+        contact: formData?.mobile || "",
       },
       theme: {
         color: "#f97316", // Orange theme
       },
       modal: {
         ondismiss: () => {
+          console.log("Razorpay modal dismissed by user");
           setIsProcessing(false);
-          onPaymentError("Payment cancelled");
+          onPaymentError("Payment cancelled by user");
         },
+        escape: true,
+        animation: true,
       },
     };
 
-    const rzp = new (window as any).Razorpay(options);
-    rzp.open();
+    console.log("Opening Razorpay checkout with options:", { ...options, key: "***" });
+    
+    try {
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        console.error("Razorpay payment failed:", response.error);
+        setIsProcessing(false);
+        onPaymentError(response.error?.description || "Payment failed");
+      });
+      rzp.open();
+    } catch (error: any) {
+      console.error("Error opening Razorpay checkout:", error);
+      setIsProcessing(false);
+      onPaymentError("Failed to open payment window: " + error.message);
+    }
   };
 
   // ICICI Bank payment handler
