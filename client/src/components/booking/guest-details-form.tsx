@@ -12,12 +12,23 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle, User, MapPin, Utensils, Clock, Bed } from "lucide-react";
+import { CheckCircle, User, MapPin, Utensils, Clock, Bed, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { BookingFormData, RoomAvailability, GuestFormData, FoodSettings } from "@/lib/types";
-import BookingPayment from "@/components/BookingPayment";
+
+interface PaymentGateway {
+  id: number;
+  gatewayName: string;
+  displayName: string;
+  isTestMode: boolean;
+  supportedCurrencies: string;
+  minimumAmount: string;
+  maximumAmount?: string;
+  processingFee: string;
+  publicKey?: string;
+}
 
 const createGuestSchema = (maxGuests: number) => z.object({
   name: z.string().min(1, "Name is required"),
@@ -60,10 +71,9 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
   const [bookingId, setBookingId] = useState<string>("");
-  const [formData, setFormData] = useState<any>(null);
   const [bookingFor, setBookingFor] = useState<"self" | "others">("others");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Check if user is authenticated
   const { data: currentUser } = useQuery({
@@ -75,6 +85,11 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const { data: foodSettings } = useQuery<FoodSettings>({
     queryKey: ["/api/admin/food-settings"],
     retry: false,
+  });
+
+  // Fetch active payment gateways
+  const { data: paymentGateways = [] } = useQuery<PaymentGateway[]>({
+    queryKey: ["/api/payment-gateways/active"],
   });
 
   const guestSchema = createGuestSchema(bookingData.guests);
@@ -149,7 +164,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       
       // After booking is created (post-payment), show confirmation
-      setShowPayment(false);
+      setIsProcessingPayment(false);
       setShowConfirmation(true);
       
       // Always invalidate auth cache after booking to refresh login status
@@ -187,9 +202,118 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
+  // Direct Razorpay payment handling (no intermediate screen)
+  const initiateRazorpayPayment = async (values: GuestSchemaType, paymentAmount: number) => {
+    const gateway = paymentGateways.find(g => g.gatewayName === "razorpay") || paymentGateways[0];
+    if (!gateway) {
+      toast({
+        title: "Payment Error",
+        description: "No payment gateway available. Please contact support.",
+        variant: "destructive",
+      });
+      setIsProcessingPayment(false);
+      return;
+    }
+
+    try {
+      // Create payment order
+      const tempBookingId = `TEMP_${Date.now()}`;
+      const response = await apiRequest("POST", "/api/payment/create-order", {
+        bookingId: tempBookingId,
+        gatewayName: gateway.gatewayName,
+        amount: paymentAmount,
+      });
+      const orderData = await response.json();
+
+      if (!orderData.success || !orderData.gatewayData?.id) {
+        throw new Error("Failed to create payment order");
+      }
+
+      // Load Razorpay script if not loaded
+      if (typeof (window as any).Razorpay === "undefined") {
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => openRazorpayModal(orderData, gateway, values);
+        script.onerror = () => {
+          setIsProcessingPayment(false);
+          toast({ title: "Payment Error", description: "Failed to load payment gateway", variant: "destructive" });
+        };
+        document.body.appendChild(script);
+      } else {
+        openRazorpayModal(orderData, gateway, values);
+      }
+    } catch (error: any) {
+      console.error("Payment initiation error:", error);
+      setIsProcessingPayment(false);
+      toast({
+        title: "Payment Error",
+        description: error.message || "Failed to initiate payment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openRazorpayModal = (orderData: any, gateway: PaymentGateway, values: GuestSchemaType) => {
+    const paymentAmount = calculateTotalAmount();
+    
+    const options = {
+      key: gateway.publicKey,
+      amount: Math.round(paymentAmount * 100),
+      currency: "INR",
+      name: "Sri Shankeshwar Bengaluru Bhavan",
+      description: "Room Booking Donation",
+      order_id: orderData.gatewayData.id,
+      handler: async (response: any) => {
+        console.log("Razorpay payment successful:", response);
+        try {
+          // Verify payment
+          const verifyResponse = await apiRequest("POST", "/api/payment/verify", {
+            transactionId: orderData.transactionId,
+            paymentData: response,
+            gatewayName: "razorpay",
+          });
+          
+          if (verifyResponse.ok) {
+            toast({ title: "Payment Successful", description: "Your payment has been processed!" });
+            // Now create the booking
+            createBookingFromFormData(values);
+          } else {
+            throw new Error("Payment verification failed");
+          }
+        } catch (error: any) {
+          setIsProcessingPayment(false);
+          toast({ title: "Payment Error", description: error.message || "Payment verification failed", variant: "destructive" });
+        }
+      },
+      prefill: {
+        name: values.name,
+        email: values.email || "",
+        contact: values.mobile,
+      },
+      theme: { color: "#f97316" },
+      modal: {
+        ondismiss: () => {
+          setIsProcessingPayment(false);
+          toast({ title: "Payment Cancelled", description: "You cancelled the payment", variant: "destructive" });
+        },
+      },
+    };
+
+    try {
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        setIsProcessingPayment(false);
+        toast({ title: "Payment Failed", description: response.error?.description || "Payment failed", variant: "destructive" });
+      });
+      rzp.open();
+    } catch (error: any) {
+      setIsProcessingPayment(false);
+      toast({ title: "Payment Error", description: "Failed to open payment window", variant: "destructive" });
+    }
+  };
+
   const onSubmit = (values: GuestSchemaType) => {
     console.log("Form submitted with values:", values);
-    console.log("Payment method selected:", values.paymentMethod);
     
     // CRITICAL: Double-check room validation before proceeding
     if (values.roomsToBook > bookingData.guests) {
@@ -198,18 +322,15 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         description: `Cannot book ${values.roomsToBook} rooms for ${bookingData.guests} guest${bookingData.guests === 1 ? '' : 's'}. Maximum allowed: ${bookingData.guests} room${bookingData.guests === 1 ? '' : 's'}.`,
         variant: "destructive",
       });
-      
-      // Force reset the room selection to maximum allowed
       form.setValue('roomsToBook', bookingData.guests);
-      return; // STOP submission completely
+      return;
     }
     
-    // Store form data for later use
-    setFormData(values);
+    // Directly open Razorpay payment
+    setIsProcessingPayment(true);
     
-    // Always go to payment first (online payment only)
-    console.log("Setting showPayment to true for online payment");
-    setShowPayment(true);
+    const paymentAmount = calculateTotalAmount();
+    initiateRazorpayPayment(values, paymentAmount);
   };
 
   const createBookingFromFormData = (values: GuestSchemaType) => {
@@ -263,21 +384,6 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     setLocation('/my-bookings');
   };
 
-  const handlePaymentSuccess = () => {
-    // Payment successful, now create the booking
-    if (formData) {
-      createBookingFromFormData(formData);
-    }
-    setShowPayment(false);
-  };
-
-  const handlePaymentError = (error: string) => {
-    toast({
-      title: "Payment Failed",
-      description: error,
-      variant: "destructive",
-    });
-  };
 
   // Calculate total amount including food and extra beds
   const calculateTotalAmount = () => {
@@ -296,27 +402,6 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     const roomAmount = totalAmount;
     return roomAmount + foodAmount + extraBedAmount;
   };
-
-  // If payment step is showing, render payment component
-  if (showPayment && formData && formData.paymentMethod === 'pay_online') {
-    console.log("Rendering payment component with:", {
-      showPayment,
-      formData: !!formData,
-      paymentMethod: formData.paymentMethod,
-      totalAmount: calculateTotalAmount()
-    });
-    return (
-      <div className="max-w-2xl mx-auto">
-        <BookingPayment
-          formData={formData}
-          bookingData={bookingData}
-          totalAmount={calculateTotalAmount()}
-          onPaymentSuccess={handlePaymentSuccess}
-          onPaymentError={handlePaymentError}
-        />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -812,22 +897,34 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 </div>
               </div>
               
+              {/* Important Cancellation Notice */}
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-800">
+                    <strong>Important Notice:</strong> The management reserves the right to cancel any booking at any time due to unforeseen circumstances such as overbooking, non-availability of beds, maintenance, special events, or any other operational reasons. In case of cancellation by management, guests will be notified and any payments made will be refunded.
+                  </p>
+                </div>
+              </div>
+              
               <div className="flex space-x-4 pt-4">
-                <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+                <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isProcessingPayment}>
                   Cancel
                 </Button>
                 <Button 
                   type="submit" 
                   className="flex-1 bg-brand-orange hover:bg-brand-orange-light"
                   disabled={
+                    isProcessingPayment ||
                     createBookingMutation.isPending || 
                     (form.watch('roomsToBook') > bookingData.guests) ||
                     !form.formState.isValid
                   }
                 >
-                  {createBookingMutation.isPending ? "Creating Booking..." : 
+                  {isProcessingPayment ? "Processing Payment..." :
+                   createBookingMutation.isPending ? "Creating Booking..." : 
                    (form.watch('roomsToBook') > bookingData.guests) ? "Invalid Room Selection" :
-                   "Confirm Booking"}
+                   `Pay ₹${calculateTotalAmount().toLocaleString()} & Book`}
                 </Button>
               </div>
             </form>
