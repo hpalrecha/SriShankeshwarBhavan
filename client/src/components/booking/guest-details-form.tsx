@@ -36,9 +36,9 @@ const createGuestSchema = (maxGuests: number) => z.object({
   dinnerDays: z.number().default(0),
   // Extra bed option
   extraBeds: z.number().default(0),
-  paymentMethod: z.enum(["pay_at_checkin", "pay_online"], {
+  paymentMethod: z.enum(["pay_online"], {
     required_error: "Please select a payment method",
-  }),
+  }).default("pay_online"),
 });
 
 const indianStates = [
@@ -94,7 +94,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       lunchDays: 0,
       dinnerDays: 0,
       extraBeds: availabilityData.totalExtraBeds || 0,
-      paymentMethod: "pay_at_checkin",
+      paymentMethod: "pay_online",
     },
   });
 
@@ -114,7 +114,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         lunchDays: 0,
         dinnerDays: 0,
         extraBeds: availabilityData.totalExtraBeds || 0,
-        paymentMethod: "pay_at_checkin",
+        paymentMethod: "pay_online",
       });
     } else if (bookingFor === "others") {
       form.reset({
@@ -130,7 +130,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         lunchDays: 0,
         dinnerDays: 0,
         extraBeds: availabilityData.totalExtraBeds || 0,
-        paymentMethod: "pay_at_checkin",
+        paymentMethod: "pay_online",
       });
     }
   }, [currentUser, bookingFor, form]);
@@ -148,13 +148,9 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       
-      // If payment method is pay_at_checkin, go directly to confirmation
-      if (form.getValues('paymentMethod') === 'pay_at_checkin') {
-        setShowConfirmation(true);
-      } else {
-        // For online payment, show payment step
-        setShowPayment(true);
-      }
+      // After booking is created (post-payment), show confirmation
+      setShowPayment(false);
+      setShowConfirmation(true);
       
       // Always invalidate auth cache after booking to refresh login status
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -211,15 +207,9 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     // Store form data for later use
     setFormData(values);
     
-    if (values.paymentMethod === 'pay_online') {
-      console.log("Setting showPayment to true for online payment");
-      // For online payment, go to payment first (don't create booking yet)
-      setShowPayment(true);
-    } else {
-      console.log("Creating booking directly for pay at checkin");
-      // For pay at checkin, create booking directly
-      createBookingFromFormData(values);
-    }
+    // Always go to payment first (online payment only)
+    console.log("Setting showPayment to true for online payment");
+    setShowPayment(true);
   };
 
   const createBookingFromFormData = (values: GuestSchemaType) => {
@@ -722,32 +712,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
                 />
               </div>
               
-              <FormField
-                control={form.control}
-                name="paymentMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Option</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex space-x-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="pay_online" id="pay_online" />
-                          <Label htmlFor="pay_online">Pay Online</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="pay_at_checkin" id="pay_at_checkin" />
-                          <Label htmlFor="pay_at_checkin">Pay at Check-in</Label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Payment is online only - hidden field */}
+              <input type="hidden" {...form.register("paymentMethod")} value="pay_online" />
 
               {/* Booking Summary */}
               <div className="bg-gray-50 p-4 rounded-lg border">
