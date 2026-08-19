@@ -109,6 +109,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(health);
   });
 
+  // Behind Cloudflare -> nginx -> Express over plain HTTP. Without this,
+  // req.secure is false, so express-session silently refuses to send the
+  // session cookie when cookie.secure is true, and every login is lost.
+  // It also makes req.protocol report https for password-reset links.
+  app.set("trust proxy", 1);
+
   // Configure session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
@@ -118,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      sameSite: 'lax' // same-site app; 'none' needlessly requires cross-site rules
     }
   }));
 
