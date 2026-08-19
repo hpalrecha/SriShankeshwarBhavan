@@ -7,7 +7,7 @@ export default function LocationSection() {
     {
       name: "Shankheshwar Parshwanath Temple",
       distance: "",
-      time: "1 min walk"
+      time: "3 min walk"
     },
     {
       name: "Patan Railway Station",
@@ -27,7 +27,7 @@ export default function LocationSection() {
     {
       name: "Local Market Area",
       distance: "",
-      time: "1 min walk"
+      time: "3 min walk"
     }
   ];
 

@@ -133,10 +133,18 @@ export default function PrivacyPolicy() {
             </div>
           </section>
 
+          <section>
+            <h2 className="text-xl font-semibold mb-3">12. Booking Cancellations and Refunds</h2>
+            <div className="space-y-2">
+              <p><strong>Emergency cancellations:</strong> Where a confirmed booking is cancelled on account of a genuine emergency — including medical emergency, bereavement, or other circumstances beyond the guest's reasonable control — the Trust shall review the request on a case-by-case basis and may refund the donation amount in full or in part. Supporting documentation may be required. Any dispute arising from such a refund decision shall be governed by Indian law and subject to the exclusive jurisdiction of the courts specified in these terms.</p>
+              <p>Full cancellation and refund terms are set out in our Cancellation &amp; Refund Policy and Terms &amp; Conditions.</p>
+            </div>
+          </section>
+
           <div className="mt-8 p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
               <strong>Last Updated:</strong> July 25, 2025<br/>
-              <strong>Effective Date:</strong> July 25, 2025<br/>
+              <strong>Effective Date:</strong> July 25, 2030<br/>
               This privacy policy complies with the Information Technology Act, 2000 and Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011.
             </p>
           </div>
@@ -147,3 +155,4 @@ export default function PrivacyPolicy() {
     </div>
   );
 }
+

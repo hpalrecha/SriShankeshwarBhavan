@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { MapPin, Phone, Mail } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -20,10 +20,6 @@ export default function Footer() {
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4" />
                 <p className="text-sm">+91 9426343558</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Mail className="w-4 h-4" />
-                <p className="text-sm">info@ssbb.in</p>
               </div>
             </div>
           </div>

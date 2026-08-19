@@ -44,13 +44,13 @@ export default function Header() {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 relative z-20">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-20">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => setLocation("/")}>
               <img 
                 src={ssbbLogo} 
                 alt="SSBB Logo"
-                className="w-10 h-10 rounded-lg object-cover"
+                className="w-14 h-14 rounded-lg object-cover"
               />
               <h1 className="ml-3 text-xl font-semibold text-gray-900 hidden sm:block">Sri Shankeshwar Bengaluru Bhavan</h1>
               <h1 className="ml-3 text-lg font-semibold text-gray-900 sm:hidden">SSBB</h1>

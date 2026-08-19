@@ -1,4 +1,4 @@
-import { Phone, Mail, Clock, MessageSquare } from "lucide-react";
+import { Phone, Clock, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -11,15 +11,9 @@ export default function ContactSection() {
       subtext: "24/7 Booking & Support"
     },
     {
-      icon: Mail,
-      title: "Email", 
-      details: ["booking@ssbb.in"],
-      subtext: "Quick response within 2 hours"
-    },
-    {
       icon: Clock,
       title: "Reception Hours",
-      details: ["24/7 front desk", "Check-in: 12:00 PM", "Check-out: 11:00 AM"],
+      details: ["24/7 front desk"],
       subtext: "Always available to assist"
     },
     {
@@ -41,7 +35,7 @@ export default function ContactSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {contactInfo.map((contact, index) => (
             <Card 
               key={index} 
@@ -96,14 +90,6 @@ export default function ContactSection() {
                 >
                   <Phone className="w-4 h-4 mr-2" />
                   Call Now
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => window.location.href = 'mailto:booking@ssbb.in'}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Send Email
                 </Button>
               </div>
             </CardContent>

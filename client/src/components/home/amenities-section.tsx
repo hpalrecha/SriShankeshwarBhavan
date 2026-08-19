@@ -1,19 +1,9 @@
-import { Wifi, Car, Coffee, Shield, Utensils, Users, Clock, Phone } from "lucide-react";
+import { Shield, Utensils, Users, Clock, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import roomImage from "@assets/images (7)_1753275469754.jpg";
 
 export default function AmenitiesSection() {
   const amenities = [
-    {
-      icon: Car,
-      title: "Free Parking",
-      description: "Secure parking space for all guests"
-    },
-    {
-      icon: Shield,
-      title: "Driver Freshen-Up Facility",
-      description: "Dedicated facilities available for drivers to freshen up"
-    },
     {
       icon: Shield,
       title: "24/7 Security",
@@ -56,7 +46,7 @@ export default function AmenitiesSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {amenities.map((amenity, index) => (
             <Card 
               key={index} 
@@ -87,15 +77,11 @@ export default function AmenitiesSection() {
               <ul className="space-y-3 text-gray-600">
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Nearest to Dherasar at 1 min walkable distance</span>
+                  <span>Nearest to Dherasar at 3 min walkable distance</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
                   <span>Newly built 49 fully AC rooms with modern amenities</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span>Dedicated parking and driver freshen up facility available</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>

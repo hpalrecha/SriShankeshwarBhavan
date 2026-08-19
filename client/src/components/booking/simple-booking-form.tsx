@@ -175,7 +175,7 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
           {/* Bulk Booking Button */}
           <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
             <p className="text-sm text-gray-700 mb-3 text-center">
-              Need more than 20 rooms? Let us help you with bulk booking!
+              Need more than 15 rooms? Let us help you with bulk booking!
             </p>
             <Button 
               type="button"
@@ -186,7 +186,7 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
                 window.open(`https://wa.me/919902123456?text=${message}`, '_blank');
               }}
             >
-              Contact for Bulk Booking (20+ Rooms)
+              Contact for Bulk Booking (15+ Rooms)
             </Button>
           </div>
         </form>

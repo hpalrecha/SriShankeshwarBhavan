@@ -68,6 +68,7 @@ export default function CancellationRefundPolicy() {
               </ul>
               <p><strong>Documentation:</strong> Valid proof must be submitted within 48 hours</p>
               <p><strong>Refund:</strong> Up to 80% refund may be considered on case-by-case basis</p>
+              <p><strong>Emergency refund terms:</strong> Where a confirmed booking is cancelled on account of a genuine emergency — including medical emergency, bereavement, or other circumstances beyond the guest's reasonable control — the Trust shall review the request on a case-by-case basis and may refund the donation amount in full or in part. Supporting documentation may be required. Any dispute arising from such a refund decision shall be governed by Indian law and subject to the exclusive jurisdiction of the courts specified in these terms.</p>
             </div>
           </section>
 
