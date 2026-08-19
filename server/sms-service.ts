@@ -37,7 +37,10 @@ export class SMSService {
       
       // Use the DLT approved OTP template from documentation
       // Template: "Your {#var#} OTP for verification is: {#var#}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies"
-      const message = `Your Sri Shankeshwar Bengaluru Bhavan OTP for verification is: ${otp}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies`;
+      // First variable must stay within the DLT 30-character limit - "Sri Shankeshwar
+      // Bengaluru Bhavan" was 32 chars, which the telco scrubber rejects after the
+      // API has already returned success.
+      const message = `Your SSBB OTP for verification is: ${otp}. OTP is confidential, refrain from sharing it with anyone. By Edumarc Technologies`;
       
       const url = `${this.config.baseUrl}/sendsms`;
       
