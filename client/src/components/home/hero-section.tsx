@@ -13,18 +13,18 @@ export default function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 pt-10 pb-28 text-gray-800">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.7fr)_minmax(0,1.05fr)] gap-5 items-center">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.4fr)] gap-5 items-center">
 
           {/* Right - two photos stacked */}
           <div className="order-3 grid grid-cols-2 lg:grid-cols-1 gap-4">
-            <div className="h-40 lg:h-[160px] overflow-hidden rounded-xl shadow-md">
+            <div className="h-40 lg:h-[132px] overflow-hidden rounded-xl shadow-md">
               <img
                 src={receptionImage}
                 alt="Reception desk at Sri Shankeshwar Bengaluru Bhavan"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="h-40 lg:h-[160px] overflow-hidden rounded-xl shadow-md">
+            <div className="h-40 lg:h-[132px] overflow-hidden rounded-xl shadow-md">
               <img
                 src={lobbyImage}
                 alt="Guest lounge and Labharthi Pariwar donor wall"
@@ -34,7 +34,7 @@ export default function HeroSection() {
           </div>
 
           {/* Centre - logo and titles */}
-          <div className="order-1 lg:order-2 text-center">
+          <div className="order-1 lg:order-2 text-center flex flex-col justify-center">
             <div className="flex items-center justify-center mb-5">
               <img
                 src={ssbbLogo}
@@ -66,11 +66,11 @@ export default function HeroSection() {
           </div>
 
           {/* Left - building */}
-          <div className="order-2 lg:order-1 flex items-center justify-center">
+          <div className="order-2 lg:order-1 w-full h-64 lg:h-[280px] overflow-hidden rounded-xl shadow-md">
             <img
               src={exteriorImage}
               alt="Exterior of Sri Shankeshwar Bengaluru Bhavan"
-              className="w-full max-h-[336px] object-contain rounded-xl shadow-md"
+              className="w-full h-full object-cover"
             />
           </div>
         </div>
@@ -92,6 +92,8 @@ export default function HeroSection() {
     </section>
   );
 }
+
+
 
 
 

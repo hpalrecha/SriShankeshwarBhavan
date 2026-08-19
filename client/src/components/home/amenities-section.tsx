@@ -87,6 +87,14 @@ export default function AmenitiesSection() {
                   <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
                   <span>Satvik Bhojanshala with authentic Rajasthani swaad</span>
                 </li>
+                <li className="flex items-start">
+                  <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span>24 hours running hot water available in every room</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="w-2 h-2 bg-brand-orange rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span>RO purified water available for drinking</span>
+                </li>
               </ul>
             </div>
             <div className="relative">
@@ -102,3 +110,4 @@ export default function AmenitiesSection() {
     </section>
   );
 }
+
