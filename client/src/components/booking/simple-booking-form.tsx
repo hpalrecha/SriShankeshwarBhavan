@@ -21,9 +21,10 @@ const formSchema = z.object({
 
 interface SimpleBookingFormProps {
   onSearch: (data: BookingFormData, availability: RoomAvailability) => void;
+  onNoRooms: (data: BookingFormData) => void;
 }
 
-export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) {
+export default function SimpleBookingForm({ onSearch, onNoRooms }: SimpleBookingFormProps) {
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
 
@@ -64,6 +65,7 @@ export default function SimpleBookingForm({ onSearch }: SimpleBookingFormProps) 
           description: "No rooms are available for the selected dates. Please try different dates.",
           variant: "destructive",
         });
+        onNoRooms(values);
       } else {
         // Pass all available rooms to the results component
         onSearch(values, { 

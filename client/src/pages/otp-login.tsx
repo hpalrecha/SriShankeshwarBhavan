@@ -56,20 +56,32 @@ export default function OTPLogin() {
 
   const sendOTPMutation = useMutation({
     mutationFn: async (data: MobileFormData) => {
-      return await apiRequest("POST", "/api/auth/send-otp", data);
+      const res = await apiRequest("POST", "/api/auth/send-otp", data);
+      return await res.json();
     },
     onSuccess: (response: any) => {
-      console.log('Send OTP success response:', response);
       const mobileNumber = response.mobile || mobileForm.getValues().mobile;
       setMobile(mobileNumber);
       setStep("otp");
       setTimeLeft(300); // 5 minutes
-      setSuccess("OTP sent successfully! Please check your mobile for the 6-digit code.");
+      if (response.channel === "whatsapp") {
+        setSuccess("OTP sent successfully! Please check WhatsApp for the 6-digit code.");
+      } else if (response.channel === "email") {
+        setSuccess(`OTP sent successfully! Please check your email (${response.maskedEmail}) for the 6-digit code.`);
+      } else {
+        setSuccess("OTP sent successfully! Please check your mobile for the 6-digit code.");
+      }
       setError("");
-      console.log('Mobile number set to:', mobileNumber);
     },
     onError: (error: any) => {
-      setError(error.message || "Failed to send OTP");
+      // apiRequest throws "STATUS: {json body}" - pull the real message out of that
+      const raw = error.message || "";
+      const jsonPart = raw.slice(raw.indexOf(":") + 1).trim();
+      try {
+        setError(JSON.parse(jsonPart).message || "Failed to send OTP");
+      } catch {
+        setError(raw || "Failed to send OTP");
+      }
     },
   });
 

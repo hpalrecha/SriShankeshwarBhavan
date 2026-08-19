@@ -6,7 +6,7 @@ import { insertUserSchema, insertRoomBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail } from "./email";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendOTPEmail } from "./email";
 import { sendEmailViaSES } from "./emailSES";
 import { debugSESConfiguration } from "./debug-email-ses";
 import { testDirectSMTP } from "./test-direct-smtp";
@@ -199,22 +199,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         attempts: 0
       });
 
-      // Send OTP via SMS
-      const smsResult = await smsService.sendOTP(cleanMobile, otp);
-      
-      if (smsResult.success) {
-        console.log(`✅ OTP sent to ${cleanMobile}: ${otp}`);
-        res.json({ 
-          message: "OTP sent successfully", 
+      // Delivery channels, tried in order. SMS (ComBirds/Edumarc) is intentionally
+      // NOT in this list - it accepts every submission but the operator/DLT layer
+      // silently drops delivery afterwards, which made OTPs unusable.
+      //
+      // 1. WhatsApp - no-ops safely (returns false) until an Authentication-category
+      //    template named 'otp_verification' is approved in Meta and mapped in the
+      //    admin panel, same pattern as every other WhatsApp notification here.
+      const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
+      if (whatsappSent) {
+        console.log(`✅ OTP sent to ${cleanMobile} via WhatsApp: ${otp}`);
+        return res.json({
+          message: "OTP sent successfully",
           mobile: cleanMobile,
-          expiresIn: 300 // 5 minutes in seconds
-        });
-      } else {
-        console.error(`❌ Failed to send OTP to ${cleanMobile}:`, smsResult.message);
-        res.status(500).json({ 
-          message: smsResult.message || "Failed to send OTP" 
+          channel: "whatsapp",
+          expiresIn: 300
         });
       }
+
+      // 2. Email - only possible if this mobile number already belongs to an
+      //    account with an email on file (signup email is optional, and OTP-first
+      //    users never had a chance to give one).
+      const existingUser = await storage.getUserByMobile(cleanMobile);
+      if (existingUser?.email) {
+        const emailSent = await sendOTPEmail(existingUser.email, otp);
+        if (emailSent) {
+          console.log(`✅ OTP sent to ${cleanMobile} via email (${existingUser.email}): ${otp}`);
+          const [name, domain] = existingUser.email.split("@");
+          const maskedEmail = `${name.slice(0, 2)}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
+          return res.json({
+            message: "OTP sent successfully",
+            mobile: cleanMobile,
+            channel: "email",
+            maskedEmail,
+            expiresIn: 300
+          });
+        }
+      }
+
+      // Nothing worked - tell the customer plainly rather than pretending an OTP
+      // is on its way. Password login stays available for accounts that have one.
+      console.error(`❌ Could not deliver OTP to ${cleanMobile} - no working channel (WhatsApp not yet configured${existingUser?.email ? ", email send failed" : ", no email on file"})`);
+      res.status(503).json({
+        message: "We're unable to send a verification code right now. Please use password login, or contact us on WhatsApp for help.",
+      });
     } catch (error) {
       console.error("Send OTP error:", error);
       res.status(500).json({ message: "Failed to send OTP" });

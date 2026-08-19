@@ -143,6 +143,20 @@ class WhatsAppService {
     }
   }
 
+  // Sends a login/signup OTP via WhatsApp. Requires an Authentication-category
+  // template approved in Meta Business Manager, mapped in the admin panel as
+  // notificationType 'otp_verification'. Until that template exists this safely
+  // returns false (same as any other unconfigured notification type) so callers
+  // can fall through to another channel without special-casing.
+  async sendOTP(phoneNumber: string, otp: string): Promise<boolean> {
+    const formatted = this.formatPhoneNumber(phoneNumber);
+    if (!formatted) {
+      console.log("❌ WhatsApp OTP: no valid phone number");
+      return false;
+    }
+    return this.sendTemplate(formatted, 'otp_verification', [otp]);
+  }
+
   async sendBookingConfirmation(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {
     console.log(`🔍 WhatsApp sendBookingConfirmation called for booking: ${booking.bookingId}`);
     console.log(`📞 Original phone from booking: ${booking.primaryGuestPhone}`);

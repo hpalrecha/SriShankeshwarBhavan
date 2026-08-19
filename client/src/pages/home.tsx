@@ -12,7 +12,7 @@ import LocationSection from "@/components/home/location-section";
 import ContactSection from "@/components/home/contact-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, User, BookOpen } from "lucide-react";
+import { Calendar, User, BookOpen, CalendarX, MessageSquare } from "lucide-react";
 import type { BookingFormData, RoomAvailability } from "@/lib/types";
 import type { User as UserType } from "@shared/schema";
 
@@ -21,6 +21,7 @@ export default function Home() {
     bookingData: BookingFormData;
     availabilityData: any;
   } | null>(null);
+  const [noRoomsSearch, setNoRoomsSearch] = useState<BookingFormData | null>(null);
   const [, setLocation] = useLocation();
 
   // Check if user is authenticated
@@ -30,7 +31,13 @@ export default function Home() {
   });
 
   const handleSearch = (data: BookingFormData, availability: any) => {
+    setNoRoomsSearch(null);
     setSearchResults({ bookingData: data, availabilityData: availability });
+  };
+
+  const handleNoRooms = (data: BookingFormData) => {
+    setSearchResults(null);
+    setNoRoomsSearch(data);
   };
 
   // If user is authenticated, show a welcome section instead of just the booking form
@@ -86,11 +93,44 @@ export default function Home() {
             
             {/* Show booking form if not authenticated OR if authenticated user wants to make new booking */}
             <div id="booking-form">
-              <SimpleBookingForm onSearch={handleSearch} />
+              <SimpleBookingForm onSearch={handleSearch} onNoRooms={handleNoRooms} />
             </div>
           </div>
         </div>
       </section>
+
+      {/* Fully Booked - stays on the page until a new search, unlike the toast */}
+      {noRoomsSearch && (
+        <section id="room-results" className="py-8">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-8 text-center">
+                <CalendarX className="w-12 h-12 text-brand-orange mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Fully Booked for These Dates</h3>
+                <p className="text-gray-600 mb-1">
+                  {noRoomsSearch.checkinDate} to {noRoomsSearch.checkoutDate}
+                </p>
+                <p className="text-gray-600 mb-6">
+                  All rooms are reserved for the dates you selected. This is common during festival periods -
+                  please try nearby dates, or contact us directly and we'll help you find a way to accommodate your visit.
+                </p>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => {
+                    const message = encodeURIComponent(
+                      `Hi, I tried to book from ${noRoomsSearch.checkinDate} to ${noRoomsSearch.checkoutDate} but no rooms were available. Can you help?`
+                    );
+                    window.open(`https://wa.me/919727070765?text=${message}`, '_blank');
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Ask Us on WhatsApp
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* Room Results */}
       {searchResults && (

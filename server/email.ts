@@ -315,6 +315,49 @@ Sri Shankeshwar Bengaluru Bhavan Team`;
   }
 }
 
+export async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
+  try {
+    const subject = `${otp} is your Sri Shankeshwar Bengaluru Bhavan verification code`;
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6b35, #f7931e); padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Sri Shankeshwar Bengaluru Bhavan</h1>
+          <p style="color: white; margin: 5px 0;">Verification Code</p>
+        </div>
+
+        <div style="padding: 20px; background: #f9f9f9;">
+          <p>Use the code below to sign in. It is valid for 5 minutes.</p>
+
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #ff6b35;">${otp}</span>
+          </div>
+
+          <p>OTP is confidential, please do not share it with anyone.</p>
+
+          <p style="margin-top: 30px;">Best regards,<br>Sri Shankeshwar Bengaluru Bhavan Team</p>
+        </div>
+
+        <div style="background: #333; color: white; padding: 15px; text-align: center;">
+          <p style="margin: 0;">© 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textBody = `Your Sri Shankeshwar Bengaluru Bhavan verification code is: ${otp}
+
+This code is valid for 5 minutes. OTP is confidential, please do not share it with anyone.
+
+Best regards,
+Sri Shankeshwar Bengaluru Bhavan Team`;
+
+    return await sendEmailHybrid(email, subject, htmlBody, textBody);
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+    return false;
+  }
+}
+
 export async function sendPreCheckinReminderEmail(
   booking: RoomBooking,
   user: User | null,
