@@ -12,19 +12,19 @@ export default function HeroSection() {
       <div className="absolute inset-0 bg-orange-50"></div>
 
       {/* Content */}
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 pt-10 pb-28 text-gray-800">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.4fr)] gap-5 items-center">
+      <div className="relative z-10 pt-10 pb-28 text-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.4fr)] gap-5 items-center">
 
           {/* Right - two photos stacked */}
           <div className="order-3 grid grid-cols-2 lg:grid-cols-1 gap-4">
-            <div className="h-40 lg:h-[132px] overflow-hidden rounded-xl shadow-md">
+            <div className="h-40 lg:h-[172px] overflow-hidden rounded-xl shadow-md">
               <img
                 src={receptionImage}
                 alt="Reception desk at Sri Shankeshwar Bengaluru Bhavan"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="h-40 lg:h-[132px] overflow-hidden rounded-xl shadow-md">
+            <div className="h-40 lg:h-[172px] overflow-hidden rounded-xl shadow-md">
               <img
                 src={lobbyImage}
                 alt="Guest lounge and Labharthi Pariwar donor wall"
@@ -66,7 +66,7 @@ export default function HeroSection() {
           </div>
 
           {/* Left - building */}
-          <div className="order-2 lg:order-1 w-full h-64 lg:h-[280px] overflow-hidden rounded-xl shadow-md">
+          <div className="order-2 lg:order-1 w-full h-64 lg:h-[360px] overflow-hidden rounded-xl shadow-md">
             <img
               src={exteriorImage}
               alt="Exterior of Sri Shankeshwar Bengaluru Bhavan"
@@ -76,7 +76,7 @@ export default function HeroSection() {
         </div>
 
         {/* CTA */}
-        <div className="text-center text-gray-600 mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600 mt-8">
           <p>Scroll down to check availability and book your stay</p>
           <button
             onClick={() => smoothScrollToSection("booking")}
