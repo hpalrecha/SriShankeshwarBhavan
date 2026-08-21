@@ -93,6 +93,16 @@ class WhatsAppService {
             }))
           }
         ];
+      } else if (notificationType === 'otp_verification') {
+        // Authentication templates with a Copy Code button need a matching
+        // BUTTON component alongside the body - Meta rejects the send
+        // otherwise ("Button at index 0 of type Url requires a parameter").
+        // The button's sub_type is 'url' even though the UI calls it
+        // "Copy code"; verified directly against the Graph API.
+        components = [
+          { type: 'body', parameters: [{ type: 'text', text: parameters[0] }] },
+          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: parameters[0] }] }
+        ];
       } else if (parameters.length > 0) {
         // Other templates just need body parameters
         components = [{
