@@ -104,14 +104,29 @@
 /* Booking receipt print isolation - the receipt renders off-screen
    at all times; this makes it (and only it) visible when printing. */
 #booking-receipt-print {
+  --receipt-maroon: #8b1220;
+  --receipt-maroon-soft: #c23b4a;
+  --receipt-maroon-line: #e3b3ba;
+  --receipt-ink: #1a1414;
   position: absolute;
   left: -9999px;
-  width: 380px;
+  width: 210mm;
   font-family: Georgia, 'Times New Roman', serif;
-  color: #111;
+  color: var(--receipt-ink);
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
 }
 
 @media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    background: #fff !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -119,62 +134,212 @@
   #booking-receipt-print * {
     visibility: visible;
   }
+  /* Fixed + inset so this box owns the page on its own terms - nothing
+     hidden-but-still-in-flow elsewhere (the admin dialog, its overlay
+     portal) can push a second, blank page in behind it. */
   #booking-receipt-print {
-    position: absolute;
+    position: fixed;
+    inset: 0;
     left: 0;
-    top: 0;
-    width: 100%;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    margin: 0;
   }
+
+  .receipt-page {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    padding: 10mm;
+  }
+
+  .receipt-border {
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 8mm 11mm;
+    border: 1.5px solid var(--receipt-maroon);
+    border-radius: 10px;
+    /* thin double-line effect without a second nested box */
+    outline: 1px solid var(--receipt-maroon);
+    outline-offset: 3px;
+  }
+
+  .receipt-corner {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--receipt-maroon);
+  }
+  .corner-tl { top: -6px; left: -6px; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
+  .corner-tr { top: -6px; right: -6px; border-left: none; border-bottom: none; border-radius: 0 10px 0 0; }
+  .corner-bl { bottom: -6px; left: -6px; border-right: none; border-top: none; border-radius: 0 0 0 10px; }
+  .corner-br { bottom: -6px; right: -6px; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
 
   .receipt-header {
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: 5mm;
+  }
+  .receipt-emblem-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 3mm;
+  }
+  .emblem-line {
+    height: 1px;
+    width: 60px;
+    background: var(--receipt-maroon-soft);
+  }
+  .emblem-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--receipt-maroon-soft);
+  }
+  .receipt-emblem {
+    width: 24px;
+    height: 24px;
+    color: var(--receipt-maroon);
   }
   .receipt-header h1 {
-    font-size: 18px;
-    margin: 0 0 4px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--receipt-maroon);
+    margin: 0 0 2mm;
+    letter-spacing: 0.2px;
   }
   .receipt-subtitle,
   .receipt-address,
   .receipt-phone {
     font-size: 11px;
-    margin: 2px 0;
+    color: #333;
+    margin: 1mm 0;
   }
+  .receipt-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 4mm auto 0;
+  }
+  .receipt-divider.footer-divider {
+    margin: 3mm auto 2mm;
+  }
+  .divider-line {
+    height: 1px;
+    width: 130px;
+    background: var(--receipt-maroon-line);
+  }
+  .divider-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--receipt-maroon-soft);
+  }
+  .divider-dot.large {
+    width: 5px;
+    height: 5px;
+    background: var(--receipt-maroon);
+  }
+
   .receipt-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
-    font-weight: bold;
-    margin: 10px 0;
+    align-items: center;
+    font-size: 12.5px;
+    margin: 0 0 4mm;
   }
-  table.receipt-fields {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin-top: 8px;
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
-  table.receipt-fields td {
-    padding: 6px 4px;
-    border-bottom: 1px dotted #999;
-    vertical-align: bottom;
+  .meta-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--receipt-maroon);
+    flex-shrink: 0;
   }
-  table.receipt-fields td.label {
-    font-weight: bold;
-    width: 45%;
-    white-space: nowrap;
+  .meta-item b {
+    font-weight: 700;
   }
-  table.receipt-fields td.blank-line {
-    border-bottom: 1px dotted #999;
+
+  .receipt-details {
+    border: 1px solid var(--receipt-maroon-line);
+    border-radius: 8px;
+    padding: 1mm 5mm;
   }
+  .detail-row {
+    display: grid;
+    grid-template-columns: 22px 58mm 12px 1fr;
+    align-items: center;
+    column-gap: 8px;
+    padding: 3mm 0;
+    border-bottom: 1px dotted var(--receipt-maroon-line);
+  }
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  .detail-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--receipt-maroon);
+  }
+  .detail-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  .detail-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--receipt-ink);
+  }
+  .detail-colon {
+    font-size: 12.5px;
+    color: #666;
+  }
+  .detail-value {
+    font-size: 12.5px;
+    font-weight: 400;
+    color: var(--receipt-ink);
+  }
+  .value-blank {
+    display: inline-block;
+    width: 46px;
+    border-bottom: 1px solid var(--receipt-ink);
+  }
+
+  .receipt-note {
+    text-align: center;
+    font-style: italic;
+    font-size: 10.5px;
+    color: #444;
+    margin: 0 0 6mm;
+  }
+
   .receipt-signature {
-    margin-top: 40px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    font-size: 12px;
+    padding: 0 6mm;
   }
-  .receipt-signature .sign-line {
-    border-top: 1px solid #111;
-    width: 160px;
+  .sign-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2mm;
+  }
+  .sign-line {
+    width: 55mm;
+    border-top: 1px solid var(--receipt-ink);
+  }
+  .sign-label {
+    font-size: 11px;
   }
 }
