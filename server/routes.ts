@@ -203,23 +203,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // NOT in this list - it accepts every submission but the operator/DLT layer
       // silently drops delivery afterwards, which made OTPs unusable.
       //
-      // 1. WhatsApp - no-ops safely (returns false) until an Authentication-category
-      //    template named 'otp_verification' is approved in Meta and mapped in the
-      //    admin panel, same pattern as every other WhatsApp notification here.
-      const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
-      if (whatsappSent) {
-        console.log(`✅ OTP sent to ${cleanMobile} via WhatsApp: ${otp}`);
-        return res.json({
-          message: "OTP sent successfully",
-          mobile: cleanMobile,
-          channel: "whatsapp",
-          expiresIn: 300
-        });
-      }
-
-      // 2. Email - only possible if this mobile number already belongs to an
-      //    account with an email on file (signup email is optional, and OTP-first
-      //    users never had a chance to give one).
+      // 1. Email - tried first because it carries no branding confusion. Only
+      //    possible if this mobile number already belongs to an account with an
+      //    email on file (signup email is optional, and OTP-first users never
+      //    had a chance to give one).
       const existingUser = await storage.getUserByMobile(cleanMobile);
       if (existingUser?.email) {
         const emailSent = await sendOTPEmail(existingUser.email, otp);
@@ -237,9 +224,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // 2. WhatsApp - last resort. The template is approved and delivery is
+      // confirmed working, but the sending number is a temporary stand-in
+      // ("P91 India") unrelated to this business, borrowed until the real
+      // number's account access is sorted out. Tried only when there's no
+      // email on file, to keep as few customers as possible seeing that name.
+      const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
+      if (whatsappSent) {
+        console.log(`✅ OTP sent to ${cleanMobile} via WhatsApp: ${otp}`);
+        return res.json({
+          message: "OTP sent successfully",
+          mobile: cleanMobile,
+          channel: "whatsapp",
+          expiresIn: 300
+        });
+      }
+
       // Nothing worked - tell the customer plainly rather than pretending an OTP
       // is on its way. Password login stays available for accounts that have one.
-      console.error(`❌ Could not deliver OTP to ${cleanMobile} - no working channel (WhatsApp not yet configured${existingUser?.email ? ", email send failed" : ", no email on file"})`);
+      console.error(`❌ Could not deliver OTP to ${cleanMobile} - no working channel (${existingUser?.email ? "email send failed" : "no email on file"}, WhatsApp send failed)`);
       res.status(503).json({
         message: "We're unable to send a verification code right now. Please use password login, or contact us on WhatsApp for help.",
       });
