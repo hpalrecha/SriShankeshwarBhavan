@@ -38,6 +38,14 @@ export class RazorpayGateway implements PaymentGatewayInterface {
       currency: currency.toUpperCase(),
       receipt: `booking_${bookingId}`,
       payment_capture: 1,
+      // The webhook (handleRazorpayPaymentSuccess) reads payment.notes.receipt,
+      // a different field from the order-level `receipt` above - without this,
+      // notes was always empty and the webhook could never match a payment to
+      // a booking, for any payment, ever. This is the safety net for when the
+      // client never completes /api/payment/verify (closed tab, crash, etc).
+      notes: {
+        receipt: `booking_${bookingId}`,
+      },
     };
 
     return await this.razorpay.orders.create(options);

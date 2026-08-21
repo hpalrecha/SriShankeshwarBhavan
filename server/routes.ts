@@ -1050,37 +1050,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         extraBedAmount: extraBedAmount.toString(),
       });
 
-      // Send notifications asynchronously (fire-and-forget for better performance)
-      setImmediate(async () => {
-        // Send booking confirmation email
-        try {
-          await sendBookingConfirmationEmail({
-            booking,
-            user,
-            category,
-          });
-        } catch (error) {
-          console.error("Error sending booking confirmation email:", error);
-        }
-
-        // Send booking confirmation WhatsApp notification
-        console.log(`🚀 ATTEMPTING WhatsApp notification for booking: ${booking.bookingId}`);
-        console.log(`📞 Phone number from booking: ${booking.primaryGuestPhone}`);
-        console.log(`📞 Phone number from user: ${user?.mobile || 'N/A'}`);
-        
-        try {
-          const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
-          console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
-          if (whatsappResult) {
-            console.log(`✅ SUCCESS: WhatsApp message sent for booking ${booking.bookingId}`);
-          } else {
-            console.log(`❌ FAILED: WhatsApp message not sent for booking ${booking.bookingId}`);
+      // Send notifications asynchronously (fire-and-forget for better performance).
+      // Skipped when this booking is awaiting online payment - it isn't actually
+      // confirmed yet, and telling the guest otherwise before money has moved
+      // would be wrong. /api/payment/verify sends this same notification once
+      // payment is genuinely confirmed.
+      const awaitingOnlinePayment = booking.paymentMethod === "pay_online" && booking.paymentStatus === "unpaid";
+      if (!awaitingOnlinePayment) {
+        setImmediate(async () => {
+          // Send booking confirmation email
+          try {
+            await sendBookingConfirmationEmail({
+              booking,
+              user,
+              category,
+            });
+          } catch (error) {
+            console.error("Error sending booking confirmation email:", error);
           }
-        } catch (error) {
-          console.error("❌ Error sending booking confirmation WhatsApp:", error);
-          console.error("❌ Full error details:", JSON.stringify(error, null, 2));
-        }
-      });
+
+          // Send booking confirmation WhatsApp notification
+          console.log(`🚀 ATTEMPTING WhatsApp notification for booking: ${booking.bookingId}`);
+          console.log(`📞 Phone number from booking: ${booking.primaryGuestPhone}`);
+          console.log(`📞 Phone number from user: ${user?.mobile || 'N/A'}`);
+
+          try {
+            const whatsappResult = await whatsappService.sendBookingConfirmation(booking, user, category);
+            console.log(`📱 WhatsApp booking confirmation result: ${whatsappResult}`);
+            if (whatsappResult) {
+              console.log(`✅ SUCCESS: WhatsApp message sent for booking ${booking.bookingId}`);
+            } else {
+              console.log(`❌ FAILED: WhatsApp message not sent for booking ${booking.bookingId}`);
+            }
+          } catch (error) {
+            console.error("❌ Error sending booking confirmation WhatsApp:", error);
+            console.error("❌ Full error details:", JSON.stringify(error, null, 2));
+          }
+        });
+      }
 
       // Auto-login users asynchronously for better performance
       if (req.session) {
@@ -2801,13 +2808,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           gatewayResponse: JSON.stringify(paymentData),
         });
 
+        // Checked before updating - Razorpay's webhook can arrive before this
+        // client call does and mark the booking paid first, in which case it
+        // already sent the confirmation and this must not send it again.
+        const bookingBeforeUpdate = await storage.getRoomBooking(transaction.bookingId);
+        const alreadyPaid = bookingBeforeUpdate?.paymentStatus === "paid_online";
+
         // Update booking payment status
-        await storage.updateRoomBooking(transaction.bookingId, {
+        const updatedBooking = await storage.updateRoomBooking(transaction.bookingId, {
           paymentStatus: "paid_online",
           paymentReference: paymentData.razorpay_payment_id || paymentData.mihpayid,
         });
 
         res.json({ success: true, message: "Payment verified successfully" });
+
+        // Payment is now genuinely confirmed - this is the correct moment to
+        // tell the guest their booking is confirmed (booking creation itself
+        // skips this when a booking is created still awaiting online payment).
+        if (!alreadyPaid) setImmediate(async () => {
+          try {
+            const [bookingUser, bookingCategory] = await Promise.all([
+              storage.getUser(updatedBooking.userId),
+              storage.getRoomCategory(updatedBooking.roomCategoryId),
+            ]);
+            if (bookingCategory) {
+              await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
+              await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
+            }
+          } catch (error) {
+            console.error("Error sending post-payment booking confirmation:", error);
+          }
+        });
       } else {
         // Update transaction status to failed
         await storage.updatePaymentTransaction(transaction.id, {
@@ -3123,32 +3154,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handleRazorpayPaymentSuccess(payment: any) {
     try {
       console.log("✅ Processing Razorpay payment success:", payment.id);
-      
+
       // Extract booking ID from receipt
       const receipt = payment.notes?.receipt || payment.description || '';
       const bookingIdMatch = receipt.match(/booking_(.+)/);
-      
+
       if (!bookingIdMatch) {
         console.error("❌ Could not extract booking ID from Razorpay payment:", receipt);
         return;
       }
-      
-      const bookingId = bookingIdMatch[1];
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(payment.id, {
-        status: 'completed',
-        gatewayTransactionId: payment.id,
-        gatewayResponse: JSON.stringify(payment)
-      });
 
-      // Update booking payment status
-      await storage.updateRoomBooking(bookingId, {
+      const stringBookingId = bookingIdMatch[1];
+      // bookingIdMatch[1] is the string bookingId (e.g. "SSH-..."), but both
+      // updateRoomBooking and updatePaymentTransaction take the numeric
+      // primary key - passing the string (as this previously did) either
+      // throws or silently matches nothing. Resolve to the real row first.
+      const booking = await storage.getRoomBookingByBookingId(stringBookingId);
+      if (!booking) {
+        console.error("❌ Razorpay webhook: no booking found for", stringBookingId);
+        return;
+      }
+
+      // Idempotency: Razorpay can (and does) redeliver webhooks, and this can
+      // also fire after the client's own /api/payment/verify call already
+      // completed the same payment. Without this check, a guest could get the
+      // confirmation email/WhatsApp message twice.
+      const alreadyPaid = booking.paymentStatus === 'paid_online';
+
+      // payment.order_id, not payment.id, matches what create-order stored -
+      // payment.id is Razorpay's payment ID, never written to orderId.
+      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+      if (transaction) {
+        await storage.updatePaymentTransaction(transaction.id, {
+          status: 'completed',
+          gatewayTransactionId: payment.id,
+          gatewayResponse: JSON.stringify(payment)
+        });
+      } else {
+        console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
+      }
+
+      const updatedBooking = await storage.updateRoomBooking(booking.id, {
         paymentStatus: 'paid_online',
         paymentReference: payment.id
       });
-      
-      console.log("✅ Razorpay payment success processed for booking:", bookingId);
+
+      console.log("✅ Razorpay payment success processed for booking:", stringBookingId);
+
+      if (!alreadyPaid) {
+        const [bookingUser, bookingCategory] = await Promise.all([
+          storage.getUser(updatedBooking.userId),
+          storage.getRoomCategory(updatedBooking.roomCategoryId),
+        ]);
+        if (bookingCategory) {
+          await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
+          await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
+        }
+      }
     } catch (error) {
       console.error("❌ Error processing Razorpay payment success:", error);
     }
@@ -3157,15 +3219,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handleRazorpayPaymentFailure(payment: any) {
     try {
       console.log("❌ Processing Razorpay payment failure:", payment.id);
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(payment.id, {
+
+      // payment.order_id, not payment.id - same fix as the success handler.
+      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+      if (!transaction) {
+        console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
+        return;
+      }
+
+      await storage.updatePaymentTransaction(transaction.id, {
         status: 'failed',
         gatewayTransactionId: payment.id,
         gatewayResponse: JSON.stringify(payment),
         failureReason: payment.error_description || 'Payment failed'
       });
-      
+
       console.log("❌ Razorpay payment failure processed:", payment.id);
     } catch (error) {
       console.error("❌ Error processing Razorpay payment failure:", error);

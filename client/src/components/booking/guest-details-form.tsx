@@ -154,22 +154,16 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     mutationFn: async (data: { user: GuestFormData; booking: any }) => {
       return await apiRequest("POST", "/api/bookings", data);
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables: any) => {
       const result = await response.json();
       setBookingId(result.bookingId);
-      
+
       // Invalidate caches for real-time updates
       queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
-      
-      // After booking is created (post-payment), show confirmation
-      setIsProcessingPayment(false);
-      setShowConfirmation(true);
-      
-      // Always invalidate auth cache after booking to refresh login status
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      
+
       // Show success message for new accounts
       if (result.autoLoggedIn && result.defaultPassword) {
         setTimeout(() => {
@@ -179,9 +173,22 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
           });
         }, 1500);
       }
+
+      // The booking record now exists BEFORE any money moves. For online
+      // payment, proceed to Razorpay using this real bookingId (not a TEMP_
+      // placeholder) so a captured payment always has a booking to attach to,
+      // even if the browser crashes or the user never sees the confirmation.
+      if (variables.booking.paymentMethod === "pay_online") {
+        const paymentAmount = parseFloat(variables.booking.totalAmount);
+        initiateRazorpayPayment(variables.user, paymentAmount, String(result.bookingId));
+      } else {
+        setIsProcessingPayment(false);
+        setShowConfirmation(true);
+      }
     },
     onError: (error) => {
       console.error("Booking error:", error);
+      setIsProcessingPayment(false);
       toast({
         title: "Booking Failed",
         description: "Failed to create booking. Please try again.",
@@ -203,7 +210,7 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const primaryCategory = availabilityData.category || availabilityData.selectedRooms?.[0]?.category;
 
   // Direct Razorpay payment handling (no intermediate screen)
-  const initiateRazorpayPayment = async (values: GuestSchemaType, paymentAmount: number) => {
+  const initiateRazorpayPayment = async (values: GuestSchemaType, paymentAmount: number, realBookingId: string) => {
     const gateway = paymentGateways.find(g => g.gatewayName === "razorpay") || paymentGateways[0];
     if (!gateway) {
       toast({
@@ -216,10 +223,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
     }
 
     try {
-      // Create payment order
-      const tempBookingId = `TEMP_${Date.now()}`;
+      // Create payment order against the real booking (already saved as
+      // "unpaid") so the server can always match a captured payment back to it.
       const response = await apiRequest("POST", "/api/payment/create-order", {
-        bookingId: tempBookingId,
+        bookingId: realBookingId,
         gatewayName: gateway.gatewayName,
         amount: paymentAmount,
       });
@@ -266,23 +273,34 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       handler: async (response: any) => {
         console.log("Razorpay payment successful:", response);
         try {
-          // Verify payment
+          // Verify payment against the booking created before payment started
           const verifyResponse = await apiRequest("POST", "/api/payment/verify", {
             transactionId: orderData.transactionId,
             paymentData: response,
             gatewayName: "razorpay",
           });
-          
+
           if (verifyResponse.ok) {
             toast({ title: "Payment Successful", description: "Your payment has been processed!" });
-            // Now create the booking
-            createBookingFromFormData(values);
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+            setIsProcessingPayment(false);
+            setShowConfirmation(true);
           } else {
             throw new Error("Payment verification failed");
           }
         } catch (error: any) {
+          // Money may already be captured by Razorpay at this point - the
+          // booking itself was already saved before payment started, so it's
+          // not lost, just left "unpaid" for the office to reconcile against
+          // this payment id.
           setIsProcessingPayment(false);
-          toast({ title: "Payment Error", description: error.message || "Payment verification failed", variant: "destructive" });
+          toast({
+            title: "Payment Verification Issue",
+            description: `Your payment (ref: ${response.razorpay_payment_id || "unknown"}) may have gone through, but we couldn't confirm it automatically. Your booking (ID: ${bookingId}) is saved - please contact us with this payment reference so we can confirm it.`,
+            variant: "destructive",
+          });
         }
       },
       prefill: {
@@ -326,11 +344,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       return;
     }
     
-    // Directly open Razorpay payment
+    // Save the booking first (as unpaid), then move on to payment - this
+    // guarantees a booking record exists before any money moves.
     setIsProcessingPayment(true);
-    
-    const paymentAmount = calculateTotalAmount();
-    initiateRazorpayPayment(values, paymentAmount);
+    createBookingFromFormData(values);
   };
 
   const createBookingFromFormData = (values: GuestSchemaType) => {
@@ -364,7 +381,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         dinnerDays: values.dinnerDays,
         extraBeds: values.extraBeds || 0,
         paymentMethod: values.paymentMethod,
-        paymentStatus: values.paymentMethod === "pay_online" ? "paid" : "unpaid",
+        // Never "paid" at creation time - the booking is saved before payment
+        // is attempted; /api/payment/verify (or the webhook) flips this to
+        // "paid_online" only once Razorpay actually confirms the charge.
+        paymentStatus: "unpaid",
         totalAmount: finalTotalAmount.toString(),
         status: "confirmed",
         isAutoBooking: false,

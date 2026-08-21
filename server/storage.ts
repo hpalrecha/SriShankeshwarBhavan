@@ -709,6 +709,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(paymentTransactions.createdAt));
   }
 
+  async getPaymentTransactionByOrderId(orderId: string): Promise<PaymentTransaction | undefined> {
+    const [transaction] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.orderId, orderId));
+    return transaction;
+  }
+
   async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
     const [newTransaction] = await db.insert(paymentTransactions).values(transaction).returning();
     return newTransaction;
