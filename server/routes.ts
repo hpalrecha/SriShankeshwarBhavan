@@ -1053,17 +1053,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Check if user exists or create new user (by mobile number)
+      // Check if user exists (by mobile, then by email) or create a new one.
+      // Mobile alone isn't enough: a guest typing their number in a
+      // different format than what's on file (leading zero, missing "+91")
+      // won't match an existing account by mobile, and createUser then
+      // crashes on the database's email-uniqueness constraint instead of a
+      // clean error - this was surfacing as an opaque "Booking Failed" for
+      // returning guests with a real, already-registered email.
       let user = await storage.getUserByMobile(userData.mobile);
+      if (!user && userData.email) {
+        user = await storage.getUserByEmail(userData.email);
+      }
       let isNewUser = false;
       if (!user) {
-        // Create user with a default password for guest bookings
-        const hashedPassword = await bcrypt.hash("guest123", 10);
-        user = await storage.createUser({
-          ...userData,
-          password: hashedPassword,
-        });
-        isNewUser = true;
+        try {
+          // Create user with a default password for guest bookings
+          const hashedPassword = await bcrypt.hash("guest123", 10);
+          user = await storage.createUser({
+            ...userData,
+            password: hashedPassword,
+          });
+          isNewUser = true;
+        } catch (createUserError: any) {
+          // Last-resort fallback for a genuine mobile/email collision this
+          // lookup didn't catch (e.g. a format neither check matched) -
+          // re-fetch the existing account instead of crashing the booking.
+          if (createUserError?.code === "23505") {
+            user = (userData.email && await storage.getUserByEmail(userData.email))
+              || await storage.getUserByMobile(userData.mobile);
+          }
+          if (!user) throw createUserError;
+        }
       }
 
       // Generate booking ID
