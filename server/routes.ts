@@ -237,8 +237,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "No account found with this email. Please sign up, or use your mobile number instead." });
         }
 
+        // Some accounts have "+91"-prefixed mobiles stored, others don't (see
+        // the WhatsApp-mobile-cleaning path below) - verify-otp always strips
+        // "+91" before its lookup, so storing/returning the raw, unstripped
+        // user.mobile here made every OTP for a "+91"-prefixed account
+        // unfindable at verify time (guaranteed 401). Normalize once here so
+        // what's stored, returned to the client, and looked up all agree.
+        const userCleanMobile = user.mobile.replace(/^\+91/, '').replace(/\s+/g, '');
+
         await storage.cleanupExpiredOTPs();
-        const recentOTP = await storage.getLatestOTPVerification(user.mobile);
+        const recentOTP = await storage.getLatestOTPVerification(userCleanMobile);
         if (recentOTP?.createdAt && Date.now() - new Date(recentOTP.createdAt).getTime() < 60000) {
           return res.status(429).json({ message: "Please wait before requesting another OTP" });
         }
@@ -249,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // column, and every account already has a mobile number, so this
         // needs no migration. The customer never sees this; verify-otp
         // continues to work exactly as it does for the WhatsApp path.
-        await storage.createOTPVerification({ mobile: user.mobile, otp, expiresAt, verified: false, attempts: 0 });
+        await storage.createOTPVerification({ mobile: userCleanMobile, otp, expiresAt, verified: false, attempts: 0 });
 
         const emailSent = await sendOTPEmail(user.email!, otp);
         if (!emailSent) {
@@ -257,10 +265,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(503).json({ message: "We couldn't send a code to that email right now. Please try again, or use your mobile number instead." });
         }
 
-        console.log(`✅ OTP sent to ${user.mobile} via email (${user.email}): ${otp}`);
+        console.log(`✅ OTP sent to ${userCleanMobile} via email (${user.email}): ${otp}`);
         const [name, domain] = user.email!.split("@");
         const maskedEmail = `${name.slice(0, 2)}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
-        return res.json({ message: "OTP sent successfully", mobile: user.mobile, channel: "email", maskedEmail, expiresIn: 300 });
+        return res.json({ message: "OTP sent successfully", mobile: userCleanMobile, channel: "email", maskedEmail, expiresIn: 300 });
       }
 
       if (method === "whatsapp") {

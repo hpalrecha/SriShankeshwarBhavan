@@ -626,24 +626,25 @@ export default function InventoryManagement() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((category: RoomCategory) => (
-          <Card key={category.id} className="hover:shadow-lg transition-shadow">
+          <Card key={category.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+            {/* Full-width banner instead of a 48x48 thumbnail - at icon size,
+                similarly-toned room photos were indistinguishable from each
+                other; a real banner actually shows what's different. */}
+            {category.imageUrl ? (
+              <img
+                src={category.imageUrl}
+                alt={category.name}
+                className="w-full h-40 object-cover"
+              />
+            ) : (
+              <div className="w-full h-40 bg-gray-100 flex items-center justify-center">
+                <ImageIcon className="h-10 w-10 text-gray-400" />
+              </div>
+            )}
             <CardHeader>
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    {category.imageUrl ? (
-                      <img 
-                        src={category.imageUrl} 
-                        alt={category.name}
-                        className="w-12 h-12 object-cover rounded-lg border"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg border flex items-center justify-center">
-                        <ImageIcon className="h-6 w-6 text-gray-400" />
-                      </div>
-                    )}
-                    <CardTitle className="text-lg">{category.name}</CardTitle>
-                  </div>
+                  <CardTitle className="text-lg">{category.name}</CardTitle>
                   <CardDescription className="mt-2">
                     {category.description}
                   </CardDescription>
