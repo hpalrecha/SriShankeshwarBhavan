@@ -189,7 +189,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByMobile(mobile: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.mobile, mobile));
+    // Accounts have mobile stored with or without a "+91" prefix depending on
+    // which signup/login path created them - an exact-match lookup here is
+    // what let two accounts exist for the same real phone number (one
+    // "+91"-prefixed, one not), and made OTP login land on whichever one
+    // happened to match the caller's format instead of the right account.
+    const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`CASE WHEN ${users.mobile} LIKE '+91%' THEN substring(${users.mobile} from 4) ELSE ${users.mobile} END = ${cleanMobile}`);
     return user;
   }
 
