@@ -153,6 +153,8 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       paid: "secondary",
       unpaid: "destructive",
       pending: "default",
+      refunded: "secondary",
+      refund_failed: "destructive",
     };
     return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };

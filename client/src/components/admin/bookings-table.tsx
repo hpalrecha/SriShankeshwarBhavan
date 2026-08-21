@@ -117,6 +117,8 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       paid: "secondary",
       unpaid: "destructive",
       pending: "outline",
+      refunded: "secondary",
+      refund_failed: "destructive",
     };
 
     return (
