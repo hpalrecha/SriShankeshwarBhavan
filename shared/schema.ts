@@ -42,9 +42,9 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   token: varchar("token", { length: 255 }).notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   used: boolean("used").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // OTP Verification Table
@@ -52,10 +52,10 @@ export const otpVerifications = pgTable("otp_verifications", {
   id: serial("id").primaryKey(),
   mobile: varchar("mobile", { length: 20 }).notNull(),
   otp: varchar("otp", { length: 6 }).notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   verified: boolean("verified").default(false),
   attempts: integer("attempts").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Room Bookings
