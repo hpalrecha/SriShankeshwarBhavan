@@ -1,4 +1,5 @@
 import { sendEmailViaSES } from './emailSES';
+import { generateReceiptPdfBuffer } from './receipt-pdf';
 import type { RoomBooking, User, RoomCategory } from "@shared/schema";
 import * as nodemailer from 'nodemailer';
 // import { whatsappService } from "./whatsapp"; // Removed to avoid duplicate WhatsApp notifications - now handled in routes.ts
@@ -19,41 +20,59 @@ const createSMTPTransporter = () => {
   });
 };
 
-// Hybrid email sending function - tries AWS SES first, falls back to SMTP
-async function sendEmailHybrid(to: string, subject: string, htmlBody: string, textBody: string): Promise<boolean> {
+interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
+// Hybrid email sending function - tries AWS SES first, falls back to SMTP.
+// AWS SES's plain SendEmail API (used by sendEmailViaSES) can't carry
+// attachments at all, so a request with one skips straight to the SMTP path,
+// which sends over the same SES infrastructure via nodemailer's MIME support.
+async function sendEmailHybrid(
+  to: string,
+  subject: string,
+  htmlBody: string,
+  textBody: string,
+  attachments?: EmailAttachment[]
+): Promise<boolean> {
   console.log(`Attempting to send email to: ${to}`);
   console.log(`Subject: ${subject}`);
-  
-  // First try AWS SES
-  try {
-    console.log("Trying AWS SES...");
-    const sesResult = await sendEmailViaSES({
-      to,
-      subject, 
-      html: htmlBody,
-      text: textBody
-    });
-    if (sesResult) {
-      console.log("✅ Email sent successfully via AWS SES");
-      return true;
+
+  if (!attachments || attachments.length === 0) {
+    // First try AWS SES
+    try {
+      console.log("Trying AWS SES...");
+      const sesResult = await sendEmailViaSES({
+        to,
+        subject,
+        html: htmlBody,
+        text: textBody
+      });
+      if (sesResult) {
+        console.log("✅ Email sent successfully via AWS SES");
+        return true;
+      }
+    } catch (error: any) {
+      console.log(`❌ AWS SES failed: ${error.message}`);
     }
-  } catch (error: any) {
-    console.log(`❌ AWS SES failed: ${error.message}`);
   }
-  
-  // Fallback to working SMTP
+
+  // Fallback to working SMTP (also the only path when there's an attachment)
   try {
     console.log("Falling back to SMTP...");
     const transporter = createSMTPTransporter();
-    
+
     const mailOptions = {
       from: 'booking@ssbb.in',
       to: to,
       subject: subject,
       html: htmlBody,
-      text: textBody
+      text: textBody,
+      attachments
     };
-    
+
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Email sent successfully via SMTP! MessageId: ${info.messageId}`);
     return true;
@@ -171,8 +190,26 @@ We look forward to hosting you at Sri Shankeshwar Bengaluru Bhavan!
 © 2025 Sri Shankeshwar Bengaluru Bhavan. All rights reserved.
     `;
 
-    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody);
-    
+    // Attach the same design as the printable receipt as a PDF. A PDF
+    // generation failure shouldn't block the confirmation email itself -
+    // the guest still needs to know their booking is confirmed even if the
+    // attachment couldn't be built, so this is best-effort.
+    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+    try {
+      const pdfBuffer = await generateReceiptPdfBuffer({ booking, user: user ?? null, category, guestName });
+      attachments = [
+        {
+          filename: `Receipt-${booking.bookingId}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ];
+    } catch (pdfError) {
+      console.error("Error generating receipt PDF for confirmation email:", pdfError);
+    }
+
+    const emailSent = await sendEmailHybrid(recipientEmail, subject, htmlBody, textBody, attachments);
+
     // WhatsApp notification is now handled separately in routes.ts to avoid duplication
 
     return emailSent;
