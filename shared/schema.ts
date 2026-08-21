@@ -64,8 +64,8 @@ export const roomBookings = pgTable("room_bookings", {
   bookingId: varchar("booking_id", { length: 50 }).notNull().unique(),
   userId: integer("user_id").references(() => users.id).notNull(),
   roomCategoryId: integer("room_category_id").references(() => roomCategories.id).notNull(),
-  checkinDate: timestamp("checkin_date").notNull(),
-  checkoutDate: timestamp("checkout_date").notNull(),
+  checkinDate: timestamp("checkin_date", { withTimezone: true }).notNull(),
+  checkoutDate: timestamp("checkout_date", { withTimezone: true }).notNull(),
   guests: integer("guests").notNull().default(1),
   status: varchar("status", { length: 50 }).notNull().default("confirmed"), // confirmed, cancelled, checked_in, checked_out
   paymentStatus: varchar("payment_status", { length: 50 }).notNull().default("unpaid"), // paid_online, unpaid, pending, paid_checkin
@@ -91,11 +91,11 @@ export const roomBookings = pgTable("room_bookings", {
   goingTo: varchar("going_to", { length: 255 }),
   eta: varchar("eta", { length: 100 }),
   etd: varchar("etd", { length: 100 }),
-  estimatedArrivalTime: timestamp("estimated_arrival_time"),
-  estimatedDepartureTime: timestamp("estimated_departure_time"),
+  estimatedArrivalTime: timestamp("estimated_arrival_time", { withTimezone: true }),
+  estimatedDepartureTime: timestamp("estimated_departure_time", { withTimezone: true }),
   // Check-in/out actual times
-  actualCheckinTime: timestamp("actual_checkin_time"),
-  actualCheckoutTime: timestamp("actual_checkout_time"),
+  actualCheckinTime: timestamp("actual_checkin_time", { withTimezone: true }),
+  actualCheckoutTime: timestamp("actual_checkout_time", { withTimezone: true }),
   // Food booking
   foodBreakfast: boolean("food_breakfast").default(false),
   foodLunch: boolean("food_lunch").default(false),
