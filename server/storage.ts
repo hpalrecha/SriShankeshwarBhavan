@@ -180,7 +180,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    // Case-insensitive: 4 existing accounts have mixed-case stored emails
+    // (e.g. "KATARIA1967@GMAIL.COM"), and email is now a primary login
+    // identifier - an exact-match lookup would silently lock those accounts
+    // out the moment someone types their own address in lowercase.
+    const [user] = await db.select().from(users).where(sql`lower(${users.email}) = lower(${email})`);
     return user;
   }
 

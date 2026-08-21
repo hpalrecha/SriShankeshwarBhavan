@@ -12,6 +12,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Home, MessageSquare, Clock } from "lucide-react";
 
+const emailSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
 const mobileSchema = z.object({
   mobile: z.string().min(10, "Please enter a valid mobile number"),
 });
@@ -20,29 +24,39 @@ const otpSchema = z.object({
   otp: z.string().length(6, "OTP must be 6 digits"),
 });
 
+type EmailFormData = z.infer<typeof emailSchema>;
 type MobileFormData = z.infer<typeof mobileSchema>;
 type OTPFormData = z.infer<typeof otpSchema>;
+
+// Two explicit, non-overlapping ways to request an OTP - email is the
+// default/preferred option; mobile (WhatsApp) only engages when the
+// customer deliberately switches to it. Never an automatic fallback
+// from one to the other.
+type OTPMethod = "email" | "mobile";
 
 export default function OTPLogin() {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
+  const [method, setMethod] = useState<OTPMethod>("email");
+  const [step, setStep] = useState<"request" | "otp">("request");
   const [mobile, setMobile] = useState<string>("");
+  const [displayTarget, setDisplayTarget] = useState<string>("");
   const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  const emailForm = useForm<EmailFormData>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: "" },
+  });
 
   const mobileForm = useForm<MobileFormData>({
     resolver: zodResolver(mobileSchema),
-    defaultValues: {
-      mobile: "",
-    },
+    defaultValues: { mobile: "" },
   });
 
   const otpForm = useForm<OTPFormData>({
     resolver: zodResolver(otpSchema),
-    defaultValues: {
-      otp: "",
-    },
+    defaultValues: { otp: "" },
   });
 
   // Countdown timer for OTP expiry
@@ -55,21 +69,20 @@ export default function OTPLogin() {
   }, [timeLeft]);
 
   const sendOTPMutation = useMutation({
-    mutationFn: async (data: MobileFormData) => {
-      const res = await apiRequest("POST", "/api/auth/send-otp", data);
+    mutationFn: async (body: { method: "email" | "whatsapp"; email?: string; mobile?: string }) => {
+      const res = await apiRequest("POST", "/api/auth/send-otp", body);
       return await res.json();
     },
     onSuccess: (response: any) => {
-      const mobileNumber = response.mobile || mobileForm.getValues().mobile;
-      setMobile(mobileNumber);
+      setMobile(response.mobile);
       setStep("otp");
       setTimeLeft(300); // 5 minutes
       if (response.channel === "whatsapp") {
+        setDisplayTarget(response.mobile);
         setSuccess("OTP sent successfully! Please check WhatsApp for the 6-digit code.");
-      } else if (response.channel === "email") {
-        setSuccess(`OTP sent successfully! Please check your email (${response.maskedEmail}) for the 6-digit code.`);
       } else {
-        setSuccess("OTP sent successfully! Please check your mobile for the 6-digit code.");
+        setDisplayTarget(response.maskedEmail || "your email");
+        setSuccess(`OTP sent successfully! Please check your email (${response.maskedEmail}) for the 6-digit code.`);
       }
       setError("");
     },
@@ -100,22 +113,36 @@ export default function OTPLogin() {
     },
   });
 
+  const onEmailSubmit = (data: EmailFormData) => {
+    setError("");
+    setSuccess("");
+    sendOTPMutation.mutate({ method: "email", email: data.email });
+  };
+
   const onMobileSubmit = (data: MobileFormData) => {
     setError("");
     setSuccess("");
-    sendOTPMutation.mutate(data);
+    sendOTPMutation.mutate({ method: "whatsapp", mobile: data.mobile });
   };
 
   const onOTPSubmit = (data: OTPFormData) => {
     setError("");
-    console.log('Current mobile state:', mobile);
-    console.log('OTP form data:', data);
     verifyOTPMutation.mutate(data);
   };
 
   const resendOTP = () => {
     if (timeLeft > 0) return;
-    sendOTPMutation.mutate({ mobile });
+    if (method === "email") {
+      sendOTPMutation.mutate({ method: "email", email: emailForm.getValues().email });
+    } else {
+      sendOTPMutation.mutate({ method: "whatsapp", mobile });
+    }
+  };
+
+  const switchMethod = (next: OTPMethod) => {
+    setMethod(next);
+    setError("");
+    setSuccess("");
   };
 
   const formatTime = (seconds: number) => {
@@ -132,7 +159,7 @@ export default function OTPLogin() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => step === "otp" ? setStep("mobile") : setLocation("/")}
+              onClick={() => step === "otp" ? setStep("request") : setLocation("/")}
               className="text-gray-500 hover:text-brand-orange"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -148,12 +175,12 @@ export default function OTPLogin() {
             </Button>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
-            {step === "mobile" ? "Sign In" : "Verify OTP"}
+            {step === "request" ? "Sign In" : "Verify OTP"}
           </CardTitle>
           <CardDescription>
-            {step === "mobile" 
-              ? "Enter your mobile number to receive an OTP"
-              : `Enter the 6-digit code sent to ${mobile || "undefined"}`
+            {step === "request"
+              ? (method === "email" ? "Enter your email to receive an OTP" : "Enter your mobile number to receive an OTP via WhatsApp")
+              : `Enter the 6-digit code sent to ${displayTarget || "undefined"}`
             }
           </CardDescription>
         </CardHeader>
@@ -171,41 +198,91 @@ export default function OTPLogin() {
             </Alert>
           )}
 
-          {step === "mobile" ? (
-            <form onSubmit={mobileForm.handleSubmit(onMobileSubmit)} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="mobile">Mobile Number</Label>
-                <Input
-                  id="mobile"
-                  type="tel"
-                  placeholder="9876543210"
-                  {...mobileForm.register("mobile")}
-                  className="w-full"
-                />
-                {mobileForm.formState.errors.mobile && (
-                  <p className="text-sm text-red-600">
-                    {mobileForm.formState.errors.mobile.message}
+          {step === "request" ? (
+            method === "email" ? (
+              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    {...emailForm.register("email")}
+                    className="w-full"
+                  />
+                  {emailForm.formState.errors.email && (
+                    <p className="text-sm text-red-600">
+                      {emailForm.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-brand-orange hover:bg-brand-orange/90"
+                  disabled={sendOTPMutation.isPending}
+                >
+                  {sendOTPMutation.isPending ? "Sending OTP..." : "Send OTP"}
+                </Button>
+
+                <div className="text-center space-y-1">
+                  <p className="text-sm text-gray-600">
+                    Prefer password login?{" "}
+                    <Link href="/login/password" className="text-brand-orange hover:underline">
+                      Use password instead
+                    </Link>
                   </p>
-                )}
-              </div>
+                  <p className="text-sm text-gray-600">
+                    Prefer WhatsApp?{" "}
+                    <button
+                      type="button"
+                      onClick={() => switchMethod("mobile")}
+                      className="text-brand-orange hover:underline"
+                    >
+                      Use mobile number instead
+                    </button>
+                  </p>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={mobileForm.handleSubmit(onMobileSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="mobile">Mobile Number</Label>
+                  <Input
+                    id="mobile"
+                    type="tel"
+                    placeholder="9876543210"
+                    {...mobileForm.register("mobile")}
+                    className="w-full"
+                  />
+                  {mobileForm.formState.errors.mobile && (
+                    <p className="text-sm text-red-600">
+                      {mobileForm.formState.errors.mobile.message}
+                    </p>
+                  )}
+                </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-brand-orange hover:bg-brand-orange/90"
-                disabled={sendOTPMutation.isPending}
-              >
-                {sendOTPMutation.isPending ? "Sending OTP..." : "Send OTP"}
-              </Button>
+                <Button
+                  type="submit"
+                  className="w-full bg-brand-orange hover:bg-brand-orange/90"
+                  disabled={sendOTPMutation.isPending}
+                >
+                  {sendOTPMutation.isPending ? "Sending OTP..." : "Send OTP via WhatsApp"}
+                </Button>
 
-              <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Prefer password login?{" "}
-                  <Link href="/login/password" className="text-brand-orange hover:underline">
-                    Use password instead
-                  </Link>
-                </p>
-              </div>
-            </form>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    <button
+                      type="button"
+                      onClick={() => switchMethod("email")}
+                      className="text-brand-orange hover:underline"
+                    >
+                      Use email instead
+                    </button>
+                  </p>
+                </div>
+              </form>
+            )
           ) : (
             <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-6">
               <div className="space-y-2">

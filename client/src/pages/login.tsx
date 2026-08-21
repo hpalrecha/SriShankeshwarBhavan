@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Home, Eye, EyeOff } from "lucide-react";
 
 const loginSchema = z.object({
-  mobile: z.string().min(10, "Please enter a valid mobile number"),
+  email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -27,7 +27,7 @@ export default function Login() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      mobile: "",
+      email: "",
       password: "",
     },
   });
@@ -76,7 +76,7 @@ export default function Login() {
             Password Login
           </CardTitle>
           <CardDescription>
-            Sign in with your mobile number and password
+            Sign in with your email and password
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,17 +88,17 @@ export default function Login() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="mobile"
-                type="tel"
-                placeholder="+91 9876543210"
-                {...form.register("mobile")}
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                {...form.register("email")}
                 className="w-full"
               />
-              {form.formState.errors.mobile && (
+              {form.formState.errors.email && (
                 <p className="text-sm text-red-600">
-                  {form.formState.errors.mobile.message}
+                  {form.formState.errors.email.message}
                 </p>
               )}
             </div>

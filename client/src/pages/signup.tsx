@@ -15,7 +15,7 @@ import { ArrowLeft, Home } from "lucide-react";
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   mobile: z.string().min(10, "Please enter a valid mobile number"),
-  email: z.string().email("Please enter a valid email").optional().or(z.literal("")), // Email is optional now
+  email: z.string().email("Please enter a valid email"), // required - primary login identifier for OTP and password login
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -139,7 +139,7 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email <span className="text-gray-400">(Optional)</span></Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"

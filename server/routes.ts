@@ -132,11 +132,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const { name, email, mobile, password } = req.body;
-      
-      // Check if user already exists by mobile number (primary identifier)
-      const existingUser = await storage.getUserByMobile(mobile);
-      if (existingUser) {
+
+      // Email is now required - it's the primary identifier for OTP and
+      // password login, not just an optional contact field.
+      if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ message: "A valid email address is required" });
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const existingByMobile = await storage.getUserByMobile(mobile);
+      if (existingByMobile) {
         return res.status(400).json({ message: "Mobile number already registered" });
+      }
+      // Case-insensitive, matching getUserByEmail - prevents a second
+      // account ("Foo@x.com" vs "foo@x.com") that login could never
+      // reliably distinguish between.
+      const existingByEmail = await storage.getUserByEmail(normalizedEmail);
+      if (existingByEmail) {
+        return res.status(400).json({ message: "Email already registered" });
       }
 
       // Hash password
@@ -145,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user
       const user = await storage.createUser({
         name,
-        email: email || null, // Email is optional now
+        email: normalizedEmail,
         mobile,
         password: hashedPassword,
       });
@@ -157,95 +170,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send OTP endpoint
+  // Send OTP endpoint - two explicit, non-overlapping modes. Email is the
+  // preferred default; WhatsApp is only ever used when the customer
+  // deliberately chooses the "mobile number" option on the login page -
+  // there is no automatic fallback from one to the other in either
+  // direction. SMS (ComBirds/Edumarc) is intentionally absent from both -
+  // it accepts every submission but the operator/DLT layer silently drops
+  // delivery afterwards, which made OTPs unusable.
   app.post("/api/auth/send-otp", async (req, res) => {
     try {
-      const { mobile } = req.body;
+      const { method, email, mobile } = req.body;
 
-      if (!mobile) {
-        return res.status(400).json({ message: "Mobile number is required" });
-      }
+      if (method === "email") {
+        if (!email || typeof email !== "string") {
+          return res.status(400).json({ message: "Email is required" });
+        }
+        const user = await storage.getUserByEmail(email.trim().toLowerCase());
+        if (!user) {
+          return res.status(404).json({ message: "No account found with this email. Please sign up, or use your mobile number instead." });
+        }
 
-      // Clean mobile number
-      const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
-      
-      // Validate mobile number format
-      if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
-        return res.status(400).json({ message: "Please enter a valid 10-digit mobile number" });
-      }
-
-      // Clean up expired OTPs
-      await storage.cleanupExpiredOTPs();
-      
-      // Check for recent OTP (rate limiting)
-      const recentOTP = await storage.getLatestOTPVerification(cleanMobile);
-      if (recentOTP && recentOTP.createdAt) {
-        const timeDiff = Date.now() - new Date(recentOTP.createdAt).getTime();
-        if (timeDiff < 60000) { // 1 minute
+        await storage.cleanupExpiredOTPs();
+        const recentOTP = await storage.getLatestOTPVerification(user.mobile);
+        if (recentOTP?.createdAt && Date.now() - new Date(recentOTP.createdAt).getTime() < 60000) {
           return res.status(429).json({ message: "Please wait before requesting another OTP" });
         }
-      }
 
-      // Generate OTP
-      const otp = smsService.generateOTP();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+        const otp = smsService.generateOTP();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+        // OTP records are still keyed by mobile - the schema has no email
+        // column, and every account already has a mobile number, so this
+        // needs no migration. The customer never sees this; verify-otp
+        // continues to work exactly as it does for the WhatsApp path.
+        await storage.createOTPVerification({ mobile: user.mobile, otp, expiresAt, verified: false, attempts: 0 });
 
-      // Save OTP to database
-      await storage.createOTPVerification({
-        mobile: cleanMobile,
-        otp,
-        expiresAt,
-        verified: false,
-        attempts: 0
-      });
-
-      // Delivery channels, tried in order. SMS (ComBirds/Edumarc) is intentionally
-      // NOT in this list - it accepts every submission but the operator/DLT layer
-      // silently drops delivery afterwards, which made OTPs unusable.
-      //
-      // 1. Email - tried first because it carries no branding confusion. Only
-      //    possible if this mobile number already belongs to an account with an
-      //    email on file (signup email is optional, and OTP-first users never
-      //    had a chance to give one).
-      const existingUser = await storage.getUserByMobile(cleanMobile);
-      if (existingUser?.email) {
-        const emailSent = await sendOTPEmail(existingUser.email, otp);
-        if (emailSent) {
-          console.log(`✅ OTP sent to ${cleanMobile} via email (${existingUser.email}): ${otp}`);
-          const [name, domain] = existingUser.email.split("@");
-          const maskedEmail = `${name.slice(0, 2)}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
-          return res.json({
-            message: "OTP sent successfully",
-            mobile: cleanMobile,
-            channel: "email",
-            maskedEmail,
-            expiresIn: 300
-          });
+        const emailSent = await sendOTPEmail(user.email!, otp);
+        if (!emailSent) {
+          console.error(`❌ Email OTP send failed for ${user.email}`);
+          return res.status(503).json({ message: "We couldn't send a code to that email right now. Please try again, or use your mobile number instead." });
         }
+
+        console.log(`✅ OTP sent to ${user.mobile} via email (${user.email}): ${otp}`);
+        const [name, domain] = user.email!.split("@");
+        const maskedEmail = `${name.slice(0, 2)}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`;
+        return res.json({ message: "OTP sent successfully", mobile: user.mobile, channel: "email", maskedEmail, expiresIn: 300 });
       }
 
-      // 2. WhatsApp - last resort. The template is approved and delivery is
-      // confirmed working, but the sending number is a temporary stand-in
-      // ("P91 India") unrelated to this business, borrowed until the real
-      // number's account access is sorted out. Tried only when there's no
-      // email on file, to keep as few customers as possible seeing that name.
-      const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
-      if (whatsappSent) {
+      if (method === "whatsapp") {
+        if (!mobile) {
+          return res.status(400).json({ message: "Mobile number is required" });
+        }
+        const cleanMobile = mobile.replace(/^\+91/, '').replace(/\s+/g, '');
+        if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+          return res.status(400).json({ message: "Please enter a valid 10-digit mobile number" });
+        }
+
+        await storage.cleanupExpiredOTPs();
+        const recentOTP = await storage.getLatestOTPVerification(cleanMobile);
+        if (recentOTP?.createdAt && Date.now() - new Date(recentOTP.createdAt).getTime() < 60000) {
+          return res.status(429).json({ message: "Please wait before requesting another OTP" });
+        }
+
+        const otp = smsService.generateOTP();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+        await storage.createOTPVerification({ mobile: cleanMobile, otp, expiresAt, verified: false, attempts: 0 });
+
+        // Sending number is a temporary stand-in ("P91 India"), unrelated to
+        // this business, borrowed until the real number's account access is
+        // sorted out - see the deploy notes. Fine for an explicitly-chosen
+        // alternate channel; would not have been fine as a silent default.
+        const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
+        if (!whatsappSent) {
+          console.error(`❌ WhatsApp OTP send failed for ${cleanMobile}`);
+          return res.status(503).json({ message: "We couldn't send a WhatsApp code right now. Please try again, or use email / password login instead." });
+        }
+
         console.log(`✅ OTP sent to ${cleanMobile} via WhatsApp: ${otp}`);
-        return res.json({
-          message: "OTP sent successfully",
-          mobile: cleanMobile,
-          channel: "whatsapp",
-          expiresIn: 300
-        });
+        return res.json({ message: "OTP sent successfully", mobile: cleanMobile, channel: "whatsapp", expiresIn: 300 });
       }
 
-      // Nothing worked - tell the customer plainly rather than pretending an OTP
-      // is on its way. Password login stays available for accounts that have one.
-      console.error(`❌ Could not deliver OTP to ${cleanMobile} - no working channel (${existingUser?.email ? "email send failed" : "no email on file"}, WhatsApp send failed)`);
-      res.status(503).json({
-        message: "We're unable to send a verification code right now. Please use password login, or contact us on WhatsApp for help.",
-      });
+      return res.status(400).json({ message: "method must be 'email' or 'whatsapp'" });
     } catch (error) {
       console.error("Send OTP error:", error);
       res.status(500).json({ message: "Failed to send OTP" });
@@ -328,18 +332,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Traditional password login (keep for backward compatibility)
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { mobile, password } = req.body;
+      const { email, password } = req.body;
 
-      // Find user by mobile number (primary identifier)
-      const user = await storage.getUserByMobile(mobile);
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
       if (!user) {
-        return res.status(401).json({ message: "Invalid mobile number or password" });
+        return res.status(401).json({ message: "Invalid email or password" });
       }
 
       // Check password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid mobile number or password" });
+        return res.status(401).json({ message: "Invalid email or password" });
       }
 
       // Set session
