@@ -48,6 +48,12 @@ app.use((req, res, next) => {
   // Serve uploaded files statically
   const path = await import("path");
   app.use('/uploads', (await import("express")).static(path.join(process.cwd(), 'uploads')));
+  // express.static calls next() on a miss rather than 404ing - without this,
+  // a missing upload falls through to the SPA catch-all and returns 200 with
+  // index.html, so <img> tags never see a real error and never fall back.
+  app.use('/uploads', (_req, res) => {
+    res.status(404).json({ message: "File not found" });
+  });
   
   const server = await registerRoutes(app);
   

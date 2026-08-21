@@ -731,8 +731,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkoutDateCheck = new Date(bookingData.checkoutDate);
       
       if (checkinDateCheck > maxBookingDate || checkoutDateCheck > maxBookingDate) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Booking dates cannot be more than 12 months from today. Please select dates within the next 12 months."
+        });
+      }
+
+      if (checkoutDateCheck <= checkinDateCheck) {
+        return res.status(400).json({
+          message: "Check-out date must be after the check-in date."
         });
       }
 
@@ -872,8 +878,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkoutDateCheck = new Date(bookingData.checkoutDate);
       
       if (checkinDateCheck > maxBookingDate || checkoutDateCheck > maxBookingDate) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Booking dates cannot be more than 12 months from today. Please select dates within the next 12 months."
+        });
+      }
+
+      if (checkoutDateCheck <= checkinDateCheck) {
+        return res.status(400).json({
+          message: "Check-out date must be after the check-in date."
         });
       }
 
