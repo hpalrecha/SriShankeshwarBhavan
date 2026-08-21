@@ -100,3 +100,81 @@
 .text-brand-orange {
   color: var(--brand-orange);
 }
+
+/* Booking receipt print isolation - the receipt renders off-screen
+   at all times; this makes it (and only it) visible when printing. */
+#booking-receipt-print {
+  position: absolute;
+  left: -9999px;
+  width: 380px;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #111;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #booking-receipt-print,
+  #booking-receipt-print * {
+    visibility: visible;
+  }
+  #booking-receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .receipt-header {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .receipt-header h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+  }
+  .receipt-subtitle,
+  .receipt-address,
+  .receipt-phone {
+    font-size: 11px;
+    margin: 2px 0;
+  }
+  .receipt-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  table.receipt-fields {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  table.receipt-fields td {
+    padding: 6px 4px;
+    border-bottom: 1px dotted #999;
+    vertical-align: bottom;
+  }
+  table.receipt-fields td.label {
+    font-weight: bold;
+    width: 45%;
+    white-space: nowrap;
+  }
+  table.receipt-fields td.blank-line {
+    border-bottom: 1px dotted #999;
+  }
+  .receipt-signature {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 12px;
+  }
+  .receipt-signature .sign-line {
+    border-top: 1px solid #111;
+    width: 160px;
+  }
+}

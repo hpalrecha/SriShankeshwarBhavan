@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle, Camera } from "lucide-react";
+import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle, Camera, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
 import CameraCapture from "@/components/ui/camera-capture";
+import BookingReceipt from "./booking-receipt";
 // Removed SimpleModal import - no longer needed
 
 interface BookingDetailsModalProps {
@@ -170,9 +171,19 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Booking Details - {booking.booking.bookingId}</span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {getStatusBadge(booking.booking.status)}
               {getPaymentStatusBadge(booking.booking.paymentStatus)}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="ml-2"
+              >
+                <Printer className="h-4 w-4 mr-1" />
+                Print Receipt
+              </Button>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -731,6 +742,10 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
     </Dialog>
 
       {/* ID Proof images now open in new tab - no modal needed */}
+
+      {/* Off-screen in the normal view; only shown by the @media print
+          rule in index.css when "Print Receipt" triggers window.print() */}
+      <BookingReceipt booking={booking} />
     </>
   );
 }
