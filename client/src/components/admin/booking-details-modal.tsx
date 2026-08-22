@@ -28,6 +28,7 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [roomNumber, setRoomNumber] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [status, setStatus] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -502,8 +503,28 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                     onChange={(e) => setRoomNumber(e.target.value)}
                     placeholder="e.g. 101, 102"
                   />
-                  <Button 
+                  <Button
                     onClick={() => handleUpdate("roomNumber", roomNumber)}
+                    disabled={updateBookingMutation.isPending}
+                    size="sm"
+                  >
+                    Update
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="aadhaarNumber">Aadhaar Number (Optional)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="aadhaarNumber"
+                    value={aadhaarNumber || booking.booking.aadhaarNumber || ""}
+                    onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                    placeholder="12-digit Aadhaar number"
+                    maxLength={12}
+                  />
+                  <Button
+                    onClick={() => handleUpdate("aadhaarNumber", aadhaarNumber)}
                     disabled={updateBookingMutation.isPending}
                     size="sm"
                   >

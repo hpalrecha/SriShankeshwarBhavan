@@ -79,6 +79,7 @@ export const roomBookings = pgTable("room_bookings", {
   primaryGuestName: varchar("primary_guest_name", { length: 255 }),
   primaryGuestEmail: varchar("primary_guest_email", { length: 255 }),
   primaryGuestPhone: varchar("primary_guest_phone", { length: 20 }),
+  aadhaarNumber: varchar("aadhaar_number", { length: 12 }),
   // Address Details
   addressLine1: varchar("address_line1", { length: 255 }),
   addressLine2: varchar("address_line2", { length: 255 }),

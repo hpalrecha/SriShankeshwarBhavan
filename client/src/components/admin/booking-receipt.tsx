@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car } from "lucide-react";
+import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
 import type { BookingWithDetails } from "@/lib/types";
 
 interface BookingReceiptProps {
@@ -36,16 +36,27 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
 
   const guestName = b.primaryGuestName || booking.user.name;
+  const isOnlinePayment = b.paymentMethod === "pay_online";
+
+  // Online payment already collected food/extra-bed charges too, so the
+  // receipt shows what was actually charged (the full total); cash/pay-at-
+  // checkin still owes food etc. separately, so it shows just the room cost.
+  const roomAmount = parseFloat(b.totalAmount || "0") - parseFloat(b.foodAmount || "0") - parseFloat(b.extraBedAmount || "0");
+  const rentRow = isOnlinePayment
+    ? { icon: <IndianRupee />, label: "Total Amount", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` }
+    : { icon: <IndianRupee />, label: "Room Rent", value: `Rs. ${roomAmount.toFixed(2)}` };
 
   const rows: Array<{ icon: ReactNode; label: string; value: ReactNode; blank?: boolean }> = [
     { icon: <User />, label: "Guest Full Name", value: dash(guestName) },
+    { icon: <IdCard />, label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
     { icon: <MapPin />, label: "City", value: dash(b.city) },
     { icon: <CalendarCheck2 />, label: "Arrival Date", value: fmtDate(checkin) },
     { icon: <CalendarX2 />, label: "Departure Date", value: fmtDate(checkout) },
     { icon: <Users />, label: "Male / Female / Children", value: "—" },
     { icon: <User />, label: "Total Guests", value: dash(b.guests) },
     { icon: <BedDouble />, label: "Room No.", value: b.roomNumber ? b.roomNumber : "", blank: !b.roomNumber },
-    { icon: <IndianRupee />, label: "Room Rent", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` },
+    { icon: <CreditCard />, label: "Payment Mode", value: isOnlinePayment ? "Online" : "Cash" },
+    rentRow,
     { icon: <Car />, label: "Vehicle No.", value: "—" },
   ];
 
@@ -122,7 +133,6 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
             <span className="divider-dot" />
             <span className="divider-line" />
           </div>
-          <p className="receipt-note">This is a computer-generated receipt.</p>
 
           <div className="receipt-signature">
             <div className="sign-block">

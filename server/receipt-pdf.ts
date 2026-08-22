@@ -21,7 +21,7 @@ const dash = (v?: string | number | null) => {
   return s.length > 0 ? s : "—"; // em dash
 };
 
-type IconKind = "person" | "pin" | "calendarIn" | "calendarOut" | "people" | "bed" | "coin" | "car" | "doc" | "calendar";
+type IconKind = "person" | "pin" | "calendarIn" | "calendarOut" | "people" | "bed" | "coin" | "car" | "doc" | "calendar" | "creditcard" | "idcard";
 
 // Small vector glyphs drawn with primitives so the PDF never depends on an
 // icon font/image being embedded - keeps this dependency-free for the
@@ -114,6 +114,19 @@ function drawIcon(doc: PDFKit.PDFDocument, kind: IconKind, cx: number, cy: numbe
       doc.moveTo(cx - r * 0.4, cy - r * 0.4).lineTo(cx + r * 0.4, cy - r * 0.4).stroke();
       doc.moveTo(cx - r * 0.4, cy).lineTo(cx + r * 0.4, cy).stroke();
       doc.moveTo(cx - r * 0.4, cy + r * 0.4).lineTo(cx + r * 0.1, cy + r * 0.4).stroke();
+      break;
+    }
+    case "creditcard": {
+      doc.roundedRect(cx - r, cy - r * 0.65, size, size * 0.65, 1.5).stroke();
+      doc.moveTo(cx - r, cy - r * 0.2).lineTo(cx + r, cy - r * 0.2).stroke();
+      doc.rect(cx - r * 0.7, cy + r * 0.05, r * 0.6, r * 0.18).fill();
+      break;
+    }
+    case "idcard": {
+      doc.roundedRect(cx - r, cy - r * 0.7, size, size * 0.8, 1.5).stroke();
+      doc.circle(cx - r * 0.55, cy - r * 0.1, r * 0.22).stroke();
+      doc.moveTo(cx - r * 0.15, cy - r * 0.2).lineTo(cx + r * 0.55, cy - r * 0.2).stroke();
+      doc.moveTo(cx - r * 0.15, cy + r * 0.02).lineTo(cx + r * 0.55, cy + r * 0.02).stroke();
       break;
     }
   }
@@ -234,15 +247,26 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
     y += 26;
 
     // Details box
+    const isOnlinePayment = b.paymentMethod === "pay_online";
+    // Online payment already collected food/extra-bed charges too, so the
+    // receipt shows what was actually charged (the full total); cash/pay-at-
+    // checkin still owes food etc. separately, so it shows just the room cost.
+    const roomAmount = parseFloat(b.totalAmount || "0") - parseFloat(b.foodAmount || "0") - parseFloat(b.extraBedAmount || "0");
+    const rentRow: { icon: IconKind; label: string; value: string } = isOnlinePayment
+      ? { icon: "coin", label: "Total Amount", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` }
+      : { icon: "coin", label: "Room Rent", value: `Rs. ${roomAmount.toFixed(2)}` };
+
     const rows: Array<{ icon: IconKind; label: string; value: string; blank?: boolean }> = [
       { icon: "person", label: "Guest Full Name", value: dash(guestName) },
+      { icon: "idcard", label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
       { icon: "pin", label: "City", value: dash(b.city) },
       { icon: "calendarIn", label: "Arrival Date", value: fmtDate(checkin) },
       { icon: "calendarOut", label: "Departure Date", value: fmtDate(checkout) },
       { icon: "people", label: "Male / Female / Children", value: "—" },
       { icon: "person", label: "Total Guests", value: dash(b.guests) },
       { icon: "bed", label: "Room No.", value: b.roomNumber || "", blank: !b.roomNumber },
-      { icon: "coin", label: "Room Rent", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` },
+      { icon: "creditcard", label: "Payment Mode", value: isOnlinePayment ? "Online" : "Cash" },
+      rentRow,
       { icon: "car", label: "Vehicle No.", value: "—" },
     ];
 
@@ -286,12 +310,6 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
 
     // Footer
     decorativeDivider(doc, y, contentX, contentW);
-    y += 18;
-    doc
-      .font("Times-Italic")
-      .fontSize(10)
-      .fillColor("#444444")
-      .text("This is a computer-generated receipt.", contentX, y, { width: contentW, align: "center" });
     y += 40;
 
     const signW = 150;

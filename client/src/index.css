@@ -227,7 +227,7 @@
     margin: 4mm auto 0;
   }
   .receipt-divider.footer-divider {
-    margin: 3mm auto 2mm;
+    margin: 3mm auto 9mm;
   }
   .divider-line {
     height: 1px;
@@ -314,14 +314,6 @@
     display: inline-block;
     width: 46px;
     border-bottom: 1px solid var(--receipt-ink);
-  }
-
-  .receipt-note {
-    text-align: center;
-    font-style: italic;
-    font-size: 10.5px;
-    color: #444;
-    margin: 0 0 6mm;
   }
 
   .receipt-signature {
