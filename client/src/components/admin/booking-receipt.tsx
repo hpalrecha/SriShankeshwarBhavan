@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
+import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Clock, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
 import type { BookingWithDetails } from "@/lib/types";
 
 interface BookingReceiptProps {
@@ -34,9 +34,17 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
   // the raw-storage timezone issue fixed earlier in room_bookings.
   const fmtDate = (d: Date) =>
     d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
   const guestName = b.primaryGuestName || booking.user.name;
   const isOnlinePayment = b.paymentMethod === "pay_online";
+
+  // Prefer the actual recorded check-in/check-out time (set when front desk
+  // marks the guest in/out); fall back to the estimated time the guest gave
+  // at booking, since the actual time isn't known yet for a stay in progress.
+  const checkinTime = b.actualCheckinTime || b.estimatedArrivalTime;
+  const checkoutTime = b.actualCheckoutTime || b.estimatedDepartureTime;
 
   // Online payment already collected food/extra-bed charges too, so the
   // receipt shows what was actually charged (the full total); cash/pay-at-
@@ -52,6 +60,8 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     { icon: <MapPin />, label: "City", value: dash(b.city) },
     { icon: <CalendarCheck2 />, label: "Arrival Date", value: fmtDate(checkin) },
     { icon: <CalendarX2 />, label: "Departure Date", value: fmtDate(checkout) },
+    { icon: <Clock />, label: "Check-in Time", value: checkinTime ? fmtTime(new Date(checkinTime)) : "—" },
+    { icon: <Clock />, label: "Check-out Time", value: checkoutTime ? fmtTime(new Date(checkoutTime)) : "—" },
     { icon: <Users />, label: "Male / Female / Children", value: "—" },
     { icon: <User />, label: "Total Guests", value: dash(b.guests) },
     { icon: <BedDouble />, label: "Room No.", value: b.roomNumber ? b.roomNumber : "", blank: !b.roomNumber },

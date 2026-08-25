@@ -15,13 +15,15 @@ const PAD_Y = 24;
 
 const fmtDate = (d: Date) =>
   d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+const fmtTime = (d: Date) =>
+  d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 const dash = (v?: string | number | null) => {
   const s = v === null || v === undefined ? "" : String(v).trim();
   return s.length > 0 ? s : "—"; // em dash
 };
 
-type IconKind = "person" | "pin" | "calendarIn" | "calendarOut" | "people" | "bed" | "coin" | "car" | "doc" | "calendar" | "creditcard" | "idcard";
+type IconKind = "person" | "pin" | "calendarIn" | "calendarOut" | "people" | "bed" | "coin" | "car" | "doc" | "calendar" | "creditcard" | "idcard" | "clock";
 
 // Small vector glyphs drawn with primitives so the PDF never depends on an
 // icon font/image being embedded - keeps this dependency-free for the
@@ -129,6 +131,12 @@ function drawIcon(doc: PDFKit.PDFDocument, kind: IconKind, cx: number, cy: numbe
       doc.moveTo(cx - r * 0.15, cy + r * 0.02).lineTo(cx + r * 0.55, cy + r * 0.02).stroke();
       break;
     }
+    case "clock": {
+      doc.circle(cx, cy, r * 0.85).stroke();
+      doc.moveTo(cx, cy).lineTo(cx, cy - r * 0.5).stroke();
+      doc.moveTo(cx, cy).lineTo(cx + r * 0.4, cy + r * 0.1).stroke();
+      break;
+    }
   }
   doc.restore();
 }
@@ -164,6 +172,12 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
   const checkin = new Date(b.checkinDate);
   const checkout = new Date(b.checkoutDate);
   const today = new Date();
+
+  // Prefer the actual recorded check-in/check-out time (set when front desk
+  // marks the guest in/out); fall back to the estimated time the guest gave
+  // at booking, since the actual time isn't known yet for a stay in progress.
+  const checkinTime = b.actualCheckinTime || b.estimatedArrivalTime;
+  const checkoutTime = b.actualCheckoutTime || b.estimatedDepartureTime;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margins: { top: 0, bottom: 0, left: 0, right: 0 }, bufferPages: true });
@@ -262,6 +276,8 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
       { icon: "pin", label: "City", value: dash(b.city) },
       { icon: "calendarIn", label: "Arrival Date", value: fmtDate(checkin) },
       { icon: "calendarOut", label: "Departure Date", value: fmtDate(checkout) },
+      { icon: "clock", label: "Check-in Time", value: checkinTime ? fmtTime(new Date(checkinTime)) : "—" },
+      { icon: "clock", label: "Check-out Time", value: checkoutTime ? fmtTime(new Date(checkoutTime)) : "—" },
       { icon: "people", label: "Male / Female / Children", value: "—" },
       { icon: "person", label: "Total Guests", value: dash(b.guests) },
       { icon: "bed", label: "Room No.", value: b.roomNumber || "", blank: !b.roomNumber },
