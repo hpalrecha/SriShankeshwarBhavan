@@ -1399,9 +1399,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const todaysCheckins = await storage.getBookingsByDateRange(today, tomorrow);
       const checkedInToday = todaysCheckins.filter(b => b.status === "checked_in").length;
       
-      // Calculate revenue from today's created bookings that are paid
+      // Calculate revenue from today's created bookings that are paid.
+      // "paid" alone is a legacy status string current code never sets -
+      // online payments write "paid_online" and cash ones "paid_checkin" -
+      // so this undercounted (usually to zero) regardless of real revenue.
+      const paidStatuses = new Set(["paid", "paid_online", "paid_checkin"]);
       const todaysRevenue = bookingsCreatedToday
-        .filter(b => b.paymentStatus === "paid" && b.status !== "cancelled")
+        .filter(b => paidStatuses.has(b.paymentStatus) && b.status !== "cancelled")
         .reduce((sum, b) => sum + parseFloat(b.totalAmount), 0);
 
       // Calculate occupancy rate based on rooms actually occupied today
