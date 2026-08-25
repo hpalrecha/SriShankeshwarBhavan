@@ -14,11 +14,6 @@ import { Calendar, Users, Phone, Mail, Plus, Minus, MapPin, Plane, Utensils, Bed
 import { Textarea } from "@/components/ui/textarea";
 import type { RoomCategory } from "@shared/schema";
 
-const roomSelectionSchema = z.object({
-  categoryId: z.number(),
-  quantity: z.number().min(0),
-});
-
 const adminBookingSchema = z.object({
   guestName: z.string().min(2, "Guest name is required"),
   guestEmail: z.string().email("Valid email is required"),
@@ -42,10 +37,12 @@ const adminBookingSchema = z.object({
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
   extraBeds: z.number().min(0).default(0),
-  roomSelections: z.array(roomSelectionSchema).refine(
-    (selections) => selections.some(s => s.quantity > 0),
-    "At least one room must be selected"
-  ),
+  // Room quantities live in a separate React state (roomSelections, updated
+  // by the +/- buttons), not a registered form field - this field used to
+  // exist here too but was never populated, so its "at least one room"
+  // check always failed on the empty default and silently blocked every
+  // submission before onSubmit ever ran, no matter what was actually
+  // selected. The same check already exists correctly in onSubmit below.
   paymentMethod: z.enum(["upi", "cash", "card", "bank_transfer", "checkin"]),
   paymentReference: z.string().optional(),
 }).refine((data) => {
@@ -121,7 +118,6 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
       lunchDays: 0,
       dinnerDays: 0,
       extraBeds: 0,
-      roomSelections: [],
       paymentMethod: "cash",
       paymentReference: "",
     },
