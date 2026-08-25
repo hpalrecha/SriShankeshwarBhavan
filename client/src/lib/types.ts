@@ -59,6 +59,8 @@ export interface BookingWithDetails {
 export interface DashboardStats {
   todayBookings: number;
   checkedIn: number;
+  arrivalsToday: number;
+  departuresToday: number;
   revenue: number;
   occupancy: string;
 }

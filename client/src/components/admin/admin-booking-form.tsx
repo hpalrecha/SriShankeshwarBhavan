@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, Users, Phone, Mail, Plus, Minus, MapPin, Plane, Utensils } from "lucide-react";
+import { Calendar, Users, Phone, Mail, Plus, Minus, MapPin, Plane, Utensils, BedDouble } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { RoomCategory } from "@shared/schema";
 
@@ -41,6 +41,7 @@ const adminBookingSchema = z.object({
   breakfastDays: z.number().default(0),
   lunchDays: z.number().default(0),
   dinnerDays: z.number().default(0),
+  extraBeds: z.number().min(0).default(0),
   roomSelections: z.array(roomSelectionSchema).refine(
     (selections) => selections.some(s => s.quantity > 0),
     "At least one room must be selected"
@@ -119,9 +120,42 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
       breakfastDays: 0,
       lunchDays: 0,
       dinnerDays: 0,
+      extraBeds: 0,
       roomSelections: [],
       paymentMethod: "cash",
       paymentReference: "",
+    },
+  });
+
+  const watchedCheckin = form.watch("checkinDate");
+  const watchedCheckout = form.watch("checkoutDate");
+
+  // Real, date-aware room availability for the dates currently selected -
+  // this used to just show each category's static totalUnits regardless of
+  // date, so staff had no way to tell how many rooms were actually free
+  // (or that a date was trustee-reserved) before picking a quantity.
+  const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
+    queryKey: ["/api/rooms/availability", watchedCheckin, watchedCheckout],
+    enabled: !!watchedCheckin && !!watchedCheckout,
+    queryFn: async () => {
+      const res = await apiRequest("POST", "/api/rooms/availability", {
+        checkinDate: watchedCheckin,
+        checkoutDate: watchedCheckout,
+      });
+      return await res.json() as Record<number, { available: number; booked: number; trusteeOnly: boolean }>;
+    },
+  });
+
+  // Same idea for extra beds - date-aware, not just the global inventory total.
+  const { data: extraBedAvailability } = useQuery<{ totalInventory: number; reservedBeds: number; availableBeds: number; pricePerBed: string }>({
+    queryKey: ["/api/extra-beds/availability", watchedCheckin, watchedCheckout],
+    enabled: !!watchedCheckin && !!watchedCheckout,
+    queryFn: async () => {
+      const res = await apiRequest(
+        "GET",
+        `/api/extra-beds/availability?checkinDate=${watchedCheckin}&checkoutDate=${watchedCheckout}`
+      );
+      return await res.json();
     },
   });
 
@@ -181,6 +215,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
           lunchCost,
           dinnerCost,
           totalFoodCost,
+          extraBeds: data.extraBeds || 0,
           roomSelections: roomSelectionArray,
           paymentMethod: data.paymentMethod,
           paymentReference: data.paymentReference,
@@ -445,14 +480,29 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
             </div>
             
             <div className="grid gap-4">
-              {roomCategories.map((category) => (
+              {roomCategories.map((category) => {
+                const catAvailability = availabilityData?.[category.id];
+                const hasDates = !!watchedCheckin && !!watchedCheckout;
+                return (
                 <Card key={category.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <h4 className="font-semibold">{category.name}</h4>
                       <p className="text-sm text-gray-600">
-                        ₹{category.price}/night • Max {category.maxOccupancy || 2} guests • {category.totalUnits} units available
+                        ₹{category.price}/night • Max {category.maxOccupancy || 2} guests •{" "}
+                        {!hasDates
+                          ? `${category.totalUnits} units total (select dates to see real availability)`
+                          : isLoadingAvailability
+                            ? "Checking availability..."
+                            : catAvailability
+                              ? `${catAvailability.available} / ${category.totalUnits} available for selected dates`
+                              : `${category.totalUnits} units total`}
                       </p>
+                      {hasDates && catAvailability?.trusteeOnly && (
+                        <p className="text-xs text-amber-700 font-medium mt-1">
+                          ⚠️ These dates are reserved for trustees - only book here if this guest is a trustee.
+                        </p>
+                      )}
                       {category.description && (
                         <p className="text-xs text-gray-500 mt-1">{category.description}</p>
                       )}
@@ -478,14 +528,19 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
                         variant="outline"
                         size="sm"
                         onClick={() => updateRoomSelection(category.id, (roomSelections[category.id] || 0) + 1)}
-                        disabled={(roomSelections[category.id] || 0) >= (category.totalUnits || 10)}
+                        disabled={
+                          hasDates && catAvailability
+                            ? (roomSelections[category.id] || 0) >= catAvailability.available
+                            : (roomSelections[category.id] || 0) >= (category.totalUnits || 10)
+                        }
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -682,6 +737,34 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
               }
               return null;
             })()}
+          </div>
+
+          {/* Extra Beds Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-gray-900 font-medium">
+              <BedDouble className="h-4 w-4" />
+              <h4>Extra Beds (Optional)</h4>
+            </div>
+            <div className="space-y-2 max-w-xs">
+              <Label htmlFor="extraBeds">
+                Extra Beds
+                <span className="text-sm text-gray-500 ml-1">
+                  (₹{extraBedAvailability?.pricePerBed || "200"}/night
+                  {watchedCheckin && watchedCheckout && extraBedAvailability
+                    ? ` • ${extraBedAvailability.availableBeds} of ${extraBedAvailability.totalInventory} available for these dates`
+                    : " • select dates to see availability"}
+                  )
+                </span>
+              </Label>
+              <Input
+                id="extraBeds"
+                type="number"
+                min="0"
+                max={extraBedAvailability?.availableBeds ?? undefined}
+                {...form.register("extraBeds", { valueAsNumber: true })}
+                placeholder="Number of extra beds"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

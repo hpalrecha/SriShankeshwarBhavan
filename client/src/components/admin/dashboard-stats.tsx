@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, CheckCircle, DollarSign, TrendingUp, Users, Eye } from "lucide-react";
+import { Calendar, CheckCircle, DollarSign, TrendingUp, Users, Eye, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardStats, BookingWithDetails } from "@/lib/types";
@@ -55,7 +55,7 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
   return (
     <div className="space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -71,7 +71,39 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
             </div>
           </CardContent>
         </Card>
-        
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                  <LogIn className="w-5 h-5 text-teal-600" />
+                </div>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">{stats.arrivalsToday}</h3>
+                <p className="text-sm text-gray-500">Arrivals Today</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <LogOut className="w-5 h-5 text-purple-600" />
+                </div>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">{stats.departuresToday}</h3>
+                <p className="text-sm text-gray-500">Departures Today</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -82,12 +114,12 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
               </div>
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-gray-900">{stats.checkedIn}</h3>
-                <p className="text-sm text-gray-500">Checked In</p>
+                <p className="text-sm text-gray-500">Currently Checked In</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -103,7 +135,7 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">

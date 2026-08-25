@@ -843,9 +843,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkoutDate = new Date(bookingData.checkoutDate);
       const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
 
+      // Extra beds are a guest/stay-level thing, not per room-category
+      // selection - attached to just the first booking created below so a
+      // multi-room-type booking doesn't duplicate the charge across rows.
+      const extraBedsRequested = bookingData.extraBeds || 0;
+      let extraBedAmount = 0;
+      if (extraBedsRequested > 0) {
+        const extraBedInventory = await storage.getExtraBedInventory();
+        const totalBedInventory = extraBedInventory?.totalInventory || 50;
+        const pricePerBed = extraBedInventory ? parseFloat(extraBedInventory.pricePerBed) : 200;
+        const reservedBeds = await storage.getExtraBedsReservedForDateRange(
+          bookingData.checkinDate,
+          bookingData.checkoutDate
+        );
+        const availableBeds = Math.max(0, totalBedInventory - reservedBeds);
+        if (extraBedsRequested > availableBeds) {
+          return res.status(400).json({
+            message: `Only ${availableBeds} extra bed${availableBeds === 1 ? '' : 's'} available for these dates. Please reduce the number of extra beds.`,
+            availableBeds,
+            requestedExtraBeds: extraBedsRequested
+          });
+        }
+        extraBedAmount = extraBedsRequested * pricePerBed * nights;
+        totalAmount += extraBedAmount;
+      }
+      let extraBedsAssigned = false;
+
       // Create separate bookings for each room type selected
       const createdBookings = [];
-      
+
       for (const selection of bookingData.roomSelections) {
         if (selection.quantity > 0) {
           const roomCategory = await storage.getRoomCategory(selection.categoryId);
@@ -867,6 +893,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalAmount += selectionAmount;
           totalRooms += selection.quantity;
 
+          // Extra beds ride on the first booking row created, not repeated
+          // for every room-category selection.
+          const assignExtraBeds = !extraBedsAssigned && extraBedsRequested > 0;
+          if (assignExtraBeds) extraBedsAssigned = true;
+
           // Generate booking ID for each room type
           const bookingId = `SSH-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
@@ -874,11 +905,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId: user.id,
             bookingId,
             roomCategoryId: selection.categoryId,
-            checkinDate: bookingData.checkinDate,
-            checkoutDate: bookingData.checkoutDate,
+            // Drizzle's timestamp column mapper calls value.toISOString() -
+            // passing the raw date string through (unlike the guest booking
+            // route, which already converts) crashed every admin-created
+            // booking with "value.toISOString is not a function".
+            checkinDate: new Date(bookingData.checkinDate),
+            checkoutDate: new Date(bookingData.checkoutDate),
             guests: bookingData.guests,
             roomsBooked: selection.quantity,
-            totalAmount: selectionAmount.toString(),
+            totalAmount: (assignExtraBeds ? selectionAmount + extraBedAmount : selectionAmount).toString(),
+            extraBeds: assignExtraBeds ? extraBedsRequested : 0,
+            extraBedAmount: assignExtraBeds ? extraBedAmount.toString() : "0",
             paymentMethod: bookingData.paymentMethod || "cash",
             paymentStatus: bookingData.paymentMethod === "cash" ? "paid" : "pending",
             status: bookingData.status || "confirmed",
@@ -1414,7 +1451,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get bookings checking in today (active only)
       const todaysCheckins = await storage.getBookingsByDateRange(today, tomorrow);
       const checkedInToday = todaysCheckins.filter(b => b.status === "checked_in").length;
-      
+
+      // Total arrivals/departures scheduled for today, regardless of whether
+      // front desk has actually processed them yet - "Checked In" above only
+      // counts guests already marked in, so a guest arriving later today with
+      // nobody checked out yet was invisible on the dashboard until now.
+      const arrivalsToday = allBookings.filter(b => {
+        const checkin = new Date(b.checkinDate);
+        return checkin.toDateString() === today.toDateString() && b.status !== "cancelled";
+      }).length;
+      const departuresToday = allBookings.filter(b => {
+        const checkout = new Date(b.checkoutDate);
+        return checkout.toDateString() === today.toDateString() && b.status !== "cancelled";
+      }).length;
+
       // Calculate revenue from today's created bookings that are paid.
       // "paid" alone is a legacy status string current code never sets -
       // online payments write "paid_online" and cash ones "paid_checkin" -
@@ -1433,6 +1483,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         todayBookings: bookingsCreatedToday.length,
         checkedIn: checkedInToday,
+        arrivalsToday,
+        departuresToday,
         revenue: todaysRevenue,
         occupancy: `${occupancyRate}%`
       });
@@ -1676,7 +1728,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updates.status === "checked_out" && !updates.actualCheckoutTime) {
         updates.actualCheckoutTime = new Date();
       }
-      
+
+      // Same class of bug as the admin combination-booking route: Drizzle's
+      // timestamp mapper calls value.toISOString(), which crashes on a raw
+      // string. Defensive here since this route accepts arbitrary updates.
+      for (const dateField of ["checkinDate", "checkoutDate", "estimatedArrivalTime", "estimatedDepartureTime", "actualCheckinTime", "actualCheckoutTime"] as const) {
+        if (updates[dateField] && typeof updates[dateField] === "string") {
+          updates[dateField] = new Date(updates[dateField]);
+        }
+      }
+
       let updatedBooking = await storage.updateRoomBooking(id, updates);
 
       // If status was changed to cancelled, refund the payment (if applicable)
