@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Clock, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
+import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
 import type { BookingWithDetails } from "@/lib/types";
 
 interface BookingReceiptProps {
@@ -36,15 +36,20 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
   const fmtTime = (d: Date) =>
     d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+  const fmtDateTime = (d: Date) => `${fmtDate(d)}, ${fmtTime(d)}`;
 
   const guestName = b.primaryGuestName || booking.user.name;
   const isOnlinePayment = b.paymentMethod === "pay_online";
 
-  // Prefer the actual recorded check-in/check-out time (set when front desk
-  // marks the guest in/out); fall back to the estimated time the guest gave
-  // at booking, since the actual time isn't known yet for a stay in progress.
-  const checkinTime = b.actualCheckinTime || b.estimatedArrivalTime;
-  const checkoutTime = b.actualCheckoutTime || b.estimatedDepartureTime;
+  // Prefer the actual recorded check-in/check-out moment (set when front
+  // desk marks the guest in/out) - its own date+time, not just the planned
+  // checkinDate, since a guest can genuinely arrive a different day/time
+  // than booked. Falls back to the estimated time from booking, then to
+  // just the plain date if no time is known at all yet.
+  const checkinMoment = b.actualCheckinTime || b.estimatedArrivalTime;
+  const checkoutMoment = b.actualCheckoutTime || b.estimatedDepartureTime;
+  const checkinValue = checkinMoment ? fmtDateTime(new Date(checkinMoment)) : fmtDate(checkin);
+  const checkoutValue = checkoutMoment ? fmtDateTime(new Date(checkoutMoment)) : fmtDate(checkout);
 
   // Online payment already collected food/extra-bed charges too, so the
   // receipt shows what was actually charged (the full total); cash/pay-at-
@@ -58,10 +63,8 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     { icon: <User />, label: "Guest Full Name", value: dash(guestName) },
     { icon: <IdCard />, label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
     { icon: <MapPin />, label: "City", value: dash(b.city) },
-    { icon: <CalendarCheck2 />, label: "Arrival Date", value: fmtDate(checkin) },
-    { icon: <CalendarX2 />, label: "Departure Date", value: fmtDate(checkout) },
-    { icon: <Clock />, label: "Check-in Time", value: checkinTime ? fmtTime(new Date(checkinTime)) : "—" },
-    { icon: <Clock />, label: "Check-out Time", value: checkoutTime ? fmtTime(new Date(checkoutTime)) : "—" },
+    { icon: <CalendarCheck2 />, label: "Check-in", value: checkinValue },
+    { icon: <CalendarX2 />, label: "Check-out", value: checkoutValue },
     { icon: <Users />, label: "Male / Female / Children", value: "—" },
     { icon: <User />, label: "Total Guests", value: dash(b.guests) },
     { icon: <BedDouble />, label: "Room No.", value: b.roomNumber ? b.roomNumber : "", blank: !b.roomNumber },
