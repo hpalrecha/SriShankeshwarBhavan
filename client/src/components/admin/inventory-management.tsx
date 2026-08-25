@@ -60,42 +60,48 @@ function AvailabilityDisplay({
   
   let displayText = `${category.totalUnits} / ${category.totalUnits}`;
   let descriptionText = 'All rooms available for selected dates';
-  
+  let trusteeOnly = false;
+
   if (hasValidDates && !isLoading && availabilityData) {
     // Try both numeric and string keys since API responses can vary
     const categoryData = availabilityData[category.id] || availabilityData[String(category.id)];
     console.log(`🔍 Found category data for ${category.id}:`, categoryData);
-    
+
     if (categoryData && typeof categoryData.available === 'number') {
       displayText = `${categoryData.available} / ${category.totalUnits}`;
-      descriptionText = categoryData.available === category.totalUnits 
+      descriptionText = categoryData.available === category.totalUnits
         ? 'All rooms available for selected dates'
         : `${categoryData.booked} rooms booked for selected dates`;
-      
+      trusteeOnly = !!categoryData.trusteeOnly;
+
       console.log(`✅ Updated display for ${category.name}: ${displayText}`);
     } else {
       console.log(`❌ No valid data found for category ${category.id} (${category.name})`);
     }
   }
-  
+
+  // Rooms can be physically empty and still unbookable by regular guests -
+  // without this, staff saw "20/20 available" here while a guest search for
+  // the same dates correctly came back "no rooms available" with no
+  // indication why (Aug 27-28 is trustee-reserved, so only trustees can
+  // book it - the count above is real, guests just can't use it).
+  const highlightClass = trusteeOnly ? 'bg-amber-50 border-amber-300' : hasValidDates ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
+  const textClass = trusteeOnly ? 'text-amber-800' : hasValidDates ? 'text-green-800' : 'text-blue-800';
+
   return (
-    <div className={`mt-3 p-3 rounded-lg border ${
-      !hasValidDates ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
-    }`}>
+    <div className={`mt-3 p-3 rounded-lg border ${highlightClass}`}>
       <div className="flex justify-between items-center">
-        <p className={`text-sm font-medium ${
-          !hasValidDates ? 'text-blue-800' : 'text-green-800'
-        }`}>
-          {hasValidDates 
-            ? `Availability (${format(checkinDate!, "MMM dd")} - ${format(checkoutDate!, "MMM dd")})` 
+        <p className={`text-sm font-medium ${textClass}`}>
+          {hasValidDates
+            ? `Availability (${format(checkinDate!, "MMM dd")} - ${format(checkoutDate!, "MMM dd")})`
             : 'Select dates to check availability'
           }
         </p>
-        
+
         {!hasValidDates ? (
           <p className="text-sm text-blue-600 font-medium">Select dates above</p>
         ) : (
-          <p className="text-lg font-bold text-green-600">
+          <p className={`text-lg font-bold ${trusteeOnly ? 'text-amber-600' : 'text-green-600'}`}>
             {isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="animate-spin h-4 w-4 border-2 border-brand-orange border-t-transparent rounded-full"></div>
@@ -107,12 +113,14 @@ function AvailabilityDisplay({
           </p>
         )}
       </div>
-      <p className={`text-xs mt-1 ${!hasValidDates ? 'text-blue-600' : 'text-green-600'}`}>
-        {!hasValidDates 
+      <p className={`text-xs mt-1 ${trusteeOnly ? 'text-amber-700 font-medium' : hasValidDates ? 'text-green-600' : 'text-blue-600'}`}>
+        {!hasValidDates
           ? 'Choose check-in and check-out dates to see availability'
-          : isLoading 
+          : isLoading
             ? 'Checking availability...'
-            : descriptionText
+            : trusteeOnly
+              ? `⚠️ Reserved for trustees only - regular guests cannot book these dates. ${descriptionText}`
+              : descriptionText
         }
       </p>
     </div>

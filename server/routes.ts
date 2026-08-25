@@ -615,20 +615,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const startDate = new Date(checkinDate);
       const endDate = new Date(checkoutDate);
-      
+
       if (startDate >= endDate) {
         return res.status(400).json({ message: "Check-out date must be after check-in date" });
       }
 
+      // This endpoint is also used by the admin inventory panel, which
+      // needs the TRUE physical count (staff can still book a trustee into
+      // a trustee-reserved date) - so unlike the guest-facing
+      // /api/rooms/availability GET, this doesn't zero out availableRooms.
+      // It just flags the date as trustee-reserved so the admin UI can show
+      // why a guest search for the same dates comes back empty.
+      const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
+      const bookingDates: string[] = [];
+      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        bookingDates.push(d.toISOString().split('T')[0]);
+      }
+      const trusteeOnly = bookingDates.some(bd =>
+        trusteeReservedDates.some(rd => new Date(rd.reservedDate).toISOString().split('T')[0] === bd)
+      );
+
       const categories = await storage.getRoomCategories();
-      const availability: Record<number, { available: number; booked: number }> = {};
+      const availability: Record<number, { available: number; booked: number; trusteeOnly: boolean }> = {};
 
       for (const category of categories) {
         // Get overlapping bookings for this category and date range
         const overlappingBookings = await storage.getBookingsByDateRange(startDate, endDate);
-        
-        // Filter bookings for this specific room category  
-        const categoryBookings = overlappingBookings.filter(booking => 
+
+        // Filter bookings for this specific room category
+        const categoryBookings = overlappingBookings.filter(booking =>
           booking.roomCategoryId === category.id
         );
 
@@ -641,7 +656,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         availability[category.id] = {
           available: availableRooms,
-          booked: totalRoomsBooked
+          booked: totalRoomsBooked,
+          trusteeOnly
         };
       }
 
