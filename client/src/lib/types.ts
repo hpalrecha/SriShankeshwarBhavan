@@ -47,6 +47,7 @@ export interface RoomAvailability {
   availableRooms?: RoomAvailability[];
   totalGuests?: number;
   canAccommodateGuests?: boolean;
+  trusteeOnly?: boolean;
 }
 
 export interface BookingWithDetails {

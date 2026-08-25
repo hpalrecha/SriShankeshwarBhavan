@@ -60,11 +60,23 @@ export default function SimpleBookingForm({ onSearch, onNoRooms }: SimpleBooking
       const availableRooms = allAvailabilities.filter(avail => avail && avail.available);
 
       if (availableRooms.length === 0) {
-        toast({
-          title: "No rooms available",
-          description: "No rooms are available for the selected dates. Please try different dates.",
-          variant: "destructive",
-        });
+        // If every category came back unavailable specifically because the
+        // date is trustee-reserved, say so - otherwise a genuinely fully
+        // booked date and a deliberately trustee-only date look identical.
+        const allTrusteeOnly = allAvailabilities.length > 0 && allAvailabilities.every(a => a?.trusteeOnly);
+        toast(
+          allTrusteeOnly
+            ? {
+                title: "Reserved for trustees",
+                description: "These dates are reserved exclusively for trustees. Please choose different dates.",
+                variant: "destructive",
+              }
+            : {
+                title: "No rooms available",
+                description: "No rooms are available for the selected dates. Please try different dates.",
+                variant: "destructive",
+              }
+        );
         onNoRooms(values);
       } else {
         // Pass all available rooms to the results component

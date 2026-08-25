@@ -105,11 +105,19 @@ export default function BookingForm({ onSearch }: BookingFormProps) {
       const availability: RoomAvailability = await response.json();
       
       if (!availability.available) {
-        toast({
-          title: "No rooms available",
-          description: "No rooms are available for the selected dates. Please try different dates.",
-          variant: "destructive",
-        });
+        toast(
+          availability.trusteeOnly
+            ? {
+                title: "Reserved for trustees",
+                description: "These dates are reserved exclusively for trustees. Please choose different dates.",
+                variant: "destructive",
+              }
+            : {
+                title: "No rooms available",
+                description: "No rooms are available for the selected dates. Please try different dates.",
+                variant: "destructive",
+              }
+        );
         return;
       }
 

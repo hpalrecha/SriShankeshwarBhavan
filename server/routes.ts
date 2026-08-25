@@ -761,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For non-trustees, rooms are effectively unavailable on these dates
         availableUnits = 0;
       }
-      
+
       res.json({
         available: availableUnits >= roomsNeeded,
         availableUnits,
@@ -769,7 +769,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category,
         roomsNeeded,
         guestsPerRoom: category.maxOccupancy,
-        canAccommodateGuests: availableUnits >= roomsNeeded
+        canAccommodateGuests: availableUnits >= roomsNeeded,
+        // Lets the client show "reserved for trustees" instead of a generic
+        // "no rooms available" - without this, a genuinely full date and a
+        // deliberately trustee-only date look identical to the guest.
+        trusteeOnly: hasTrusteeReservedDates
       });
     } catch (error) {
       console.error("Error checking availability:", error);
