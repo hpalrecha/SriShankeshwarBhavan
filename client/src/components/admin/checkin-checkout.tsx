@@ -34,12 +34,21 @@ export default function CheckinCheckout() {
     },
   });
 
+  // staleTime must be finite (the global default is Infinity) or
+  // refetchOnWindowFocus never fires, since TanStack Query only refetches
+  // on focus when the query is stale.
   const { data: checkins, isLoading: loadingCheckins } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/todays-checkins"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: checkouts, isLoading: loadingCheckouts } = useQuery<BookingWithDetails[]>({
     queryKey: ["/api/admin/todays-checkouts"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const updateBookingMutation = useMutation({

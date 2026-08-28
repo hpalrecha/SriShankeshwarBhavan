@@ -3141,8 +3141,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get webhook signature from headers
       const webhookSignature = req.headers['x-razorpay-signature'] as string;
-      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      
+      // The admin Payment Gateway Settings UI saves the webhook secret onto
+      // the razorpay row in the database - that's the value actually
+      // configured in the Razorpay dashboard. Falling back to the env var
+      // keeps old deployments that set it that way working too.
+      const razorpayGateway = await storage.getPaymentGatewayByName("razorpay");
+      const webhookSecret = razorpayGateway?.webhookSecret || process.env.RAZORPAY_WEBHOOK_SECRET;
+
       if (!webhookSecret) {
         console.error("❌ Razorpay webhook secret not configured");
         return res.status(400).json({ error: "Webhook secret not configured" });
@@ -3332,56 +3337,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Webhook helper functions
   async function handleRazorpayPaymentSuccess(payment: any) {
-    try {
-      console.log("✅ Processing Razorpay payment success:", payment.id);
+    console.log("✅ Processing Razorpay payment success:", payment.id);
 
-      // Extract booking ID from receipt
-      const receipt = payment.notes?.receipt || payment.description || '';
-      const bookingIdMatch = receipt.match(/booking_(.+)/);
+    // Extract booking ID from receipt
+    const receipt = payment.notes?.receipt || payment.description || '';
+    const bookingIdMatch = receipt.match(/booking_(.+)/);
 
-      if (!bookingIdMatch) {
-        console.error("❌ Could not extract booking ID from Razorpay payment:", receipt);
-        return;
-      }
+    if (!bookingIdMatch) {
+      console.error("❌ Could not extract booking ID from Razorpay payment:", receipt);
+      return;
+    }
 
-      const stringBookingId = bookingIdMatch[1];
-      // bookingIdMatch[1] is the string bookingId (e.g. "SSH-..."), but both
-      // updateRoomBooking and updatePaymentTransaction take the numeric
-      // primary key - passing the string (as this previously did) either
-      // throws or silently matches nothing. Resolve to the real row first.
-      const booking = await storage.getRoomBookingByBookingId(stringBookingId);
-      if (!booking) {
-        console.error("❌ Razorpay webhook: no booking found for", stringBookingId);
-        return;
-      }
+    const stringBookingId = bookingIdMatch[1];
+    // bookingIdMatch[1] is the string bookingId (e.g. "SSH-..."), but both
+    // updateRoomBooking and updatePaymentTransaction take the numeric
+    // primary key - passing the string (as this previously did) either
+    // throws or silently matches nothing. Resolve to the real row first.
+    const booking = await storage.getRoomBookingByBookingId(stringBookingId);
+    if (!booking) {
+      console.error("❌ Razorpay webhook: no booking found for", stringBookingId);
+      return;
+    }
 
-      // Idempotency: Razorpay can (and does) redeliver webhooks, and this can
-      // also fire after the client's own /api/payment/verify call already
-      // completed the same payment. Without this check, a guest could get the
-      // confirmation email/WhatsApp message twice.
-      const alreadyPaid = booking.paymentStatus === 'paid_online';
+    // Idempotency: Razorpay can (and does) redeliver webhooks, and this can
+    // also fire after the client's own /api/payment/verify call already
+    // completed the same payment. Without this check, a guest could get the
+    // confirmation email/WhatsApp message twice.
+    const alreadyPaid = booking.paymentStatus === 'paid_online';
 
-      // payment.order_id, not payment.id, matches what create-order stored -
-      // payment.id is Razorpay's payment ID, never written to orderId.
-      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
-      if (transaction) {
-        await storage.updatePaymentTransaction(transaction.id, {
-          status: 'completed',
-          gatewayTransactionId: payment.id,
-          gatewayResponse: JSON.stringify(payment)
-        });
-      } else {
-        console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
-      }
-
-      const updatedBooking = await storage.updateRoomBooking(booking.id, {
-        paymentStatus: 'paid_online',
-        paymentReference: payment.id
+    // payment.order_id, not payment.id, matches what create-order stored -
+    // payment.id is Razorpay's payment ID, never written to orderId.
+    const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+    if (transaction) {
+      await storage.updatePaymentTransaction(transaction.id, {
+        status: 'completed',
+        gatewayTransactionId: payment.id,
+        gatewayResponse: JSON.stringify(payment)
       });
+    } else {
+      console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
+    }
 
-      console.log("✅ Razorpay payment success processed for booking:", stringBookingId);
+    // This is the write the admin dashboard depends on - do NOT swallow a
+    // failure here. Letting it throw means the webhook route below responds
+    // with a 5xx, so Razorpay retries delivery instead of the booking being
+    // silently stuck "unpaid" while Razorpay believes the webhook succeeded.
+    const updatedBooking = await storage.updateRoomBooking(booking.id, {
+      paymentStatus: 'paid_online',
+      paymentReference: payment.id
+    });
 
-      if (!alreadyPaid) {
+    console.log("✅ Razorpay payment success processed for booking:", stringBookingId);
+
+    if (!alreadyPaid) {
+      try {
         const [bookingUser, bookingCategory] = await Promise.all([
           storage.getUser(updatedBooking.userId),
           storage.getRoomCategory(updatedBooking.roomCategoryId),
@@ -3390,34 +3399,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
           await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
         }
+      } catch (notifyError) {
+        // The payment is already correctly recorded above - a notification
+        // failure shouldn't fail the webhook or trigger a Razorpay retry.
+        console.error("Error sending post-payment booking confirmation:", notifyError);
       }
-    } catch (error) {
-      console.error("❌ Error processing Razorpay payment success:", error);
     }
   }
 
   async function handleRazorpayPaymentFailure(payment: any) {
-    try {
-      console.log("❌ Processing Razorpay payment failure:", payment.id);
+    console.log("❌ Processing Razorpay payment failure:", payment.id);
 
-      // payment.order_id, not payment.id - same fix as the success handler.
-      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
-      if (!transaction) {
-        console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
-        return;
-      }
-
-      await storage.updatePaymentTransaction(transaction.id, {
-        status: 'failed',
-        gatewayTransactionId: payment.id,
-        gatewayResponse: JSON.stringify(payment),
-        failureReason: payment.error_description || 'Payment failed'
-      });
-
-      console.log("❌ Razorpay payment failure processed:", payment.id);
-    } catch (error) {
-      console.error("❌ Error processing Razorpay payment failure:", error);
+    // payment.order_id, not payment.id - same fix as the success handler.
+    const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+    if (!transaction) {
+      console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
+      return;
     }
+
+    await storage.updatePaymentTransaction(transaction.id, {
+      status: 'failed',
+      gatewayTransactionId: payment.id,
+      gatewayResponse: JSON.stringify(payment),
+      failureReason: payment.error_description || 'Payment failed'
+    });
+
+    console.log("❌ Razorpay payment failure processed:", payment.id);
   }
 
   async function handlePayUPaymentSuccess(paymentData: any) {

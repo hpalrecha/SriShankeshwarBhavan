@@ -10,8 +10,17 @@ interface DashboardStatsProps {
 }
 
 export default function DashboardStats({ onViewBookingDetails }: DashboardStatsProps = {}) {
+  // Payment confirmations land here via a guest's browser or a Razorpay
+  // webhook, neither of which the admin's own tab knows to invalidate for -
+  // poll so a payment shows up without the admin having to reload the page.
+  // staleTime must be finite (the global default is Infinity) or
+  // refetchOnWindowFocus never fires, since TanStack Query only refetches
+  // on focus when the query is stale.
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/admin/dashboard-stats"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: bookingsResponse, isLoading: bookingsLoading } = useQuery({
@@ -21,6 +30,9 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
       if (!response.ok) throw new Error('Failed to fetch bookings');
       return response.json();
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const recentBookings = bookingsResponse?.bookings || [];

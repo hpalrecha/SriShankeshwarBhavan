@@ -38,6 +38,14 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       if (!response.ok) throw new Error('Failed to fetch bookings');
       return response.json();
     },
+    // Payment confirmations land here via a guest's browser or a Razorpay
+    // webhook, neither of which invalidates the admin's own cached query -
+    // poll so a payment shows up without a manual page reload. staleTime
+    // must be finite (the global default is Infinity) or refetchOnWindowFocus
+    // never fires, since TanStack Query only refetches on focus when stale.
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const bookings = bookingsResponse?.bookings || [];
@@ -65,6 +73,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
       return await apiRequest("PATCH", `/api/admin/bookings/${id}`, updates);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings-table"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
