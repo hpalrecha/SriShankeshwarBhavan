@@ -4,6 +4,7 @@ import { Calendar, CheckCircle, DollarSign, TrendingUp, Users, Eye, LogIn, LogOu
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardStats, BookingWithDetails } from "@/lib/types";
+import PaymentReconciliationAlert from "./payment-reconciliation-alert";
 
 interface DashboardStatsProps {
   onViewBookingDetails?: (bookingId: number) => void;
@@ -66,6 +67,8 @@ export default function DashboardStats({ onViewBookingDetails }: DashboardStatsP
 
   return (
     <div className="space-y-8">
+      <PaymentReconciliationAlert />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         <Card>

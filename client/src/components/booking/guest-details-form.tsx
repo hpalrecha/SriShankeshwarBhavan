@@ -186,12 +186,26 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
         setShowConfirmation(true);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Booking error:", error);
       setIsProcessingPayment(false);
+      // apiRequest throws "<status>: <response body>" - the server now sends
+      // a real message (e.g. which field failed validation) instead of
+      // always "Failed to create booking", so surface that instead of a
+      // generic message that hides what actually needs fixing.
+      let description = "Failed to create booking. Please try again.";
+      try {
+        const jsonStart = String(error?.message).indexOf("{");
+        if (jsonStart !== -1) {
+          const parsed = JSON.parse(String(error.message).slice(jsonStart));
+          if (parsed.message) description = parsed.message;
+        }
+      } catch {
+        // Keep the generic fallback if the body wasn't JSON.
+      }
       toast({
         title: "Booking Failed",
-        description: "Failed to create booking. Please try again.",
+        description,
         variant: "destructive",
       });
     },

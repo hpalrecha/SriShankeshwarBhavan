@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { storage } from "./storage";
 import { sendPreCheckinReminderEmail, sendCheckinDayWelcomeEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import { whatsappService } from "./whatsapp";
+import { findUnmatchedRazorpayPayments } from "./payment-reconciliation";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -317,6 +318,32 @@ export function startSoldOutAlertTask() {
   console.log("Sold out alert task scheduled for every 4 hours");
 }
 
+// Compare what Razorpay actually captured against payment_transactions once
+// a day, so a payment that never got recorded (webhook down, browser
+// closed mid-flow, some future bug) is caught by a server log instead of
+// only being noticed when a customer complains or a bank statement is checked.
+export function startPaymentReconciliationTask() {
+  cron.schedule("30 6 * * *", async () => {
+    console.log("Running Razorpay payment reconciliation task...");
+
+    try {
+      const result = await findUnmatchedRazorpayPayments(2);
+      if (result.unmatchedCount > 0) {
+        console.error(
+          `⚠️ PAYMENT RECONCILIATION ALERT: ${result.unmatchedCount} Razorpay payment(s) captured in the last 2 days have no matching completed booking payment. Check GET /api/admin/razorpay-reconciliation. Details:`,
+          JSON.stringify(result.unmatched, null, 2)
+        );
+      } else {
+        console.log(`Payment reconciliation: all ${result.totalCaptured} captured payment(s) in range are accounted for.`);
+      }
+    } catch (error) {
+      console.error("Error in payment reconciliation task:", error);
+    }
+  });
+
+  console.log("Payment reconciliation task scheduled for 6:30 AM daily");
+}
+
 // Start all scheduled tasks
 export function initializeScheduledTasks() {
   startPreCheckinReminderTask();
@@ -325,5 +352,6 @@ export function initializeScheduledTasks() {
   startPostCheckoutFeedbackTask();
   startDailyRoomReportTask();
   startSoldOutAlertTask();
+  startPaymentReconciliationTask();
   console.log("All notification tasks initialized (email + WhatsApp)");
 }

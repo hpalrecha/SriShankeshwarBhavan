@@ -18,6 +18,7 @@ import { whatsappService } from "./whatsapp";
 import { smsService } from "./sms-service";
 import { insertWhatsAppConfigSchema, insertWhatsAppTemplateSchema, insertPaymentGatewaySchema } from "@shared/schema";
 import { PaymentGatewayFactory, PaymentService } from "./payment-gateways";
+import { findUnmatchedRazorpayPayments } from "./payment-reconciliation";
 import { createICICIGateway } from "./icici-gateway";
 import { checkEmailVerification } from "./verify-email-check";
 import multer from "multer";
@@ -917,7 +918,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             extraBeds: assignExtraBeds ? extraBedsRequested : 0,
             extraBedAmount: assignExtraBeds ? extraBedAmount.toString() : "0",
             paymentMethod: bookingData.paymentMethod || "cash",
-            paymentStatus: bookingData.paymentMethod === "cash" ? "paid" : "pending",
+            // Cash is always collected on the spot, so it's paid by
+            // definition. Any other method (UPI/card/bank transfer) is also
+            // paid once the admin has a reference for it - e.g. reconciling
+            // an already-completed Razorpay payment that never got matched
+            // to a booking automatically. Only a genuinely unconfirmed entry
+            // (no reference given) is left "pending".
+            paymentStatus: (bookingData.paymentMethod === "cash" || bookingData.paymentReference) ? "paid" : "pending",
             status: bookingData.status || "confirmed",
             paymentReference: bookingData.paymentReference,
           });
@@ -1236,16 +1243,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json({ 
-        booking, 
-        user, 
-        bookingId, 
+      res.json({
+        booking,
+        user,
+        bookingId,
         autoLoggedIn: isNewUser || true, // Always return true to indicate login attempt
         defaultPassword: isNewUser ? "guest123" : undefined
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating booking:", error);
-      res.status(500).json({ message: "Failed to create booking" });
+      // A ZodError here means the guest's own input didn't pass validation
+      // (e.g. an empty required field) - that's a 400 the guest can act on,
+      // not a generic 500 "try again" that hides what's actually wrong and
+      // makes this unreportable from the outside.
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: error.issues[0]?.message || "Invalid booking details",
+          issues: error.issues,
+        });
+      }
+      res.status(500).json({ message: error?.message || "Failed to create booking" });
     }
   });
 
@@ -2763,6 +2780,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: "Payment endpoint working without auth!", body: req.body });
   });
 
+  // Cross-checks what Razorpay actually captured against payment_transactions,
+  // so a payment that never got recorded (webhook down, browser closed, a
+  // future bug) surfaces here instead of only being noticed via a bank
+  // statement weeks later.
+  app.get("/api/admin/razorpay-reconciliation", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 14;
+      const result = await findUnmatchedRazorpayPayments(days);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error running Razorpay reconciliation:", error);
+      res.status(500).json({ error: error.message || "Reconciliation failed" });
+    }
+  });
+
   // ICICI Bank payment order endpoint
   app.post("/api/payment/icici/create-order", async (req, res) => {
     try {
@@ -2820,13 +2852,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Gateway name:", gatewayName);
       console.log("Amount:", amount);
 
-      // For temporary booking IDs (pre-booking payments), skip booking lookup
-      let booking = null;
-      if (!bookingId.startsWith('TEMP_')) {
-        booking = await storage.getRoomBookingByBookingId(bookingId);
-        if (!booking) {
-          return res.status(404).json({ error: "Booking not found" });
-        }
+      // A Razorpay order must never be created without a real, already-saved
+      // booking to attach it to - a "pay first, save the booking afterward"
+      // TEMP_ id used to let a captured payment exist with nothing in the
+      // database to show for it (see commit 7b57062). Every payment now has
+      // to reference a booking that's already been written to the database.
+      const booking = await storage.getRoomBookingByBookingId(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
       }
 
       // Get the payment gateway
@@ -2898,20 +2931,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: result.error });
       }
 
-      // Create transaction record (only for real bookings, not temporary ones)
+      // Create the transaction record - this is what makes the payment
+      // recoverable no matter what happens to the browser afterward.
       const transactionId = `TXN_${bookingId}_${Date.now()}`;
-      if (booking) {
-        await storage.createPaymentTransaction({
-          bookingId: booking.id,
-          gatewayId: gateway.id,
-          transactionId,
-          orderId: result.data.id || result.data.txnid,
-          amount: amount.toString(),
-          currency,
-          status: "pending",
-          gatewayResponse: JSON.stringify(result.data),
-        });
-      }
+      await storage.createPaymentTransaction({
+        bookingId: booking.id,
+        gatewayId: gateway.id,
+        transactionId,
+        orderId: result.data.id || result.data.txnid,
+        amount: amount.toString(),
+        currency,
+        status: "pending",
+        gatewayResponse: JSON.stringify(result.data),
+      });
 
       res.json({
         success: true,
@@ -2934,35 +2966,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Payment verification request:", { transactionId, gatewayName, paymentData });
 
-      // For temporary bookings (pre-booking payments), verify directly without database lookup
-      if (transactionId.includes('TEMP_')) {
-        console.log("Processing temporary booking payment verification");
-        
-        // Get gateway by name
-        const gateway = await storage.getPaymentGatewayByName(gatewayName);
-        if (!gateway) {
-          return res.status(400).json({ error: "Payment gateway not found" });
-        }
-        
-        // Create payment gateway instance and verify
-        const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
-        const verificationResult = await PaymentService.verifyPayment(paymentGateway, paymentData);
-        
-        console.log("Temp booking verification result:", verificationResult);
-        
-        if (verificationResult.success && verificationResult.isValid) {
-          return res.json({
-            success: true,
-            message: "Payment verified successfully",
-            paymentId: paymentData.razorpay_payment_id || paymentData.mihpayid,
-            orderId: paymentData.razorpay_order_id,
-          });
-        } else {
-          return res.status(400).json({ error: "Payment verification failed" });
-        }
-      }
-
-      // Get transaction from database for regular bookings
+      // Every transaction now has a real payment_transactions row created at
+      // /api/payment/create-order time (see the fix there) - there is no
+      // longer a "verify a TEMP_ payment with nothing in the database"
+      // shortcut, because that was the exact mechanism that let a captured
+      // Razorpay payment exist with no booking anywhere in this app.
       const transaction = await storage.getPaymentTransactionByTransactionId(transactionId);
       if (!transaction) {
         return res.status(404).json({ error: "Transaction not found" });
