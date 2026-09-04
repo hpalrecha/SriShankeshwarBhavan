@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, InsufficientAvailabilityError } from "./storage";
 import { insertUserSchema, insertRoomBookingSchema, type RoomBooking } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -96,7 +96,14 @@ async function refundOnlinePaymentIfApplicable(
 
   try {
     const transactions = await storage.getPaymentTransactionsByBookingId(booking.id);
-    const successfulTransaction = transactions.find(t => t.status === "success");
+    // The client-driven /api/payment/verify path marks a transaction
+    // "success", but every gateway's webhook handler (Razorpay/ICICI/PayU)
+    // marks the same outcome "completed" instead - checking only "success"
+    // meant a booking confirmed via webhook could never be matched to its
+    // real transaction here, silently falling back to whichever gateway
+    // happens to be named "razorpay" even when the actual payment went
+    // through ICICI or PayU, and refunding through the wrong gateway.
+    const successfulTransaction = transactions.find(t => t.status === "success" || t.status === "completed");
     const gateway = successfulTransaction
       ? await storage.getPaymentGateway(successfulTransaction.gatewayId)
       : await storage.getPaymentGatewayByName("razorpay");
@@ -469,6 +476,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Admin login failed" });
     }
   });
+
+  // Read-only meal pricing, needed by the public guest booking form to show
+  // food option costs before a booking exists - kept ahead of the admin auth
+  // gate below so guests aren't blocked from seeing prices. Nothing else
+  // here is guest-facing; every other /api/admin/* route requires a session.
+  app.get("/api/admin/food-settings", async (req, res) => {
+    try {
+      const settings = await storage.getFoodSettings();
+      res.json(settings || { breakfastPrice: "50", lunchPrice: "100", dinnerPrice: "100" });
+    } catch (error) {
+      console.error("Error fetching food settings:", error);
+      res.status(500).json({ message: "Failed to fetch food settings" });
+    }
+  });
+
+  // Every /api/admin/* route below this point (except the login route and
+  // the public food-settings read above, both registered before this) was
+  // reachable by anyone with no session at all - this closes that gap.
+  app.use("/api/admin", isAdminAuthenticated);
 
   // Forgot Password endpoint
   app.post("/api/auth/forgot-password", async (req, res) => {
@@ -961,8 +987,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalRooms,
         message: `Created ${createdBookings.length} bookings for ${totalRooms} rooms`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating combination booking:", error);
+      // A concurrent booking took the last room(s) for one of the selected
+      // categories between the capacity check above and the actual insert.
+      // Note: if this is the second or later room-type selection in a
+      // multi-room-type admin booking, any earlier selections in this same
+      // request have already been committed as separate bookings - this
+      // isn't a fully atomic multi-room booking (a pre-existing property of
+      // this route, not something this check changes).
+      if (error instanceof InsufficientAvailabilityError) {
+        return res.status(409).json({ message: error.message });
+      }
       res.status(500).json({ message: "Failed to create combination booking" });
     }
   });
@@ -1021,17 +1057,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Room category not found" });
       }
 
+      // Check if user exists (by mobile, then by email) or create a new one.
+      // Moved ahead of the trustee-reserved-dates check below so that check
+      // can use the real, stored isTrustee value instead of trusting
+      // whatever the client claims about itself in the request body.
+      //
+      // Mobile alone isn't enough: a guest typing their number in a
+      // different format than what's on file (leading zero, missing "+91")
+      // won't match an existing account by mobile, and createUser then
+      // crashes on the database's email-uniqueness constraint instead of a
+      // clean error - this was surfacing as an opaque "Booking Failed" for
+      // returning guests with a real, already-registered email.
+      let user = await storage.getUserByMobile(userData.mobile);
+      if (!user && userData.email) {
+        user = await storage.getUserByEmail(userData.email);
+      }
+      let isNewUser = false;
+      if (!user) {
+        try {
+          // Create user with a default password for guest bookings. A guest
+          // registering themselves through this public endpoint can never
+          // grant themselves trustee status - that's only ever set via the
+          // admin panel - regardless of what isTrustee value they send.
+          const hashedPassword = await bcrypt.hash("guest123", 10);
+          user = await storage.createUser({
+            ...userData,
+            isTrustee: false,
+            password: hashedPassword,
+          });
+          isNewUser = true;
+        } catch (createUserError: any) {
+          // Last-resort fallback for a genuine mobile/email collision this
+          // lookup didn't catch (e.g. a format neither check matched) -
+          // re-fetch the existing account instead of crashing the booking.
+          if (createUserError?.code === "23505") {
+            user = (userData.email && await storage.getUserByEmail(userData.email))
+              || await storage.getUserByMobile(userData.mobile);
+          }
+          if (!user) throw createUserError;
+        }
+      }
+
       // Check for trustee reserved dates
       const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
       const bookingCheckinDate = new Date(bookingData.checkinDate);
       const bookingCheckoutDate = new Date(bookingData.checkoutDate);
-      
+
       // Check each day in the booking range against trustee reserved dates
       const bookingDates = [];
       for (let date = new Date(bookingCheckinDate); date < bookingCheckoutDate; date.setDate(date.getDate() + 1)) {
         bookingDates.push(new Date(date));
       }
-      
+
       const conflictingDates = [];
       for (const bookingDate of bookingDates) {
         const bookingDateString = bookingDate.toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -1039,10 +1116,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const reservedDateString = new Date(rd.reservedDate).toISOString().split('T')[0];
           return reservedDateString === bookingDateString;
         });
-        
+
         if (isReservedDate) {
-          // Only allow trustees to book on reserved dates
-          if (!userData.isTrustee) {
+          // Only allow trustees to book on reserved dates - the real,
+          // stored status on the looked-up/created account above, never the
+          // client-supplied claim in the request body.
+          if (!user.isTrustee) {
             conflictingDates.push({
               date: bookingDate.toDateString(),
               reservedDate: bookingDateString
@@ -1050,9 +1129,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
+
       if (conflictingDates.length > 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: `Booking not allowed on trustee reserved dates: ${conflictingDates.map(d => d.date).join(', ')}. These dates are reserved exclusively for trustees.`,
           conflictingDates: conflictingDates,
           trusteeOnly: true
@@ -1114,39 +1193,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             availableBeds,
             requestedExtraBeds: extraBedsRequested
           });
-        }
-      }
-
-      // Check if user exists (by mobile, then by email) or create a new one.
-      // Mobile alone isn't enough: a guest typing their number in a
-      // different format than what's on file (leading zero, missing "+91")
-      // won't match an existing account by mobile, and createUser then
-      // crashes on the database's email-uniqueness constraint instead of a
-      // clean error - this was surfacing as an opaque "Booking Failed" for
-      // returning guests with a real, already-registered email.
-      let user = await storage.getUserByMobile(userData.mobile);
-      if (!user && userData.email) {
-        user = await storage.getUserByEmail(userData.email);
-      }
-      let isNewUser = false;
-      if (!user) {
-        try {
-          // Create user with a default password for guest bookings
-          const hashedPassword = await bcrypt.hash("guest123", 10);
-          user = await storage.createUser({
-            ...userData,
-            password: hashedPassword,
-          });
-          isNewUser = true;
-        } catch (createUserError: any) {
-          // Last-resort fallback for a genuine mobile/email collision this
-          // lookup didn't catch (e.g. a format neither check matched) -
-          // re-fetch the existing account instead of crashing the booking.
-          if (createUserError?.code === "23505") {
-            user = (userData.email && await storage.getUserByEmail(userData.email))
-              || await storage.getUserByMobile(userData.mobile);
-          }
-          if (!user) throw createUserError;
         }
       }
 
@@ -1262,6 +1308,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           issues: error.issues,
         });
       }
+      // A concurrent booking took the last room(s) between this request's
+      // earlier capacity check and the actual insert.
+      if (error instanceof InsufficientAvailabilityError) {
+        return res.status(409).json({ message: error.message });
+      }
       res.status(500).json({ message: error?.message || "Failed to create booking" });
     }
   });
@@ -1324,11 +1375,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
 
-      if (booking.status !== "confirmed") {
+      // Atomic: only succeeds if this request is the one that actually
+      // flips confirmed -> cancelled. A double-click or client retry that
+      // loses this race gets told "cannot be cancelled" (it's already
+      // cancelled) instead of also triggering its own refund attempt - see
+      // cancelRoomBookingIfConfirmed for why a plain read-then-write here
+      // isn't safe.
+      const cancelledBooking = await storage.cancelRoomBookingIfConfirmed(bookingId);
+      if (!cancelledBooking) {
         return res.status(400).json({ message: "Booking cannot be cancelled" });
       }
-
-      await storage.updateRoomBooking(bookingId, { status: "cancelled" });
 
       // Refund first, so the email/WhatsApp below can report the real outcome
       // instead of promising a refund that hasn't happened yet.
@@ -1516,9 +1572,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 30; // Show 30 per page by default
       const offset = (page - 1) * limit;
-      
-      const bookings = await storage.getRecentBookings(limit, offset);
-      const totalBookings = await storage.getTotalBookingsCount();
+      const filters = {
+        search: (req.query.search as string) || undefined,
+        checkinFrom: (req.query.checkinFrom as string) || undefined,
+        checkinTo: (req.query.checkinTo as string) || undefined,
+      };
+
+      const bookings = await storage.getRecentBookings(limit, offset, filters);
+      const totalBookings = await storage.getTotalBookingsCount(filters);
       
       const bookingsWithDetails = await Promise.all(
         bookings.map(async (booking) => {
@@ -1755,11 +1816,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      let updatedBooking = await storage.updateRoomBooking(id, updates);
+      let updatedBooking: RoomBooking;
+      // Cancelling is split out from a plain field update: the status
+      // transition has to be atomic (only one concurrent request can be the
+      // one that actually cancels a still-active booking), so whether a
+      // refund is owed is decided by whether THIS request won that
+      // transition (cancelledByThisRequest below) - not by re-checking the
+      // stale originalBooking.status read at the top of this handler, which
+      // two concurrent requests would both still see as "not cancelled yet".
+      const isCancelling = updates.status === "cancelled";
+      let cancelledByThisRequest = false;
+      if (isCancelling) {
+        const { status: _status, ...otherUpdates } = updates;
+        const cancelledBooking = await storage.cancelRoomBookingIfNotCancelled(id);
+        cancelledByThisRequest = !!cancelledBooking;
+        updatedBooking = Object.keys(otherUpdates).length > 0
+          ? await storage.updateRoomBooking(id, otherUpdates)
+          : (cancelledBooking || originalBooking);
+      } else {
+        updatedBooking = await storage.updateRoomBooking(id, updates);
+      }
 
-      // If status was changed to cancelled, refund the payment (if applicable)
-      // before notifications, then send cancellation notifications
-      if (updates.status === "cancelled" && originalBooking.status !== "cancelled") {
+      // Only refund/notify if this request is the one that actually
+      // cancelled the booking, not a loser of the race above (which means
+      // it was already cancelled by someone else).
+      if (cancelledByThisRequest) {
         // originalBooking still has the pre-cancel paymentStatus/paymentReference
         // needed to decide whether a refund is owed; the status update above
         // doesn't touch those fields.
@@ -1811,16 +1892,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Food Settings Routes
-  app.get("/api/admin/food-settings", async (req, res) => {
-    try {
-      const settings = await storage.getFoodSettings();
-      res.json(settings || { breakfastPrice: "50", lunchPrice: "100", dinnerPrice: "100" });
-    } catch (error) {
-      console.error("Error fetching food settings:", error);
-      res.status(500).json({ message: "Failed to fetch food settings" });
-    }
-  });
-
+  // GET is registered earlier (public, before the admin auth gate) since
+  // the guest booking form needs meal prices too.
   app.patch("/api/admin/food-settings", async (req, res) => {
     try {
       const updates = req.body;
@@ -2795,14 +2868,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // An admin reviewed a flagged payment and decided it needs no booking or
+  // refund (e.g. a confirmed test charge) - stop showing it going forward.
+  app.post("/api/admin/razorpay-reconciliation/dismiss", async (req, res) => {
+    try {
+      const { paymentId, note } = req.body;
+      if (!paymentId || typeof paymentId !== "string") {
+        return res.status(400).json({ error: "paymentId is required" });
+      }
+      const dismissed = await storage.dismissReconciliationPayment(paymentId, note);
+      res.json(dismissed);
+    } catch (error: any) {
+      console.error("Error dismissing reconciliation payment:", error);
+      res.status(500).json({ error: error.message || "Failed to dismiss payment" });
+    }
+  });
+
   // ICICI Bank payment order endpoint
   app.post("/api/payment/icici/create-order", async (req, res) => {
     try {
-      const { bookingId, amount, customerData } = req.body;
+      const { bookingId, customerData } = req.body;
 
-      if (!bookingId || !amount) {
-        return res.status(400).json({ error: "Booking ID and amount are required" });
+      if (!bookingId) {
+        return res.status(400).json({ error: "Booking ID is required" });
       }
+
+      // bookingId here is the string booking reference (e.g. "SSH-...") -
+      // parseInt(bookingId) on that produces NaN, which the payment_transactions
+      // table's notNull/foreign-key bookingId column rejects outright. Resolve
+      // to the real row first, both for its numeric id and so the amount
+      // charged is always the booking's own stored total, never a client-
+      // supplied amount (the same class of gap fixed for the other gateways).
+      const booking = await storage.getRoomBookingByBookingId(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      const amount = parseFloat(booking.totalAmount);
 
       console.log("Creating ICICI payment order:", { bookingId, amount });
 
@@ -2812,7 +2913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (orderResult.success) {
         // Save payment transaction to database
         await storage.createPaymentTransaction({
-          bookingId: parseInt(bookingId),
+          bookingId: booking.id,
           gatewayId: 1, // ICICI gateway ID
           transactionId: orderResult.merchantTxnNo || `ICICI_${Date.now()}`,
           amount: amount.toString(),
@@ -2846,11 +2947,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/create-order", async (req, res) => {
     console.log("Payment create-order endpoint hit:", req.body);
     try {
-      const { bookingId, gatewayName, amount, currency = "INR" } = req.body;
+      const { bookingId, gatewayName, currency = "INR" } = req.body;
 
       console.log("Processing payment for booking:", bookingId);
       console.log("Gateway name:", gatewayName);
-      console.log("Amount:", amount);
 
       // A Razorpay order must never be created without a real, already-saved
       // booking to attach it to - a "pay first, save the booking afterward"
@@ -2861,6 +2961,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
       }
+
+      // The amount charged is always the booking's own stored total, never
+      // whatever the client sends - a request body amount was previously
+      // trusted outright, letting a guest request an order for any amount
+      // (e.g. ₹1) against a booking priced at any real total. The gateway's
+      // signature verification only proves the amount actually paid matches
+      // the amount on the order, not that the order amount was legitimate.
+      const amount = parseFloat(booking.totalAmount);
 
       // Get the payment gateway
       const gateway = await storage.getPaymentGatewayByName(gatewayName);
@@ -2879,7 +2987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle ICICI Bank separately since it uses a different integration pattern
       if (gateway.gatewayName === "icici_bank") {
         const iciciGateway = createICICIGateway();
-        const orderResult = await iciciGateway.createOrder(parseFloat(amount), currency, bookingId);
+        const orderResult = await iciciGateway.createOrder(amount, currency, bookingId);
         
         if (orderResult.success) {
           const transactionId = `TXN_${bookingId}_${Date.now()}`;
@@ -2910,7 +3018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("About to process payment with gateway:", paymentGateway);
       const result = await PaymentService.processPayment(
         paymentGateway,
-        parseFloat(amount),
+        amount,
         currency,
         bookingId
       );
@@ -3275,72 +3383,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handleICICIPaymentSuccess(paymentData: any) {
-    try {
-      console.log("✅ Processing ICICI payment success:", paymentData.merchantTxnNo || paymentData.transaction_id);
-      
-      // Extract booking ID from merchant transaction number
-      const merchantTxnNo = paymentData.merchantTxnNo || paymentData.transaction_id;
-      const bookingIdMatch = merchantTxnNo?.match(/BOOK_(.+)_\d+/);
-      
-      if (!bookingIdMatch) {
-        console.error("❌ Could not extract booking ID from ICICI transaction:", merchantTxnNo);
-        return;
-      }
-      
-      const bookingId = bookingIdMatch[1];
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(merchantTxnNo, {
+    console.log("✅ Processing ICICI payment success:", paymentData.merchantTxnNo || paymentData.transaction_id);
+
+    // Extract booking ID from merchant transaction number
+    const merchantTxnNo = paymentData.merchantTxnNo || paymentData.transaction_id;
+    const bookingIdMatch = merchantTxnNo?.match(/BOOK_(.+)_\d+/);
+
+    if (!bookingIdMatch) {
+      console.error("❌ Could not extract booking ID from ICICI transaction:", merchantTxnNo);
+      return;
+    }
+
+    const stringBookingId = bookingIdMatch[1];
+    // stringBookingId is the string bookingId (e.g. "SSH-...") and
+    // merchantTxnNo is the transactionId field, but updateRoomBooking and
+    // updatePaymentTransaction both take the numeric primary key - passing
+    // these strings directly (as this previously did) throws or silently
+    // matches nothing, same bug already fixed for Razorpay. Resolve the
+    // real rows first.
+    const booking = await storage.getRoomBookingByBookingId(stringBookingId);
+    if (!booking) {
+      console.error("❌ ICICI webhook: no booking found for", stringBookingId);
+      return;
+    }
+
+    const transaction = await storage.getPaymentTransactionByTransactionId(merchantTxnNo);
+    if (transaction) {
+      await storage.updatePaymentTransaction(transaction.id, {
         status: 'completed',
         gatewayTransactionId: paymentData.phiTxnId || paymentData.txnId || paymentData.bank_transaction_id,
         gatewayResponse: JSON.stringify(paymentData)
       });
-
-      // Update booking payment status
-      await storage.updateRoomBooking(bookingId, {
-        paymentStatus: 'paid_online',
-        paymentReference: paymentData.phiTxnId || paymentData.txnId
-      });
-      
-      console.log("✅ ICICI payment success processed for booking:", bookingId);
-    } catch (error) {
-      console.error("❌ Error processing ICICI payment success:", error);
+    } else {
+      console.error("❌ ICICI webhook: no payment_transactions row for", merchantTxnNo);
     }
+
+    // Update booking payment status
+    await storage.updateRoomBooking(booking.id, {
+      paymentStatus: 'paid_online',
+      paymentReference: paymentData.phiTxnId || paymentData.txnId
+    });
+
+    console.log("✅ ICICI payment success processed for booking:", stringBookingId);
   }
 
   async function handleICICIPaymentFailure(paymentData: any) {
-    try {
-      const transactionId = paymentData.transaction_id || paymentData.txnid;
-      console.log("❌ Processing ICICI payment failure:", transactionId);
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(transactionId, {
-        status: 'failed',
-        gatewayResponse: JSON.stringify(paymentData),
-        failureReason: paymentData.error_message || paymentData.failure_reason || 'Payment failed'
-      });
-      
-      console.log("❌ ICICI payment failure processed:", transactionId);
-    } catch (error) {
-      console.error("❌ Error processing ICICI payment failure:", error);
+    const transactionId = paymentData.transaction_id || paymentData.txnid;
+    console.log("❌ Processing ICICI payment failure:", transactionId);
+
+    const transaction = await storage.getPaymentTransactionByTransactionId(transactionId);
+    if (!transaction) {
+      console.error("❌ ICICI webhook: no payment_transactions row for", transactionId);
+      return;
     }
+
+    await storage.updatePaymentTransaction(transaction.id, {
+      status: 'failed',
+      gatewayResponse: JSON.stringify(paymentData),
+      failureReason: paymentData.error_message || paymentData.failure_reason || 'Payment failed'
+    });
+
+    console.log("❌ ICICI payment failure processed:", transactionId);
   }
 
   async function handleICICIPaymentPending(paymentData: any) {
-    try {
-      const transactionId = paymentData.transaction_id || paymentData.txnid;
-      console.log("⏳ Processing ICICI payment pending:", transactionId);
-      
-      // Update payment transaction to pending status
-      await storage.updatePaymentTransaction(transactionId, {
-        status: 'pending',
-        gatewayResponse: JSON.stringify(paymentData)
-      });
-      
-      console.log("⏳ ICICI payment pending status updated:", transactionId);
-    } catch (error) {
-      console.error("❌ Error processing ICICI payment pending:", error);
+    const transactionId = paymentData.transaction_id || paymentData.txnid;
+    console.log("⏳ Processing ICICI payment pending:", transactionId);
+
+    const transaction = await storage.getPaymentTransactionByTransactionId(transactionId);
+    if (!transaction) {
+      console.error("❌ ICICI webhook: no payment_transactions row for", transactionId);
+      return;
     }
+
+    // Update payment transaction to pending status
+    await storage.updatePaymentTransaction(transaction.id, {
+      status: 'pending',
+      gatewayResponse: JSON.stringify(paymentData)
+    });
+
+    console.log("⏳ ICICI payment pending status updated:", transactionId);
   }
 
   // Webhook helper functions
@@ -3436,53 +3558,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handlePayUPaymentSuccess(paymentData: any) {
-    try {
-      console.log("✅ Processing PayU payment success:", paymentData.txnid);
-      
-      // Extract booking ID from transaction ID
-      const bookingIdMatch = paymentData.txnid.match(/TXN_(.+)_\d+/);
-      
-      if (!bookingIdMatch) {
-        console.error("❌ Could not extract booking ID from PayU transaction:", paymentData.txnid);
-        return;
-      }
-      
-      const bookingId = bookingIdMatch[1];
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(paymentData.txnid, {
+    console.log("✅ Processing PayU payment success:", paymentData.txnid);
+
+    // Extract booking ID from transaction ID
+    const bookingIdMatch = paymentData.txnid.match(/TXN_(.+)_\d+/);
+
+    if (!bookingIdMatch) {
+      console.error("❌ Could not extract booking ID from PayU transaction:", paymentData.txnid);
+      return;
+    }
+
+    const stringBookingId = bookingIdMatch[1];
+    // stringBookingId is the string bookingId (e.g. "SSH-..."), but
+    // updateRoomBooking takes the numeric primary key - same bug already
+    // fixed for Razorpay. Resolve the real booking row first.
+    const booking = await storage.getRoomBookingByBookingId(stringBookingId);
+    if (!booking) {
+      console.error("❌ PayU webhook: no booking found for", stringBookingId);
+      return;
+    }
+
+    // paymentData.txnid is PayU's own transaction id, which create-order
+    // stored in payment_transactions.orderId - not .transactionId, which
+    // holds a different, locally-generated value. Same "wrong field"
+    // mistake already fixed for Razorpay (payment.order_id vs payment.id).
+    const transaction = await storage.getPaymentTransactionByOrderId(paymentData.txnid);
+    if (transaction) {
+      await storage.updatePaymentTransaction(transaction.id, {
         status: 'completed',
         gatewayTransactionId: paymentData.mihpayid,
         gatewayResponse: JSON.stringify(paymentData)
       });
-
-      // Update booking payment status
-      await storage.updateRoomBooking(bookingId, {
-        paymentStatus: 'paid_online',
-        paymentReference: paymentData.mihpayid
-      });
-      
-      console.log("✅ PayU payment success processed for booking:", bookingId);
-    } catch (error) {
-      console.error("❌ Error processing PayU payment success:", error);
+    } else {
+      console.error("❌ PayU webhook: no payment_transactions row for", paymentData.txnid);
     }
+
+    // Update booking payment status
+    await storage.updateRoomBooking(booking.id, {
+      paymentStatus: 'paid_online',
+      paymentReference: paymentData.mihpayid
+    });
+
+    console.log("✅ PayU payment success processed for booking:", stringBookingId);
   }
 
   async function handlePayUPaymentFailure(paymentData: any) {
-    try {
-      console.log("❌ Processing PayU payment failure:", paymentData.txnid);
-      
-      // Update payment transaction
-      await storage.updatePaymentTransaction(paymentData.txnid, {
-        status: 'failed',
-        gatewayResponse: JSON.stringify(paymentData),
-        failureReason: paymentData.error_Message || paymentData.error || 'Payment failed'
-      });
-      
-      console.log("❌ PayU payment failure processed:", paymentData.txnid);
-    } catch (error) {
-      console.error("❌ Error processing PayU payment failure:", error);
+    console.log("❌ Processing PayU payment failure:", paymentData.txnid);
+
+    const transaction = await storage.getPaymentTransactionByOrderId(paymentData.txnid);
+    if (!transaction) {
+      console.error("❌ PayU webhook: no payment_transactions row for", paymentData.txnid);
+      return;
     }
+
+    await storage.updatePaymentTransaction(transaction.id, {
+      status: 'failed',
+      gatewayResponse: JSON.stringify(paymentData),
+      failureReason: paymentData.error_Message || paymentData.error || 'Payment failed'
+    });
+
+    console.log("❌ PayU payment failure processed:", paymentData.txnid);
   }
 
   // Payment Transactions Management

@@ -109,6 +109,10 @@ export const roomBookings = pgTable("room_bookings", {
   extraBeds: integer("extra_beds").default(0), // Number of extra beds requested
   extraBedAmount: decimal("extra_bed_amount", { precision: 10, scale: 2 }).default("0"), // Extra bed cost (₹200 per bed)
   createdAt: timestamp("created_at").defaultNow(),
+  // Bumped automatically on every update (payment status changes, check-in/out,
+  // cancellation, etc.) - lets the admin bookings list surface bookings by
+  // most recent activity, not just when they were first created.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ID Proofs (now supports multiple IDs per booking)
@@ -228,6 +232,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
   bookingId: true,
 });
 
@@ -357,6 +362,16 @@ export const paymentTransactions = pgTable("payment_transactions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Razorpay payments an admin has explicitly reviewed and decided need no
+// booking/refund (e.g. confirmed as their own test charge) - excluded from
+// the unmatched-payments reconciliation check/alert from then on.
+export const dismissedReconciliationPayments = pgTable("dismissed_reconciliation_payments", {
+  id: serial("id").primaryKey(),
+  paymentId: varchar("payment_id", { length: 100 }).notNull().unique(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas for WhatsApp
 export const insertWhatsAppConfigSchema = createInsertSchema(whatsappConfig).omit({
   id: true,
@@ -428,6 +443,8 @@ export type InsertPaymentGateway = z.infer<typeof insertPaymentGatewaySchema>;
 
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+
+export type DismissedReconciliationPayment = typeof dismissedReconciliationPayments.$inferSelect;
 
 // OTP Verification types
 export type OTPVerification = typeof otpVerifications.$inferSelect;

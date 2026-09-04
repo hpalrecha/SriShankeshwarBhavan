@@ -330,10 +330,17 @@ export function startPaymentReconciliationTask() {
       const result = await findUnmatchedRazorpayPayments(2);
       if (result.unmatchedCount > 0) {
         console.error(
-          `⚠️ PAYMENT RECONCILIATION ALERT: ${result.unmatchedCount} Razorpay payment(s) captured in the last 2 days have no matching completed booking payment. Check GET /api/admin/razorpay-reconciliation. Details:`,
+          `⚠️ PAYMENT RECONCILIATION ALERT: ${result.unmatchedCount} Razorpay payment(s) captured in the last 2 days have no matching booking anywhere. Check GET /api/admin/razorpay-reconciliation. Details:`,
           JSON.stringify(result.unmatched, null, 2)
         );
-      } else {
+      }
+      if (result.refundNeededCount > 0) {
+        console.error(
+          `⚠️ REFUND NEEDED: ${result.refundNeededCount} booking(s) have a captured Razorpay payment where a refund was already attempted and failed. Details:`,
+          JSON.stringify(result.refundNeeded, null, 2)
+        );
+      }
+      if (result.unmatchedCount === 0 && result.refundNeededCount === 0) {
         console.log(`Payment reconciliation: all ${result.totalCaptured} captured payment(s) in range are accounted for.`);
       }
     } catch (error) {

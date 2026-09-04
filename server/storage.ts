@@ -13,6 +13,7 @@ import {
   trusteeReservedDates,
   paymentGateways,
   paymentTransactions,
+  dismissedReconciliationPayments,
   otpVerifications,
   type RoomCategory,
   type User,
@@ -27,6 +28,7 @@ import {
   type TrusteeReservedDate,
   type PaymentGateway,
   type PaymentTransaction,
+  type DismissedReconciliationPayment,
   type OTPVerification,
   type InsertRoomCategory,
   type InsertUser,
@@ -44,7 +46,23 @@ import {
   type InsertOTPVerification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc, lt, gt, ne, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, lt, gt, ne, sql, ilike, inArray } from "drizzle-orm";
+
+// Thrown by createRoomBooking when the requested room category doesn't
+// actually have enough units left for the requested dates - route handlers
+// catch this to return a clean 400 instead of a generic 500.
+export class InsufficientAvailabilityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InsufficientAvailabilityError";
+  }
+}
+
+export interface BookingListFilters {
+  search?: string;
+  checkinFrom?: string;
+  checkinTo?: string;
+}
 
 export interface IStorage {
   // Room Categories
@@ -68,13 +86,16 @@ export interface IStorage {
   getRoomBookings(): Promise<RoomBooking[]>;
   getRoomBooking(id: number): Promise<RoomBooking | undefined>;
   getRoomBookingByBookingId(bookingId: string): Promise<RoomBooking | undefined>;
+  getRoomBookingByPaymentReference(paymentReference: string): Promise<RoomBooking | undefined>;
   createRoomBooking(booking: InsertRoomBooking & { bookingId: string }): Promise<RoomBooking>;
   updateRoomBooking(id: number, booking: Partial<RoomBooking>): Promise<RoomBooking>;
+  cancelRoomBookingIfConfirmed(id: number): Promise<RoomBooking | undefined>;
+  cancelRoomBookingIfNotCancelled(id: number): Promise<RoomBooking | undefined>;
   getBookingsByDateRange(startDate: Date | string, endDate: Date | string): Promise<RoomBooking[]>;
   getTodaysCheckins(): Promise<RoomBooking[]>;
   getTodaysCheckouts(): Promise<RoomBooking[]>;
-  getRecentBookings(limit: number, offset?: number): Promise<RoomBooking[]>;
-  getTotalBookingsCount(): Promise<number>;
+  getRecentBookings(limit: number, offset?: number, filters?: BookingListFilters): Promise<RoomBooking[]>;
+  getTotalBookingsCount(filters?: BookingListFilters): Promise<number>;
 
   // ID Proofs
   getIdProofsByBookingId(bookingId: number): Promise<IdProof[]>;
@@ -134,6 +155,8 @@ export interface IStorage {
   getPaymentTransactionsByBookingId(bookingId: number): Promise<PaymentTransaction[]>;
   createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
   updatePaymentTransaction(id: number, transaction: Partial<PaymentTransaction>): Promise<PaymentTransaction>;
+  getDismissedReconciliationPaymentIds(): Promise<Set<string>>;
+  dismissReconciliationPayment(paymentId: string, note?: string): Promise<DismissedReconciliationPayment>;
 
   // OTP Verification
   createOTPVerification(otpData: InsertOTPVerification): Promise<OTPVerification>;
@@ -249,7 +272,9 @@ export class DatabaseStorage implements IStorage {
 
   // Room Bookings
   async getRoomBookings(): Promise<RoomBooking[]> {
-    return await db.select().from(roomBookings).orderBy(desc(roomBookings.createdAt));
+    // Most recently active first (payment confirmed, checked in/out,
+    // cancelled, etc.), not just most recently created.
+    return await db.select().from(roomBookings).orderBy(desc(roomBookings.updatedAt));
   }
 
   async getRoomBooking(id: number): Promise<RoomBooking | undefined> {
@@ -262,9 +287,63 @@ export class DatabaseStorage implements IStorage {
     return booking;
   }
 
+  // Some bookings (anything created under the pre-7b57062 "pay first" flow)
+  // never got a payment_transactions row at all - this is the only way to
+  // find them by Razorpay payment ID. See payment-reconciliation.ts.
+  async getRoomBookingByPaymentReference(paymentReference: string): Promise<RoomBooking | undefined> {
+    const [booking] = await db.select().from(roomBookings).where(eq(roomBookings.paymentReference, paymentReference));
+    return booking;
+  }
+
   async createRoomBooking(booking: InsertRoomBooking & { bookingId: string }): Promise<RoomBooking> {
-    const [newBooking] = await db.insert(roomBookings).values(booking).returning();
-    return newBooking;
+    return await db.transaction(async (tx) => {
+      // Lock the room category row for the rest of this transaction, so a
+      // second concurrent booking for the same category has to wait here
+      // until this one commits or rolls back. Without this, two requests
+      // for the last available room can both read "1 room free" before
+      // either has inserted anything, and both succeed - the classic
+      // check-then-act race. Locking the category (which always exists,
+      // unlike the not-yet-inserted booking row) is what actually
+      // serializes concurrent attempts for the same category.
+      const [category] = await tx
+        .select()
+        .from(roomCategories)
+        .where(eq(roomCategories.id, booking.roomCategoryId))
+        .for("update");
+
+      if (!category) {
+        throw new Error("Room category not found");
+      }
+
+      const checkin = new Date(booking.checkinDate as any);
+      const checkout = new Date(booking.checkoutDate as any);
+      const requestedRooms = booking.roomsBooked || 1;
+
+      // Same overlap and "what counts as booked" rules as
+      // getBookingsByDateRange: cancelled bookings don't hold inventory,
+      // and two stays overlap when each one's checkin is before the
+      // other's checkout.
+      const overlapping = await tx
+        .select()
+        .from(roomBookings)
+        .where(and(
+          eq(roomBookings.roomCategoryId, booking.roomCategoryId),
+          ne(roomBookings.status, "cancelled"),
+          lt(roomBookings.checkinDate, checkout),
+          gt(roomBookings.checkoutDate, checkin),
+        ));
+
+      const alreadyBooked = overlapping.reduce((sum, b) => sum + (b.roomsBooked || 1), 0);
+
+      if (alreadyBooked + requestedRooms > category.totalUnits) {
+        throw new InsufficientAvailabilityError(
+          `Only ${Math.max(0, category.totalUnits - alreadyBooked)} room(s) of ${category.name} are available for these dates, not ${requestedRooms}.`
+        );
+      }
+
+      const [newBooking] = await tx.insert(roomBookings).values(booking).returning();
+      return newBooking;
+    });
   }
 
   async updateRoomBooking(id: number, booking: Partial<RoomBooking>): Promise<RoomBooking> {
@@ -274,6 +353,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(roomBookings.id, id))
       .returning();
     return updatedBooking;
+  }
+
+  // Atomically flips status confirmed -> cancelled, only succeeding if the
+  // row is still "confirmed" at the moment of the update. Returns undefined
+  // if it wasn't (already cancelled, e.g. by a concurrent request). Callers
+  // use this to decide whether THIS request is the one that actually
+  // cancelled the booking, so a refund is only ever attempted once - a
+  // plain read-then-write here would let two near-simultaneous cancel
+  // requests (a double-click, a client retry) both see "confirmed" and both
+  // trigger a refund.
+  async cancelRoomBookingIfConfirmed(id: number): Promise<RoomBooking | undefined> {
+    const [cancelledBooking] = await db
+      .update(roomBookings)
+      .set({ status: "cancelled" })
+      .where(and(eq(roomBookings.id, id), eq(roomBookings.status, "confirmed")))
+      .returning();
+    return cancelledBooking;
+  }
+
+  // Same idea as cancelRoomBookingIfConfirmed, but for the admin cancel path,
+  // which (unlike the guest self-service one) can cancel a booking from any
+  // non-cancelled status, not just "confirmed".
+  async cancelRoomBookingIfNotCancelled(id: number): Promise<RoomBooking | undefined> {
+    const [cancelledBooking] = await db
+      .update(roomBookings)
+      .set({ status: "cancelled" })
+      .where(and(eq(roomBookings.id, id), ne(roomBookings.status, "cancelled")))
+      .returning();
+    return cancelledBooking;
   }
 
   async getBookingsByDateRange(startDate: Date | string, endDate: Date | string): Promise<RoomBooking[]> {
@@ -336,19 +444,49 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(roomBookings.checkoutDate));
   }
 
-  async getRecentBookings(limit: number, offset: number = 0): Promise<RoomBooking[]> {
-    return await db
-      .select()
-      .from(roomBookings)
-      .orderBy(desc(roomBookings.createdAt))
-      .limit(limit)
-      .offset(offset);
+  // Search matches the booking's own id, or the guest's name/email/mobile on
+  // the linked users row - not room_bookings.primaryGuest*, which is almost
+  // always null (see the Aradhana Jain investigation: guest details land on
+  // the users row, not that column). Resolves matching user ids first rather
+  // than joining, since this app's guest volume is small and it keeps the
+  // return shape a plain RoomBooking[] like every other query here.
+  private async buildBookingSearchConditions(filters?: BookingListFilters) {
+    const conditions = [];
+    if (filters?.checkinFrom) {
+      conditions.push(gte(roomBookings.checkinDate, new Date(filters.checkinFrom)));
+    }
+    if (filters?.checkinTo) {
+      conditions.push(lte(roomBookings.checkinDate, new Date(filters.checkinTo)));
+    }
+    if (filters?.search) {
+      const term = `%${filters.search.trim()}%`;
+      const matchingUsers = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(or(ilike(users.name, term), ilike(users.email, term), ilike(users.mobile, term)));
+      const userIds = matchingUsers.map((u) => u.id);
+      conditions.push(
+        userIds.length > 0
+          ? or(ilike(roomBookings.bookingId, term), inArray(roomBookings.userId, userIds))
+          : ilike(roomBookings.bookingId, term)
+      );
+    }
+    return conditions;
   }
 
-  async getTotalBookingsCount(): Promise<number> {
-    const result = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(roomBookings);
+  async getRecentBookings(limit: number, offset: number = 0, filters?: BookingListFilters): Promise<RoomBooking[]> {
+    const conditions = await this.buildBookingSearchConditions(filters);
+    // Most recently active first (payment confirmed, checked in/out,
+    // cancelled, etc.), not just most recently created - a booking made
+    // hours or days ago that was just paid now surfaces at the top.
+    const query = db.select().from(roomBookings).orderBy(desc(roomBookings.updatedAt)).limit(limit).offset(offset);
+    return conditions.length > 0 ? await query.where(and(...conditions)) : await query;
+  }
+
+  async getTotalBookingsCount(filters?: BookingListFilters): Promise<number> {
+    const conditions = await this.buildBookingSearchConditions(filters);
+    const query = db.select({ count: sql<number>`count(*)` }).from(roomBookings);
+    const result = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
     return parseInt(result[0]?.count?.toString() || '0');
   }
 
@@ -735,6 +873,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(paymentTransactions.id, id))
       .returning();
     return updated;
+  }
+
+  // Reconciliation dismissals - an admin reviewed a captured-but-unmatched
+  // payment and decided it needs no booking or refund (e.g. a confirmed
+  // test charge), so it should stop showing up in the alert going forward.
+  async getDismissedReconciliationPaymentIds(): Promise<Set<string>> {
+    const rows = await db.select({ paymentId: dismissedReconciliationPayments.paymentId }).from(dismissedReconciliationPayments);
+    return new Set(rows.map((r) => r.paymentId));
+  }
+
+  async dismissReconciliationPayment(paymentId: string, note?: string): Promise<DismissedReconciliationPayment> {
+    const [dismissed] = await db
+      .insert(dismissedReconciliationPayments)
+      .values({ paymentId, note })
+      .onConflictDoNothing()
+      .returning();
+    // onConflictDoNothing returns nothing on an existing row - fetch it so
+    // dismissing an already-dismissed payment is idempotent, not an error.
+    if (dismissed) return dismissed;
+    const [existing] = await db
+      .select()
+      .from(dismissedReconciliationPayments)
+      .where(eq(dismissedReconciliationPayments.paymentId, paymentId));
+    return existing;
   }
 
   // OTP Verification methods

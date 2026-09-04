@@ -97,7 +97,13 @@ export class PayUGateway implements PaymentGatewayInterface {
       email,
       phone,
       hash,
-      key: this.config.publicKey,
+      // Must be the exact same value used as the first field of the hash
+      // above (config.merchantKey) - PayU recomputes the hash server-side
+      // from the "key" it receives, so sending a different credential here
+      // (this used config.publicKey, a separate admin-settings field an
+      // admin could easily fill with a different value) makes every
+      // transaction fail PayU's own hash check as tampered.
+      key: this.config.merchantKey,
       service_provider: "payu_paisa",
       surl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/payment/payu/success`,
       furl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/payment/payu/failure`,

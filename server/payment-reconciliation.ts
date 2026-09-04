@@ -11,21 +11,30 @@ export interface UnmatchedPayment {
   contact: string | null;
 }
 
+export interface RefundNeededPayment extends UnmatchedPayment {
+  bookingId: string;
+  guestName: string | null;
+}
+
 export interface ReconciliationResult {
   checkedFrom: string;
   checkedTo: string;
   totalCaptured: number;
   unmatchedCount: number;
   unmatched: UnmatchedPayment[];
+  refundNeededCount: number;
+  refundNeeded: RefundNeededPayment[];
 }
+
+const RESOLVED_PAYMENT_STATUSES = ["paid_online", "paid", "paid_checkin", "refunded"];
 
 // The internal defense against a captured-but-unrecorded payment (booking
 // created before charging, the webhook secret coming from the DB, DB-write
 // failures no longer being swallowed) all depend on specific code paths
 // working correctly. This is the independent backstop: it asks Razorpay
-// itself what it actually captured and checks that against our own
-// payment_transactions table, so a gap can never go unnoticed again even if
-// caused by some future, unrelated bug.
+// itself what it actually captured and checks that against our own records,
+// so a gap can never go unnoticed again even if caused by some future,
+// unrelated bug.
 export async function findUnmatchedRazorpayPayments(
   days: number = 14
 ): Promise<ReconciliationResult> {
@@ -61,24 +70,59 @@ export async function findUnmatchedRazorpayPayments(
   }
 
   const captured = items.filter((p: any) => p.status === "captured");
+  const dismissedIds = await storage.getDismissedReconciliationPaymentIds();
 
   const unmatched: UnmatchedPayment[] = [];
+  const refundNeeded: RefundNeededPayment[] = [];
+
   for (const payment of captured) {
+    if (dismissedIds.has(payment.id)) continue;
+
+    // A payment can be accounted for two different ways, because bookings
+    // created under the pre-7b57062 flow (pay first, create the booking
+    // afterward) never got a payment_transactions row at all - only
+    // room_bookings.paymentReference proves they were ever recorded. Only
+    // checking payment_transactions (the original version of this function)
+    // misclassified every one of those as orphaned, even though a real,
+    // correctly-paid booking existed - see the pay_TRduaFQJkcsiaS incident.
     const transaction = payment.order_id
       ? await storage.getPaymentTransactionByOrderId(payment.order_id)
       : undefined;
-    const isMatched = transaction && ["completed", "success"].includes(transaction.status);
-    if (!isMatched) {
-      unmatched.push({
-        paymentId: payment.id,
-        orderId: payment.order_id || null,
-        amount: payment.amount / 100,
-        currency: payment.currency,
-        createdAt: new Date(payment.created_at * 1000).toISOString(),
-        receipt: payment.notes?.receipt || null,
-        email: payment.email || null,
-        contact: payment.contact || null,
+    const matchedViaTransaction = !!transaction && ["completed", "success"].includes(transaction.status);
+
+    const booking = await storage.getRoomBookingByPaymentReference(payment.id);
+
+    if (matchedViaTransaction || (booking && RESOLVED_PAYMENT_STATUSES.includes(booking.paymentStatus))) {
+      continue; // genuinely accounted for, either way
+    }
+
+    const basePayment: UnmatchedPayment = {
+      paymentId: payment.id,
+      orderId: payment.order_id || null,
+      amount: payment.amount / 100,
+      currency: payment.currency,
+      createdAt: new Date(payment.created_at * 1000).toISOString(),
+      receipt: payment.notes?.receipt || null,
+      email: payment.email || null,
+      contact: payment.contact || null,
+    };
+
+    if (booking && booking.paymentStatus === "refund_failed") {
+      // A booking exists and a refund was already attempted and failed -
+      // this is a different, already-diagnosed problem (go retry/complete
+      // the refund), not "no booking found anywhere". Surfacing it in the
+      // same bucket as a genuinely orphaned payment would hide that
+      // distinction from whoever's triaging the alert.
+      refundNeeded.push({
+        ...basePayment,
+        bookingId: booking.bookingId,
+        guestName: booking.primaryGuestName || null,
       });
+    } else {
+      // Either no booking exists at all, or one exists but is in some other
+      // unresolved state (e.g. still "unpaid" despite a captured payment) -
+      // both are genuinely worth flagging as "go investigate this".
+      unmatched.push(basePayment);
     }
   }
 
@@ -88,5 +132,7 @@ export async function findUnmatchedRazorpayPayments(
     totalCaptured: captured.length,
     unmatchedCount: unmatched.length,
     unmatched,
+    refundNeededCount: refundNeeded.length,
+    refundNeeded,
   };
 }

@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Users, Calendar, CreditCard, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Eye, Users, Calendar, CreditCard, BookOpen, ChevronLeft, ChevronRight, Search, CalendarRange, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import BookingDetailsModal from "./booking-details-modal";
@@ -30,11 +34,34 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [checkinFrom, setCheckinFrom] = useState<Date | undefined>(undefined);
+  const [checkinTo, setCheckinTo] = useState<Date | undefined>(undefined);
+
+  // Debounce the search box so every keystroke doesn't trigger a fetch -
+  // and reset back to page 1 whenever the actual search term changes.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, checkinFrom, checkinTo]);
+
+  const checkinFromParam = checkinFrom ? format(checkinFrom, "yyyy-MM-dd") : "";
+  const checkinToParam = checkinTo ? format(checkinTo, "yyyy-MM-dd") : "";
 
   const { data: bookingsResponse, isLoading } = useQuery<PaginatedBookingsResponse>({
-    queryKey: ["/api/admin/bookings-table", currentPage], // Different key to avoid cache conflicts
+    // Different key to avoid cache conflicts with other components hitting
+    // the same underlying endpoint with different params.
+    queryKey: ["/api/admin/bookings-table", currentPage, search, checkinFromParam, checkinToParam],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/recent-bookings?page=${currentPage}&limit=30`);
+      const params = new URLSearchParams({ page: String(currentPage), limit: "30" });
+      if (search) params.set("search", search);
+      if (checkinFromParam) params.set("checkinFrom", checkinFromParam);
+      if (checkinToParam) params.set("checkinTo", checkinToParam);
+      const response = await fetch(`/api/admin/recent-bookings?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch bookings');
       return response.json();
     },
@@ -137,6 +164,54 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
     );
   };
 
+  const hasActiveFilters = !!search || !!checkinFrom || !!checkinTo;
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setCheckinFrom(undefined);
+    setCheckinTo(undefined);
+  };
+
+  const filterBar = !userFilter && (
+    <div className="flex flex-col sm:flex-row gap-3 px-6 pb-4">
+      <div className="relative flex-1 min-w-[200px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search by guest name, email, phone, or booking ID..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="justify-start gap-2 font-normal">
+            <CalendarRange className="h-4 w-4" />
+            {checkinFrom || checkinTo
+              ? `${checkinFrom ? format(checkinFrom, "MMM d") : "Any"} - ${checkinTo ? format(checkinTo, "MMM d, yyyy") : "Any"}`
+              : "Filter by check-in date"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <CalendarPicker
+            mode="range"
+            selected={{ from: checkinFrom, to: checkinTo }}
+            onSelect={(range) => {
+              setCheckinFrom(range?.from);
+              setCheckinTo(range?.to);
+            }}
+            numberOfMonths={2}
+          />
+        </PopoverContent>
+      </Popover>
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+          <X className="h-4 w-4" /> Clear
+        </Button>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return <div>Loading bookings...</div>;
   }
@@ -147,8 +222,11 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
         <CardHeader>
           <CardTitle>Recent Bookings</CardTitle>
         </CardHeader>
+        {filterBar}
         <CardContent>
-          <p className="text-gray-500">No bookings found.</p>
+          <p className="text-gray-500">
+            {hasActiveFilters ? "No bookings match your search/filter." : "No bookings found."}
+          </p>
         </CardContent>
       </Card>
     );
@@ -163,6 +241,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           {userFilter ? `User Bookings (${filteredBookings.length})` : `All Bookings (${pagination?.total || filteredBookings.length})`}
         </CardTitle>
       </CardHeader>
+      {filterBar}
       <CardContent className="p-0">
         {/* Mobile Cards View */}
         <div className="block lg:hidden space-y-4 p-4">
