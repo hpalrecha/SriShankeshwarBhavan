@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Shield, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -93,7 +93,13 @@ export default function AdminLogin() {
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="Enter admin email" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="Enter admin email"
+                          autoComplete="username"
+                          autoFocus
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -112,6 +118,7 @@ export default function AdminLogin() {
                             type={showPassword ? "text" : "password"}
                             placeholder="Enter password"
                             className="pr-10"
+                            autoComplete="current-password"
                             {...field}
                           />
                           <button
@@ -135,12 +142,23 @@ export default function AdminLogin() {
                   className="w-full bg-brand-orange hover:bg-brand-orange-light"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Signing In..." : "Sign In"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
             </Form>
 
-
+            {/* No self-service admin password reset exists yet - a clear
+                pointer beats a dead end when someone can't get in. */}
+            <p className="text-center text-sm text-gray-500 mt-4">
+              Forgot your password? Contact another admin to reset it for you.
+            </p>
           </CardContent>
         </Card>
 

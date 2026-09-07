@@ -99,11 +99,16 @@ export default function TrusteeReservations() {
       }
       return;
     }
-    createReservedDateMutation.mutate({
-      reservedDate: dayKey,
-      description: "Trustee Reserved Day",
-      isEnabled: true,
-    });
+    // Confirm before adding too, not just before removing - an accidental
+    // click on the calendar shouldn't silently block a date for regular
+    // guests.
+    if (confirm(`Reserve ${format(day, "PPP")} for trustees only? Regular guests won't be able to book this date.`)) {
+      createReservedDateMutation.mutate({
+        reservedDate: dayKey,
+        description: "Trustee Reserved Day",
+        isEnabled: true,
+      });
+    }
   };
 
   const handleSaveDescription = (date: TrusteeReservedDate) => {
@@ -112,9 +117,18 @@ export default function TrusteeReservations() {
     updateReservedDateMutation.mutate({ id: date.id, updates: { description: draft } });
   };
 
+  // Once a reserved date has passed there's nothing left to manage about it -
+  // drop it from the list/summary so old dates don't pile up indefinitely.
+  // The calendar itself is unaffected (it's fine to scroll back and see a
+  // past reservation was there, same as any calendar).
+  const upcomingDates = useMemo(
+    () => reservedDates.filter((d) => !isBefore(new Date(d.reservedDate), today)),
+    [reservedDates, today]
+  );
+
   const sortedDates = useMemo(
-    () => [...reservedDates].sort((a, b) => new Date(a.reservedDate).getTime() - new Date(b.reservedDate).getTime()),
-    [reservedDates]
+    () => [...upcomingDates].sort((a, b) => new Date(a.reservedDate).getTime() - new Date(b.reservedDate).getTime()),
+    [upcomingDates]
   );
 
   if (isLoading) {
@@ -270,33 +284,34 @@ export default function TrusteeReservations() {
         </Card>
       )}
 
-      {/* Summary */}
-      {reservedDates.length > 0 && (
+      {/* Summary - upcoming dates only, same as the list above */}
+      {upcomingDates.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Summary</CardTitle>
+            <CardDescription>Upcoming reserved dates only - past dates are no longer shown.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-muted rounded-lg">
-                <div className="text-2xl font-bold text-primary">{reservedDates.length}</div>
-                <div className="text-sm text-muted-foreground">Total Dates</div>
+                <div className="text-2xl font-bold text-primary">{upcomingDates.length}</div>
+                <div className="text-sm text-muted-foreground">Upcoming Dates</div>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {reservedDates.filter((d) => d.isEnabled).length}
+                  {upcomingDates.filter((d) => d.isEnabled).length}
                 </div>
                 <div className="text-sm text-muted-foreground">Active</div>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-gray-500">
-                  {reservedDates.filter((d) => !d.isEnabled).length}
+                  {upcomingDates.filter((d) => !d.isEnabled).length}
                 </div>
                 <div className="text-sm text-muted-foreground">Paused</div>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {new Set(reservedDates.map((d) => new Date(d.reservedDate).getFullYear())).size}
+                  {new Set(upcomingDates.map((d) => new Date(d.reservedDate).getFullYear())).size}
                 </div>
                 <div className="text-sm text-muted-foreground">Years</div>
               </div>
