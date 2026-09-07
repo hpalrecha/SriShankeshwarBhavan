@@ -74,6 +74,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
   const [bookingId, setBookingId] = useState<string>("");
   const [bookingFor, setBookingFor] = useState<"self" | "others">("others");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  // New-account details held back until payment is actually confirmed - the
+  // server deliberately doesn't log the guest in or finalize the account
+  // while a pay_online booking is still unpaid, see /api/bookings.
+  const [pendingLogin, setPendingLogin] = useState<{ isNewUser: boolean; defaultPassword?: string } | undefined>();
 
   // Check if user is authenticated
   const { data: currentUser } = useQuery({
@@ -164,7 +168,10 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
 
-      // Show success message for new accounts
+      // Show success message for new accounts. Held back for a pay_online
+      // booking still awaiting payment - the server didn't actually log
+      // this session in yet, so claiming otherwise here would be wrong.
+      // The Razorpay success handler below shows this once payment clears.
       if (result.autoLoggedIn && result.defaultPassword) {
         setTimeout(() => {
           toast({
@@ -172,6 +179,8 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
             description: `Welcome! Your account has been created with password: guest123`,
           });
         }, 1500);
+      } else if (result.pendingLogin) {
+        setPendingLogin(result.pendingLogin);
       }
 
       // The booking record now exists BEFORE any money moves. For online
@@ -299,6 +308,19 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
             queryClient.invalidateQueries({ queryKey: ["/api/admin/current-availability"] });
             queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
             queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+            // The server only logs the guest's session in once payment is
+            // actually confirmed (/api/payment/verify) - refresh the cached
+            // auth state now that it's real, and show the "account created"
+            // notice that was held back at booking-creation time.
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            if (pendingLogin?.defaultPassword) {
+              setTimeout(() => {
+                toast({
+                  title: "Account Created & Logged In",
+                  description: `Welcome! Your account has been created with password: guest123`,
+                });
+              }, 1500);
+            }
             setIsProcessingPayment(false);
             setShowConfirmation(true);
           } else {

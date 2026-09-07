@@ -419,7 +419,9 @@ export class DatabaseStorage implements IStorage {
         and(
           gte(roomBookings.checkinDate, today),
           lte(roomBookings.checkinDate, tomorrow),
-          eq(roomBookings.status, "confirmed")
+          eq(roomBookings.status, "confirmed"),
+          // Exclude abandoned pay_online attempts - see buildBookingSearchConditions.
+          or(ne(roomBookings.paymentMethod, "pay_online"), ne(roomBookings.paymentStatus, "unpaid"))
         )
       )
       .orderBy(asc(roomBookings.checkinDate));
@@ -452,6 +454,19 @@ export class DatabaseStorage implements IStorage {
   // return shape a plain RoomBooking[] like every other query here.
   private async buildBookingSearchConditions(filters?: BookingListFilters) {
     const conditions = [];
+    // A pay_online booking row is created the moment the guest reaches the
+    // payment step, before Razorpay has actually confirmed anything - if
+    // they close the tab or the payment fails, that row is left permanently
+    // "confirmed" + "unpaid" with no further update ever coming. Hide those
+    // abandoned attempts from every admin booking list; a genuinely
+    // completed booking always carries a real paymentStatus (paid,
+    // paid_online, paid_checkin, pending with a reference, etc.).
+    conditions.push(
+      or(
+        ne(roomBookings.paymentMethod, "pay_online"),
+        ne(roomBookings.paymentStatus, "unpaid")
+      )
+    );
     if (filters?.checkinFrom) {
       conditions.push(gte(roomBookings.checkinDate, new Date(filters.checkinFrom)));
     }

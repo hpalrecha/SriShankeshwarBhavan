@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendPasswordResetEmail, sendOTPEmail } from "./email";
+import { generateReceiptPdfBuffer } from "./receipt-pdf";
 import { sendEmailViaSES } from "./emailSES";
 import { debugSESConfiguration } from "./debug-email-ses";
 import { testDirectSMTP } from "./test-direct-smtp";
@@ -1274,8 +1275,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Auto-login users asynchronously for better performance
-      if (req.session) {
+      // Auto-login users asynchronously for better performance. Skipped for a
+      // booking still awaiting online payment - nothing has actually been
+      // confirmed yet, so the guest shouldn't come away from this request
+      // with an authenticated session or "account created" messaging. The
+      // login happens in /api/payment/verify instead, once payment actually
+      // succeeds (see there).
+      if (req.session && !awaitingOnlinePayment) {
         (req.session as any).userId = user.id;
         // Save session asynchronously
         setImmediate(() => {
@@ -1293,8 +1299,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         booking,
         user,
         bookingId,
-        autoLoggedIn: isNewUser || true, // Always return true to indicate login attempt
-        defaultPassword: isNewUser ? "guest123" : undefined
+        autoLoggedIn: !awaitingOnlinePayment,
+        // The client shows a "your account was created" toast off this -
+        // hold it back until /api/payment/verify actually confirms payment
+        // and logs the guest in for real.
+        defaultPassword: (!awaitingOnlinePayment && isNewUser) ? "guest123" : undefined,
+        pendingLogin: awaitingOnlinePayment ? { isNewUser, defaultPassword: isNewUser ? "guest123" : undefined } : undefined,
       });
     } catch (error: any) {
       console.error("Error creating booking:", error);
@@ -1334,6 +1344,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching booking:", error);
       res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  // Public, unauthenticated by design (same as the booking lookup right
+  // above it) - this is what lets WhatsApp's servers fetch the PDF via a
+  // plain link when it's attached to a document-header template message.
+  // bookingId is a long, non-sequential, non-guessable string, the same
+  // protection the JSON lookup above already relies on.
+  app.get("/api/bookings/:bookingId/receipt.pdf", async (req, res) => {
+    try {
+      const { bookingId } = req.params;
+      const booking = await storage.getRoomBookingByBookingId(bookingId);
+      if (!booking) {
+        return res.status(404).send("Booking not found");
+      }
+      const [user, category] = await Promise.all([
+        storage.getUser(booking.userId),
+        storage.getRoomCategory(booking.roomCategoryId),
+      ]);
+      if (!category) {
+        return res.status(404).send("Booking not found");
+      }
+      const pdfBuffer = await generateReceiptPdfBuffer({ booking, user: user ?? null, category });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="Receipt-${booking.bookingId}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating receipt PDF:", error);
+      res.status(500).send("Failed to generate receipt");
     }
   });
 
@@ -1513,8 +1552,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // Get all bookings created today (regardless of check-in date)
-      const allBookings = await storage.getRoomBookings();
+      // Get all bookings created today (regardless of check-in date).
+      // Exclude abandoned pay_online attempts - a booking row is created the
+      // moment a guest reaches the payment step, before Razorpay confirms
+      // anything, so a closed tab or failed payment leaves a row that's
+      // permanently "confirmed" + "unpaid" and never becomes a real booking.
+      const allBookings = (await storage.getRoomBookings()).filter(
+        b => !(b.paymentMethod === "pay_online" && b.paymentStatus === "unpaid")
+      );
       const bookingsCreatedToday = allBookings.filter(booking => {
         const createdDate = booking.createdAt ? new Date(booking.createdAt) : new Date();
         // Use toDateString() to compare just the date part
@@ -3115,6 +3160,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentStatus: "paid_online",
           paymentReference: paymentData.razorpay_payment_id || paymentData.mihpayid,
         });
+
+        // Payment is genuinely confirmed now - this is the correct moment to
+        // log the guest in. /api/bookings deliberately skipped this while the
+        // booking was still awaiting online payment (see there).
+        if (req.session) {
+          (req.session as any).userId = updatedBooking.userId;
+          req.session.save((err) => {
+            if (err) console.error("Error saving session after payment verification:", err);
+          });
+        }
 
         res.json({ success: true, message: "Payment verified successfully" });
 
