@@ -29,6 +29,7 @@ const templateSchema = z.object({
   notificationType: z.enum(['booking_confirmation', 'booking_cancellation', 'pre_checkin_reminder', 'checkin_day_welcome', 'post_checkout_feedback']),
   templateName: z.string().min(1, "Template Name is required"),
   isActive: z.boolean(),
+  includesReceiptDocument: z.boolean(),
 });
 
 type WhatsAppConfigForm = z.infer<typeof whatsAppConfigSchema>;
@@ -95,6 +96,7 @@ export default function WhatsAppSettings() {
       notificationType: "booking_confirmation",
       templateName: "",
       isActive: true,
+      includesReceiptDocument: false,
     },
   });
 
@@ -532,6 +534,28 @@ export default function WhatsAppSettings() {
                             )}
                           />
 
+                          <FormField
+                            control={templateForm.control}
+                            name="includesReceiptDocument"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Has a receipt attached</FormLabel>
+                                  <p className="text-sm text-muted-foreground">
+                                    Only turn this on if the Meta template above was approved with a Document header -
+                                    otherwise every send using it will fail.
+                                  </p>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+
                           <div className="flex justify-end gap-2">
                             <Button
                               type="submit"
@@ -567,6 +591,11 @@ export default function WhatsAppSettings() {
                             ) : (
                               <Badge variant="outline" className="text-gray-600">
                                 Inactive
+                              </Badge>
+                            )}
+                            {template.includesReceiptDocument && (
+                              <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                Sends receipt PDF
                               </Badge>
                             )}
                           </div>
@@ -692,6 +721,28 @@ export default function WhatsAppSettings() {
                       <FormControl>
                         <Switch
                           checked={field.value ?? editingTemplate.isActive}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={templateForm.control}
+                  name="includesReceiptDocument"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Has a receipt attached</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Only turn this on if this Meta template was approved with a Document header - otherwise
+                          every send using it will fail.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value ?? editingTemplate.includesReceiptDocument ?? false}
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>

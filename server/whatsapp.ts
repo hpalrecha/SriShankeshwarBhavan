@@ -17,8 +17,9 @@ interface WhatsAppTemplate {
   components?: Array<{
     type: 'header' | 'body' | 'footer' | 'button';
     parameters?: Array<{
-      type: 'text' | 'currency' | 'date_time';
+      type: 'text' | 'currency' | 'date_time' | 'document';
       text?: string;
+      document?: { link: string; filename?: string };
     }>;
   }>;
 }
@@ -50,7 +51,12 @@ class WhatsAppService {
       this.config.businessAccountId);
   }
 
-  private async sendTemplate(phoneNumber: string, notificationType: string, parameters: string[] = []): Promise<boolean> {
+  private async sendTemplate(
+    phoneNumber: string,
+    notificationType: string,
+    parameters: string[] = [],
+    document?: { url: string; filename: string }
+  ): Promise<boolean> {
     if (!this.isConfigured()) {
       console.log(`❌ WhatsApp not properly configured - Config exists: ${!!this.config}, Enabled: ${this.config?.isEnabled || false}, HasCredentials: ${!!(this.config?.accessToken && this.config?.phoneNumberId && this.config?.businessAccountId)}`);
       return false;
@@ -112,6 +118,21 @@ class WhatsAppService {
             text: param
           }))
         }];
+      }
+
+      // The template mapping's includesReceiptDocument flag is the source
+      // of truth for whether this specific Meta template actually has a
+      // DOCUMENT header component - not just whether a document was passed
+      // in. Sending a header parameter to a template without one (or
+      // omitting it for one that has one) gets the whole send rejected.
+      if (document && templateMapping.includesReceiptDocument) {
+        components = [
+          {
+            type: 'header',
+            parameters: [{ type: 'document', document: { link: document.url, filename: document.filename } }],
+          },
+          ...components,
+        ];
       }
 
       const message: WhatsAppMessage = {
@@ -207,7 +228,15 @@ class WhatsAppService {
     }
 
     console.log(`📋 Final WhatsApp parameters for ${templateMapping?.templateName || 'unknown'}:`, parameters);
-    return await this.sendTemplate(phoneNumber, 'booking_confirmation', parameters);
+
+    // Only meaningful if the mapped template actually has a document header
+    // (checked inside sendTemplate) - otherwise this URL is simply unused.
+    const receiptUrl = `${process.env.CLIENT_URL || 'http://localhost:5000'}/api/bookings/${booking.bookingId}/receipt.pdf`;
+
+    return await this.sendTemplate(phoneNumber, 'booking_confirmation', parameters, {
+      url: receiptUrl,
+      filename: `Receipt-${booking.bookingId}.pdf`,
+    });
   }
 
   async sendBookingCancellation(booking: RoomBooking, user: User | null, category: RoomCategory): Promise<boolean> {

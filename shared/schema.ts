@@ -306,6 +306,11 @@ export const whatsappTemplates = pgTable("whatsapp_templates", {
   notificationType: varchar("notification_type", { length: 50 }).notNull(),
   templateName: varchar("template_name", { length: 100 }).notNull(),
   isActive: boolean("is_active").default(true),
+  // Only set this once templateName refers to a Meta-approved template that
+  // actually has a DOCUMENT header component - sending a document header
+  // parameter to a template that doesn't have one (or omitting it for one
+  // that does) gets the whole message rejected by WhatsApp.
+  includesReceiptDocument: boolean("includes_receipt_document").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
