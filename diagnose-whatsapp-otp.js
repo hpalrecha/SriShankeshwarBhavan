@@ -143,8 +143,22 @@ async function main() {
       );
       const body = await res.json();
       if (!res.ok) {
-        bad(`Meta rejected the credentials: ${JSON.stringify(body.error || body)}`);
-        problems.push('Meta rejected the access token - it may have expired.');
+        const err = body.error || body;
+        bad(`Meta refused the request: ${JSON.stringify(err)}`);
+        // "(#100) Tried accessing nonexisting field (message_templates)" means
+        // the id is a real node but not a WhatsApp Business Account - almost
+        // always because a phone number was pasted where the WABA id goes.
+        // A genuinely expired token gives code 190 instead.
+        if (String(err.message || '').includes('message_templates')) {
+          info(`business_account_id is "${config.business_account_id}", which Meta does not`);
+          info('recognise as a WhatsApp Business Account. Meta ids are 15-16 digits;');
+          info('a 10-digit value is a phone number, not an id.');
+          problems.push('business_account_id is not a WABA id - get the real one from Meta Business Manager (WhatsApp Manager -> API Setup).');
+        } else if (err.code === 190) {
+          problems.push('The Meta access token has expired - issue a new one.');
+        } else {
+          problems.push(`Meta refused the credentials: ${err.message || 'see above'}.`);
+        }
       } else {
         const list = body.data || [];
         info(`${list.length} template(s) on the business account:`);
