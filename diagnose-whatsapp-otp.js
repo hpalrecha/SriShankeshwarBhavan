@@ -224,6 +224,65 @@ async function main() {
     }
   }
 
+  // 5. If an id is wrong, the token itself knows the right ones -----------
+  if (config?.access_token && problems.some((p) => p.includes('id'))) {
+    head('5. The ids this token is actually allowed to use');
+    info('(asking Meta what the stored access token has access to)');
+    try {
+      const t = encodeURIComponent(config.access_token);
+      const dbg = await fetch(
+        `https://graph.facebook.com/v18.0/debug_token?input_token=${t}&access_token=${t}`
+      );
+      const dbgBody = await dbg.json();
+      if (!dbg.ok) {
+        bad(`Could not inspect the token: ${JSON.stringify(dbgBody.error || dbgBody)}`);
+      } else {
+        const data = dbgBody.data || {};
+        info(`token app id: ${data.app_id || 'unknown'}   valid: ${data.is_valid}`);
+        if (data.expires_at) {
+          const when = data.expires_at === 0 ? 'never' : new Date(data.expires_at * 1000).toISOString();
+          info(`expires: ${when}`);
+        }
+
+        // granular_scopes carries the WABA ids this token may act on - which is
+        // exactly the business_account_id the config should hold.
+        const wabaIds = [
+          ...new Set(
+            (data.granular_scopes || [])
+              .filter((s) => String(s.scope).startsWith('whatsapp_business'))
+              .flatMap((s) => s.target_ids || [])
+          ),
+        ];
+
+        if (wabaIds.length === 0) {
+          bad('The token carries no WhatsApp business account ids.');
+          info('It is probably not a WhatsApp system-user token. Ask whoever owns');
+          info('the Meta account for a token issued against the WhatsApp product.');
+        } else {
+          ok(`Use one of these as business_account_id: ${wabaIds.join(', ')}`);
+          for (const waba of wabaIds) {
+            const nums = await fetch(
+              `https://graph.facebook.com/v18.0/${waba}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`,
+              { headers: { Authorization: `Bearer ${config.access_token}` } }
+            );
+            const numsBody = await nums.json();
+            if (!nums.ok) {
+              info(`  ${waba}: could not list numbers (${numsBody.error?.message || 'unknown'})`);
+              continue;
+            }
+            for (const n of numsBody.data || []) {
+              ok(`  phone_number_id ${n.id}  ->  ${n.verified_name} (${n.display_phone_number})`);
+            }
+          }
+          info('');
+          info('Put those two values into Admin -> WhatsApp Settings and re-run this.');
+        }
+      }
+    } catch (e) {
+      bad(`Token inspection failed: ${e.message}`);
+    }
+  }
+
   head('Verdict');
   if (problems.length === 0) {
     console.log('Nothing wrong found here. If the code still does not arrive, the send is');
