@@ -8,6 +8,22 @@
 //
 // Prints no secrets - only whether a credential is present and how long it is.
 import { Pool } from '@neondatabase/serverless';
+import fs from 'node:fs';
+
+// The app has no dotenv: in production the env comes from whatever starts the
+// process (systemd, pm2), so an interactive SSH shell on the Lightsail box has
+// none of it. Read a local .env ourselves so this runs without the operator
+// having to reconstruct the environment by hand.
+function loadEnvFile(path = '.env') {
+  if (!fs.existsSync(path)) return false;
+  for (const line of fs.readFileSync(path, 'utf8').split('\n')) {
+    const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!m || line.trim().startsWith('#')) continue;
+    const value = m[2].trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+    if (!process.env[m[1]]) process.env[m[1]] = value;
+  }
+  return true;
+}
 
 const ok = (m) => console.log(`\x1b[32m PASS\x1b[0m  ${m}`);
 const bad = (m) => console.log(`\x1b[31m FAIL\x1b[0m  ${m}`);
@@ -18,7 +34,21 @@ const problems = [];
 
 async function main() {
   if (!process.env.DATABASE_URL) {
-    bad('DATABASE_URL is not set. Run this in the Replit Shell, not on your laptop.');
+    const found = loadEnvFile();
+    if (found) info('Loaded environment from .env');
+  }
+
+  if (!process.env.DATABASE_URL) {
+    bad('DATABASE_URL is not set, and no .env here has it.');
+    info('');
+    info('Run this from the app directory on the server. If the app is managed by');
+    info('pm2 or systemd, the value lives there, not in your login shell:');
+    info('');
+    info('  pm2 describe <app>            # look for DATABASE_URL under env');
+    info('  systemctl cat <service>       # look for Environment= / EnvironmentFile=');
+    info('');
+    info('Then either run from the directory holding the .env, or prefix it:');
+    info('  DATABASE_URL="postgres://..." node diagnose-whatsapp-otp.js');
     process.exit(1);
   }
 
