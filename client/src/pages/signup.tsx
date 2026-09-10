@@ -15,7 +15,7 @@ import { ArrowLeft, Home } from "lucide-react";
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   mobile: z.string().min(10, "Please enter a valid mobile number"),
-  email: z.string().email("Please enter a valid email"), // required - primary login identifier for OTP and password login
+  email: z.string().email("Please enter a valid email"), // required - password-login identifier and the alternate OTP channel (WhatsApp on the mobile above is the default one)
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {

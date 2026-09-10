@@ -311,6 +311,13 @@ export const whatsappTemplates = pgTable("whatsapp_templates", {
   // parameter to a template that doesn't have one (or omitting it for one
   // that does) gets the whole message rejected by WhatsApp.
   includesReceiptDocument: boolean("includes_receipt_document").default(false),
+  // Only meaningful for the otp_verification mapping. An Authentication-category
+  // template approved with a "Copy code" button requires a matching BUTTON
+  // component on every send; a Utility template that names the Bhavan and spells
+  // the code out in its body has no button and is rejected just as hard if one
+  // is sent. Defaults to true so the authentication template already mapped in
+  // production keeps working after this column is pushed.
+  hasCopyCodeButton: boolean("has_copy_code_button").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });

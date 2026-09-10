@@ -105,10 +105,18 @@ class WhatsAppService {
         // otherwise ("Button at index 0 of type Url requires a parameter").
         // The button's sub_type is 'url' even though the UI calls it
         // "Copy code"; verified directly against the Graph API.
+        //
+        // A Utility template - the only kind whose body can actually carry the
+        // Bhavan's name, since Meta fixes the wording of Authentication bodies -
+        // has no such button, and sending a BUTTON component to it is rejected
+        // just as hard. hasCopyCodeButton on the mapping is the source of truth
+        // for which shape is live; it is not inferable from the send itself.
         components = [
-          { type: 'body', parameters: [{ type: 'text', text: parameters[0] }] },
-          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: parameters[0] }] }
+          { type: 'body', parameters: [{ type: 'text', text: parameters[0] }] }
         ];
+        if (templateMapping.hasCopyCodeButton) {
+          components.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: parameters[0] }] });
+        }
       } else if (parameters.length > 0) {
         // Other templates just need body parameters
         components = [{
@@ -174,11 +182,15 @@ class WhatsAppService {
     }
   }
 
-  // Sends a login/signup OTP via WhatsApp. Requires an Authentication-category
-  // template approved in Meta Business Manager, mapped in the admin panel as
-  // notificationType 'otp_verification'. Until that template exists this safely
-  // returns false (same as any other unconfigured notification type) so callers
-  // can fall through to another channel without special-casing.
+  // Sends a login/signup OTP via WhatsApp. Requires a template approved in Meta
+  // Business Manager and mapped in the admin panel as notificationType
+  // 'otp_verification' - see WhatsApp_Template_Specifications.md for the body
+  // copy. WhatsApp is the default channel on the sign-in screen now, so an
+  // absent or inactive mapping is not a quiet degradation: it fails every
+  // default-path login until the customer switches to email by hand. This still
+  // returns false rather than throwing, and the caller surfaces that as a real
+  // error telling the customer they can use email instead - never an automatic
+  // switch behind their back.
   async sendOTP(phoneNumber: string, otp: string): Promise<boolean> {
     const formatted = this.formatPhoneNumber(phoneNumber);
     if (!formatted) {

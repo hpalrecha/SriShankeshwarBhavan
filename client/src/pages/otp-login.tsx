@@ -10,14 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Home, MessageSquare, Clock } from "lucide-react";
+import { ArrowLeft, Home, MessageSquare, Mail, Clock } from "lucide-react";
 
 const emailSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
 
 const mobileSchema = z.object({
-  mobile: z.string().min(10, "Please enter a valid mobile number"),
+  // Mirrors the server's check so a bad number fails here instead of after a
+  // round trip. "+91" and spaces are stripped first because customers paste
+  // their number in both shapes.
+  mobile: z
+    .string()
+    .transform((value) => value.replace(/^\+91/, "").replace(/\s+/g, ""))
+    .refine((value) => /^[6-9]\d{9}$/.test(value), "Please enter a valid 10-digit mobile number"),
 });
 
 const otpSchema = z.object({
@@ -28,17 +34,31 @@ type EmailFormData = z.infer<typeof emailSchema>;
 type MobileFormData = z.infer<typeof mobileSchema>;
 type OTPFormData = z.infer<typeof otpSchema>;
 
-// Two explicit, non-overlapping ways to request an OTP - email is the
-// default/preferred option; mobile (WhatsApp) only engages when the
-// customer deliberately switches to it. Never an automatic fallback
-// from one to the other.
-type OTPMethod = "email" | "mobile";
+// Two explicit, non-overlapping ways to request an OTP - mobile (WhatsApp)
+// is the default/preferred option; email only engages when the customer
+// deliberately switches to it. Never an automatic fallback from one to the
+// other: a failed send leaves the customer on the channel they chose and
+// tells them they can switch, so a code never goes somewhere they did not ask.
+type OTPMethod = "mobile" | "email";
+
+// The channel the server reports it actually sent on, which is what the
+// confirmation must name. Deliberately separate from OTPMethod: the form can
+// only ask, the response is what happened.
+type OTPChannel = "whatsapp" | "email";
+
+// "9876543210" -> "+91 98765 43210", so the customer can tell at a glance that
+// the code went to the number they meant.
+const formatMobile = (value: string) => {
+  const digits = (value || "").replace(/\D/g, "").slice(-10);
+  return digits.length === 10 ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : value;
+};
 
 export default function OTPLogin() {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string>("");
-  const [success, setSuccess] = useState<string>("");
-  const [method, setMethod] = useState<OTPMethod>("email");
+  const [sent, setSent] = useState<boolean>(false);
+  const [sentChannel, setSentChannel] = useState<OTPChannel>("whatsapp");
+  const [method, setMethod] = useState<OTPMethod>("mobile");
   const [step, setStep] = useState<"request" | "otp">("request");
   const [mobile, setMobile] = useState<string>("");
   const [displayTarget, setDisplayTarget] = useState<string>("");
@@ -78,12 +98,13 @@ export default function OTPLogin() {
       setStep("otp");
       setTimeLeft(300); // 5 minutes
       if (response.channel === "whatsapp") {
-        setDisplayTarget(response.mobile);
-        setSuccess("OTP sent successfully! Please check WhatsApp for the 6-digit code.");
+        setSentChannel("whatsapp");
+        setDisplayTarget(formatMobile(response.mobile));
       } else {
+        setSentChannel("email");
         setDisplayTarget(response.maskedEmail || "your email");
-        setSuccess(`OTP sent successfully! Please check your email (${response.maskedEmail}) for the 6-digit code.`);
       }
+      setSent(true);
       setError("");
     },
     onError: (error: any) => {
@@ -115,13 +136,13 @@ export default function OTPLogin() {
 
   const onEmailSubmit = (data: EmailFormData) => {
     setError("");
-    setSuccess("");
+    setSent(false);
     sendOTPMutation.mutate({ method: "email", email: data.email });
   };
 
   const onMobileSubmit = (data: MobileFormData) => {
     setError("");
-    setSuccess("");
+    setSent(false);
     sendOTPMutation.mutate({ method: "whatsapp", mobile: data.mobile });
   };
 
@@ -132,7 +153,7 @@ export default function OTPLogin() {
 
   const resendOTP = () => {
     if (timeLeft > 0) return;
-    if (method === "email") {
+    if (sentChannel === "email") {
       sendOTPMutation.mutate({ method: "email", email: emailForm.getValues().email });
     } else {
       sendOTPMutation.mutate({ method: "whatsapp", mobile });
@@ -142,7 +163,7 @@ export default function OTPLogin() {
   const switchMethod = (next: OTPMethod) => {
     setMethod(next);
     setError("");
-    setSuccess("");
+    setSent(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -179,8 +200,10 @@ export default function OTPLogin() {
           </CardTitle>
           <CardDescription>
             {step === "request"
-              ? (method === "email" ? "Enter your email to receive an OTP" : "Enter your mobile number to receive an OTP via WhatsApp")
-              : `Enter the 6-digit code sent to ${displayTarget || "undefined"}`
+              ? (method === "mobile" ? "Enter your mobile number to receive an OTP on WhatsApp" : "Enter your email to receive an OTP")
+              : sentChannel === "whatsapp"
+                ? `We sent it on WhatsApp to ${displayTarget}`
+                : `We sent it by email to ${displayTarget}`
             }
           </CardDescription>
         </CardHeader>
@@ -191,21 +214,90 @@ export default function OTPLogin() {
             </Alert>
           )}
 
-          {success && (
+          {sent && (
             <Alert className="border-green-200 bg-green-50 mb-6">
-              <MessageSquare className="h-4 w-4" />
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
+              {sentChannel === "whatsapp" ? (
+                <MessageSquare className="h-4 w-4 text-green-700" />
+              ) : (
+                <Mail className="h-4 w-4 text-green-700" />
+              )}
+              <AlertDescription className="text-green-800">
+                <span className="block font-semibold">
+                  {sentChannel === "whatsapp" ? "Check your WhatsApp" : "Check your email"}
+                </span>
+                <span className="block">
+                  We sent a 6-digit code to {displayTarget}.
+                </span>
+              </AlertDescription>
             </Alert>
           )}
 
           {step === "request" ? (
-            method === "email" ? (
+            method === "mobile" ? (
+              <form onSubmit={mobileForm.handleSubmit(onMobileSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="mobile">WhatsApp Mobile Number</Label>
+                  <div className="flex">
+                    <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-gray-50 px-3 text-sm text-gray-500">
+                      +91
+                    </span>
+                    <Input
+                      id="mobile"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      autoFocus
+                      placeholder="9876543210"
+                      {...mobileForm.register("mobile")}
+                      className="w-full rounded-l-none"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    The 6-digit code is sent to this number on WhatsApp.
+                  </p>
+                  {mobileForm.formState.errors.mobile && (
+                    <p className="text-sm text-red-600">
+                      {mobileForm.formState.errors.mobile.message}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-brand-orange hover:bg-brand-orange/90"
+                  disabled={sendOTPMutation.isPending}
+                >
+                  {sendOTPMutation.isPending ? "Sending OTP..." : "Send OTP via WhatsApp"}
+                </Button>
+
+                <div className="text-center space-y-1">
+                  <p className="text-sm text-gray-600">
+                    No WhatsApp on this number?{" "}
+                    <button
+                      type="button"
+                      onClick={() => switchMethod("email")}
+                      className="text-brand-orange hover:underline"
+                    >
+                      Get the code by email
+                    </button>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Prefer password login?{" "}
+                    <Link href="/login/password" className="text-brand-orange hover:underline">
+                      Use password instead
+                    </Link>
+                  </p>
+                </div>
+              </form>
+            ) : (
               <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
+                    autoFocus
                     placeholder="you@example.com"
                     {...emailForm.register("email")}
                     className="w-full"
@@ -227,58 +319,19 @@ export default function OTPLogin() {
 
                 <div className="text-center space-y-1">
                   <p className="text-sm text-gray-600">
-                    Prefer password login?{" "}
-                    <Link href="/login/password" className="text-brand-orange hover:underline">
-                      Use password instead
-                    </Link>
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Prefer WhatsApp?{" "}
                     <button
                       type="button"
                       onClick={() => switchMethod("mobile")}
                       className="text-brand-orange hover:underline"
                     >
-                      Use mobile number instead
+                      Use WhatsApp instead
                     </button>
                   </p>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={mobileForm.handleSubmit(onMobileSubmit)} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="mobile">Mobile Number</Label>
-                  <Input
-                    id="mobile"
-                    type="tel"
-                    placeholder="9876543210"
-                    {...mobileForm.register("mobile")}
-                    className="w-full"
-                  />
-                  {mobileForm.formState.errors.mobile && (
-                    <p className="text-sm text-red-600">
-                      {mobileForm.formState.errors.mobile.message}
-                    </p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-brand-orange hover:bg-brand-orange/90"
-                  disabled={sendOTPMutation.isPending}
-                >
-                  {sendOTPMutation.isPending ? "Sending OTP..." : "Send OTP via WhatsApp"}
-                </Button>
-
-                <div className="text-center">
                   <p className="text-sm text-gray-600">
-                    <button
-                      type="button"
-                      onClick={() => switchMethod("email")}
-                      className="text-brand-orange hover:underline"
-                    >
-                      Use email instead
-                    </button>
+                    Prefer password login?{" "}
+                    <Link href="/login/password" className="text-brand-orange hover:underline">
+                      Use password instead
+                    </Link>
                   </p>
                 </div>
               </form>

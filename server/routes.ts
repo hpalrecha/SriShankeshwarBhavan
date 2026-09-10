@@ -301,8 +301,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Sending number is a temporary stand-in ("P91 India"), unrelated to
         // this business, borrowed until the real number's account access is
-        // sorted out - see the deploy notes. Fine for an explicitly-chosen
-        // alternate channel; would not have been fine as a silent default.
+        // sorted out - see the deploy notes. WhatsApp is now the default
+        // channel on the sign-in screen, so most guests see that sender name:
+        // swapping in the real business number is the open follow-up.
         const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
         if (!whatsappSent) {
           console.error(`❌ WhatsApp OTP send failed for ${cleanMobile}`);

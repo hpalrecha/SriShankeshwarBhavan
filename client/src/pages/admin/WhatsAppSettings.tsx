@@ -26,10 +26,11 @@ const whatsAppConfigSchema = z.object({
 });
 
 const templateSchema = z.object({
-  notificationType: z.enum(['booking_confirmation', 'booking_cancellation', 'pre_checkin_reminder', 'checkin_day_welcome', 'post_checkout_feedback']),
+  notificationType: z.enum(['booking_confirmation', 'booking_cancellation', 'pre_checkin_reminder', 'checkin_day_welcome', 'post_checkout_feedback', 'otp_verification']),
   templateName: z.string().min(1, "Template Name is required"),
   isActive: z.boolean(),
   includesReceiptDocument: z.boolean(),
+  hasCopyCodeButton: z.boolean(),
 });
 
 type WhatsAppConfigForm = z.infer<typeof whatsAppConfigSchema>;
@@ -41,6 +42,7 @@ const notificationTypeLabels = {
   pre_checkin_reminder: "Pre Check-in Reminder",
   checkin_day_welcome: "Check-in Day Welcome",
   post_checkout_feedback: "Post Checkout Feedback",
+  otp_verification: "Login OTP",
 };
 
 export default function WhatsAppSettings() {
@@ -97,6 +99,7 @@ export default function WhatsAppSettings() {
       templateName: "",
       isActive: true,
       includesReceiptDocument: false,
+      hasCopyCodeButton: true,
     },
   });
 
@@ -556,6 +559,31 @@ export default function WhatsAppSettings() {
                             )}
                           />
 
+                          {templateForm.watch("notificationType") === "otp_verification" && (
+                            <FormField
+                              control={templateForm.control}
+                              name="hasCopyCodeButton"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                  <div className="space-y-0.5">
+                                    <FormLabel>Has a "Copy code" button</FormLabel>
+                                    <p className="text-sm text-muted-foreground">
+                                      On for an Authentication template (Meta fixes its wording). Off for a Utility
+                                      template that names the Bhavan and spells the code out in the body. Getting this
+                                      wrong makes every OTP send fail.
+                                    </p>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          )}
+
                           <div className="flex justify-end gap-2">
                             <Button
                               type="submit"
@@ -596,6 +624,11 @@ export default function WhatsAppSettings() {
                             {template.includesReceiptDocument && (
                               <Badge variant="outline" className="text-blue-600 border-blue-600">
                                 Sends receipt PDF
+                              </Badge>
+                            )}
+                            {template.notificationType === "otp_verification" && (
+                              <Badge variant="outline" className="text-purple-600 border-purple-600">
+                                {template.hasCopyCodeButton ? "Copy-code button" : "Code in body"}
                               </Badge>
                             )}
                           </div>
@@ -749,6 +782,31 @@ export default function WhatsAppSettings() {
                     </FormItem>
                   )}
                 />
+
+                {editingTemplate.notificationType === "otp_verification" && (
+                  <FormField
+                    control={templateForm.control}
+                    name="hasCopyCodeButton"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Has a "Copy code" button</FormLabel>
+                          <p className="text-sm text-muted-foreground">
+                            On for an Authentication template (Meta fixes its wording). Off for a Utility template
+                            that names the Bhavan and spells the code out in the body. Getting this wrong makes
+                            every OTP send fail.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value ?? editingTemplate.hasCopyCodeButton ?? true}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <div className="flex justify-end gap-2">
                   <Button
