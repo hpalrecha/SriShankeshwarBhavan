@@ -255,10 +255,48 @@ async function main() {
         ];
 
         if (wabaIds.length === 0) {
-          bad('The token carries no WhatsApp business account ids.');
-          info('It is probably not a WhatsApp system-user token. Ask whoever owns');
-          info('the Meta account for a token issued against the WhatsApp product.');
-        } else {
+          bad('The token lists no WhatsApp business account ids in its scopes.');
+          info('Not conclusive on its own - some token types report no granular');
+          info('scopes at all - so try to reach the accounts directly instead.');
+
+          // Walk whatever businesses this token can see and ask each one for
+          // its WhatsApp accounts, owned and client-shared. This finds the id
+          // even when granular_scopes is empty.
+          const auth = { headers: { Authorization: `Bearer ${config.access_token}` } };
+          const meRes = await fetch('https://graph.facebook.com/v18.0/me?fields=id,name', auth);
+          const me = await meRes.json();
+          if (meRes.ok) info(`token identity: ${me.name || '(unnamed)'} (${me.id})`);
+
+          const bizRes = await fetch('https://graph.facebook.com/v18.0/me/businesses?fields=id,name', auth);
+          const biz = await bizRes.json();
+          if (!bizRes.ok) {
+            info(`no business list: ${biz.error?.message || 'unknown'}`);
+          }
+          const businesses = biz.data || [];
+          if (businesses.length === 0) {
+            info('This token can see no Meta businesses either.');
+          }
+          for (const b of businesses) {
+            info(`business: ${b.name} (${b.id})`);
+            for (const edge of ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts']) {
+              const wRes = await fetch(`https://graph.facebook.com/v18.0/${b.id}/${edge}?fields=id,name`, auth);
+              const w = await wRes.json();
+              if (!wRes.ok) continue;
+              for (const acct of w.data || []) {
+                ok(`  business_account_id ${acct.id}  (${acct.name || edge})`);
+                wabaIds.push(acct.id);
+              }
+            }
+          }
+          if (wabaIds.length === 0) {
+            info('');
+            info('Nothing reachable. Ask P91 for a system-user token with the');
+            info('WhatsApp Business Account assigned and whatsapp_business_messaging');
+            info('+ whatsapp_business_management granted.');
+          }
+        }
+
+        if (wabaIds.length > 0) {
           ok(`Use one of these as business_account_id: ${wabaIds.join(', ')}`);
           for (const waba of wabaIds) {
             const nums = await fetch(
