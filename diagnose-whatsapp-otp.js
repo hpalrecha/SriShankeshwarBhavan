@@ -136,6 +136,31 @@ async function main() {
   // 4. Does Meta agree the template exists and is approved? ----------------
   if (config?.access_token && config?.business_account_id) {
     head('4. What Meta says');
+
+    // Sends go to /{phone_number_id}/messages, so this id being wrong breaks
+    // everything regardless of templates. A 10-digit value here is the phone
+    // number pasted into the id field, which Meta answers with
+    // "Object with ID ... does not exist" (code 100, subcode 33).
+    try {
+      const pn = await fetch(
+        `https://graph.facebook.com/v18.0/${config.phone_number_id}?fields=display_phone_number,verified_name,quality_rating`,
+        { headers: { Authorization: `Bearer ${config.access_token}` } }
+      );
+      const pnBody = await pn.json();
+      if (pn.ok) {
+        ok(`phone_number_id ${config.phone_number_id} is valid`);
+        info(`sends as: ${pnBody.verified_name} (${pnBody.display_phone_number})`);
+      } else {
+        bad(`phone_number_id ${config.phone_number_id} is NOT a usable id`);
+        info(`Meta: ${pnBody.error?.message || JSON.stringify(pnBody)}`);
+        info('Every send fails here, whatever the templates say. Get the real');
+        info('"Phone number ID" from Meta Business Suite -> WhatsApp Manager -> API Setup.');
+        problems.push('phone_number_id is not a Meta id - replace it in Admin -> WhatsApp Settings.');
+      }
+    } catch (e) {
+      bad(`Could not check phone_number_id: ${e.message}`);
+    }
+
     try {
       const res = await fetch(
         `https://graph.facebook.com/v18.0/${config.business_account_id}/message_templates?limit=100`,
