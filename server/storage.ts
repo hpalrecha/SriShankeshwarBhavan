@@ -162,6 +162,7 @@ export interface IStorage {
   createOTPVerification(otpData: InsertOTPVerification): Promise<OTPVerification>;
   getOTPVerification(mobile: string, otp: string): Promise<OTPVerification | undefined>;
   getLatestOTPVerification(mobile: string): Promise<OTPVerification | undefined>;
+  deleteOTPVerification(id: number): Promise<void>;
   markOTPAsVerified(id: number): Promise<void>;
   incrementOTPAttempts(id: number): Promise<void>;
   cleanupExpiredOTPs(): Promise<void>;
@@ -943,6 +944,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(otpVerifications.createdAt))
       .limit(1);
     return verification;
+  }
+
+  // Used to withdraw an OTP whose delivery failed. The record is written
+  // before the send is attempted (the code has to exist to be sent), so a
+  // failed send would otherwise leave a row behind that the 60-second
+  // resend cooldown counts against - locking the customer out of retrying
+  // a code that never arrived.
+  async deleteOTPVerification(id: number): Promise<void> {
+    await db.delete(otpVerifications).where(eq(otpVerifications.id, id));
   }
 
   async markOTPAsVerified(id: number): Promise<void> {

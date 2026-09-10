@@ -266,11 +266,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // column, and every account already has a mobile number, so this
         // needs no migration. The customer never sees this; verify-otp
         // continues to work exactly as it does for the WhatsApp path.
-        await storage.createOTPVerification({ mobile: userCleanMobile, otp, expiresAt, verified: false, attempts: 0 });
+        const otpRecord = await storage.createOTPVerification({ mobile: userCleanMobile, otp, expiresAt, verified: false, attempts: 0 });
 
         const emailSent = await sendOTPEmail(user.email!, otp);
         if (!emailSent) {
           console.error(`❌ Email OTP send failed for ${user.email}`);
+          // Withdraw the code we never managed to deliver, so the cooldown
+          // above does not count a failed send against the customer's next
+          // attempt. Otherwise the retry we just told them to make is met
+          // with "Please wait before requesting another OTP".
+          await storage.deleteOTPVerification(otpRecord.id);
           return res.status(503).json({ message: "We couldn't send a code to that email right now. Please try again, or use your mobile number instead." });
         }
 
@@ -297,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const otp = smsService.generateOTP();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-        await storage.createOTPVerification({ mobile: cleanMobile, otp, expiresAt, verified: false, attempts: 0 });
+        const otpRecord = await storage.createOTPVerification({ mobile: cleanMobile, otp, expiresAt, verified: false, attempts: 0 });
 
         // Sending number is a temporary stand-in ("P91 India"), unrelated to
         // this business, borrowed until the real number's account access is
@@ -307,6 +312,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const whatsappSent = await whatsappService.sendOTP(cleanMobile, otp);
         if (!whatsappSent) {
           console.error(`❌ WhatsApp OTP send failed for ${cleanMobile}`);
+          // Withdraw the code we never managed to deliver - see the email
+          // branch above. This matters more here: WhatsApp is the default
+          // channel, so a failed send followed by a blocked retry is the
+          // first thing a guest meets.
+          await storage.deleteOTPVerification(otpRecord.id);
           return res.status(503).json({ message: "We couldn't send a WhatsApp code right now. Please try again, or use email / password login instead." });
         }
 
