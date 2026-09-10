@@ -7,8 +7,15 @@
 // own query throws before it can tell you anything. Raw SQL still reports.
 //
 // Prints no secrets - only whether a credential is present and how long it is.
-import { Pool } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 import fs from 'node:fs';
+
+// Same wiring as server/db.ts. The Neon driver talks over a WebSocket and has
+// no constructor of its own under Node, so without this every connection fails
+// with "All attempts to open a WebSocket to connect to the database failed".
+neonConfig.webSocketConstructor = ws;
+neonConfig.fetchConnectionCache = true;
 
 // The app has no dotenv: in production the env comes from whatever starts the
 // process (systemd, pm2), so an interactive SSH shell on the Lightsail box has
