@@ -34,18 +34,17 @@ type EmailFormData = z.infer<typeof emailSchema>;
 type MobileFormData = z.infer<typeof mobileSchema>;
 type OTPFormData = z.infer<typeof otpSchema>;
 
-// Two explicit, non-overlapping ways to request an OTP. Never an automatic
-// fallback from one to the other: a failed send leaves the customer on the
-// channel they chose and tells them they can switch, so a code never goes
-// somewhere they did not ask.
+// Two explicit, non-overlapping ways to request an OTP - mobile (WhatsApp)
+// is the default/preferred option; email only engages when the customer
+// deliberately switches to it. Never an automatic fallback from one to the
+// other: a failed send leaves the customer on the channel they chose and
+// tells them they can switch, so a code never goes somewhere they did not ask.
 //
-// WhatsApp is the intended default. It is temporarily NOT the default because
-// the Meta credentials on this deployment cannot send at all - the stored
-// access token carries no whatsapp_business_* permissions, so every WhatsApp
-// OTP fails and the guest has to find the email link to get in. Restoring it
-// is the one-line change marked below, once the diagnostic reports the
-// account and phone number ids as valid:
-//     docker exec ssbb node /app/diagnose-whatsapp-otp.js
+// This default only works while the Meta config is sound. It depends on the
+// phone number id and business account id in whatsapp_config being real Meta
+// ids rather than the phone number - getting that wrong fails every send, and
+// with WhatsApp as the default that is the first thing a guest meets. Check
+// with:  docker exec ssbb node /app/diagnose-whatsapp-otp.js
 type OTPMethod = "mobile" | "email";
 
 // The channel the server reports it actually sent on, which is what the
@@ -65,9 +64,7 @@ export default function OTPLogin() {
   const [error, setError] = useState<string>("");
   const [sent, setSent] = useState<boolean>(false);
   const [sentChannel, setSentChannel] = useState<OTPChannel>("whatsapp");
-  // TEMPORARY: "email" until WhatsApp credentials work - see the note above.
-  // Change back to "mobile" to restore WhatsApp as the default.
-  const [method, setMethod] = useState<OTPMethod>("email");
+  const [method, setMethod] = useState<OTPMethod>("mobile");
   const [step, setStep] = useState<"request" | "otp">("request");
   const [mobile, setMobile] = useState<string>("");
   const [displayTarget, setDisplayTarget] = useState<string>("");
