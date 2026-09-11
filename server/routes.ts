@@ -2,6 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage, InsufficientAvailabilityError } from "./storage";
+import { validateBookingDates } from "./booking-date-validation";
 import { insertUserSchema, insertRoomBookingSchema, type RoomBooking } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -652,12 +653,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required parameters: checkinDate and checkoutDate" });
       }
 
+      const dateValidation = validateBookingDates({ checkinDate, checkoutDate });
+      if (!dateValidation.valid) {
+        return res.status(400).json({ message: dateValidation.message });
+      }
+
       const startDate = new Date(checkinDate);
       const endDate = new Date(checkoutDate);
-
-      if (startDate >= endDate) {
-        return res.status(400).json({ message: "Check-out date must be after check-in date" });
-      }
 
       // This endpoint is also used by the admin inventory panel, which
       // needs the TRUE physical count (staff can still book a trustee into
@@ -857,10 +859,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (checkoutDateCheck <= checkinDateCheck) {
-        return res.status(400).json({
-          message: "Check-out date must be after the check-in date."
-        });
+      const dateValidation = validateBookingDates({
+        checkinDate: bookingData.checkinDate,
+        checkoutDate: bookingData.checkoutDate,
+        checkinTime: bookingData.estimatedArrivalTime,
+        checkoutTime: bookingData.estimatedDepartureTime,
+      });
+      if (!dateValidation.valid) {
+        return res.status(400).json({ message: dateValidation.message });
       }
 
       // Create or get user
@@ -1057,10 +1063,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (checkoutDateCheck <= checkinDateCheck) {
-        return res.status(400).json({
-          message: "Check-out date must be after the check-in date."
-        });
+      const dateValidation = validateBookingDates({
+        checkinDate: bookingData.checkinDate,
+        checkoutDate: bookingData.checkoutDate,
+        checkinTime: bookingData.estimatedArrivalTime,
+        checkoutTime: bookingData.estimatedDepartureTime,
+      });
+      if (!dateValidation.valid) {
+        return res.status(400).json({ message: dateValidation.message });
       }
 
       // Get room category to check capacity
