@@ -1,4 +1,44 @@
 import { storage } from "./storage";
+import { sendBookingConfirmationEmail } from "./email";
+import { whatsappService } from "./whatsapp";
+
+// Shared by both reconciliation functions below - pages through every
+// Razorpay payment captured in the window, so each caller doesn't repeat
+// its own copy of the pagination/auth boilerplate.
+async function fetchCapturedRazorpayPayments(days: number): Promise<any[]> {
+  const gateway = await storage.getPaymentGatewayByName("razorpay");
+  if (!gateway || !gateway.publicKey || !gateway.secretKey) {
+    throw new Error("Razorpay gateway is not configured");
+  }
+
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - days * 24 * 60 * 60;
+  const auth = Buffer.from(`${gateway.publicKey}:${gateway.secretKey}`).toString("base64");
+
+  const items: any[] = [];
+  let skip = 0;
+  const count = 100;
+  // Razorpay caps a single page at 100; page through until we've seen
+  // everything in range, with a hard ceiling so a runaway account can't
+  // turn this into an unbounded loop.
+  while (items.length < 2000) {
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments?from=${from}&to=${to}&count=${count}&skip=${skip}`,
+      { headers: { Authorization: `Basic ${auth}` } }
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Razorpay API error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    const pageItems = data.items || [];
+    items.push(...pageItems);
+    if (pageItems.length < count) break;
+    skip += count;
+  }
+
+  return items.filter((p: any) => p.status === "captured");
+}
 
 export interface UnmatchedPayment {
   paymentId: string;
@@ -38,38 +78,9 @@ const RESOLVED_PAYMENT_STATUSES = ["paid_online", "paid", "paid_checkin", "refun
 export async function findUnmatchedRazorpayPayments(
   days: number = 14
 ): Promise<ReconciliationResult> {
-  const gateway = await storage.getPaymentGatewayByName("razorpay");
-  if (!gateway || !gateway.publicKey || !gateway.secretKey) {
-    throw new Error("Razorpay gateway is not configured");
-  }
-
   const to = Math.floor(Date.now() / 1000);
   const from = to - days * 24 * 60 * 60;
-  const auth = Buffer.from(`${gateway.publicKey}:${gateway.secretKey}`).toString("base64");
-
-  const items: any[] = [];
-  let skip = 0;
-  const count = 100;
-  // Razorpay caps a single page at 100; page through until we've seen
-  // everything in range, with a hard ceiling so a runaway account can't
-  // turn this into an unbounded loop.
-  while (items.length < 2000) {
-    const response = await fetch(
-      `https://api.razorpay.com/v1/payments?from=${from}&to=${to}&count=${count}&skip=${skip}`,
-      { headers: { Authorization: `Basic ${auth}` } }
-    );
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Razorpay API error (${response.status}): ${text}`);
-    }
-    const data = await response.json();
-    const pageItems = data.items || [];
-    items.push(...pageItems);
-    if (pageItems.length < count) break;
-    skip += count;
-  }
-
-  const captured = items.filter((p: any) => p.status === "captured");
+  const captured = await fetchCapturedRazorpayPayments(days);
   const dismissedIds = await storage.getDismissedReconciliationPaymentIds();
 
   const unmatched: UnmatchedPayment[] = [];
@@ -135,4 +146,85 @@ export async function findUnmatchedRazorpayPayments(
     refundNeededCount: refundNeeded.length,
     refundNeeded,
   };
+}
+
+export interface AutoResolvedPayment {
+  paymentId: string;
+  bookingId: string;
+  amount: number;
+}
+
+export interface AutoResolveResult {
+  checked: number;
+  resolved: AutoResolvedPayment[];
+}
+
+// The active backup for the webhook: rather than only waiting for Razorpay
+// to push a payment.captured event (which depends on the webhook being
+// enabled and reachable) or for the guest's own browser to report success
+// (which depends on it staying open long enough to do so), this reaches
+// out to Razorpay directly and asks what it actually captured, then heals
+// any booking that's still "unpaid" despite a real captured payment. Meant
+// to run on a short interval (see scheduledTasks.ts) so a payment that
+// slips through both of the other paths is caught within minutes rather
+// than sitting invisible until someone notices - see the Nisha Nahar
+// booking (SSH-1789365893695-WRJ10XMOL), stuck unpaid for 3 days because
+// both other paths failed at once.
+//
+// Deliberately conservative about what it touches: only a payment whose
+// receipt note resolves to a real, existing booking that's still
+// genuinely unresolved. A payment with no matching booking at all is left
+// for a human (findUnmatchedRazorpayPayments) rather than auto-creating
+// anything, and a booking already in a resolved state is left untouched
+// so this can never clobber or duplicate work the fast paths already did.
+export async function autoResolvePendingRazorpayPayments(
+  days: number = 2
+): Promise<AutoResolveResult> {
+  const captured = await fetchCapturedRazorpayPayments(days);
+  const resolved: AutoResolvedPayment[] = [];
+
+  for (const payment of captured) {
+    const receipt: string = payment.notes?.receipt || "";
+    const match = receipt.match(/^booking_(.+)/);
+    if (!match) continue;
+
+    const booking = await storage.getRoomBookingByBookingId(match[1]);
+    if (!booking || RESOLVED_PAYMENT_STATUSES.includes(booking.paymentStatus)) continue;
+
+    const updatedBooking = await storage.updateRoomBooking(booking.id, {
+      paymentStatus: "paid_online",
+      paymentReference: payment.id,
+    });
+
+    if (payment.order_id) {
+      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+      if (transaction && !["completed", "success"].includes(transaction.status)) {
+        await storage.updatePaymentTransaction(transaction.id, {
+          status: "completed",
+          gatewayTransactionId: payment.id,
+          gatewayResponse: JSON.stringify(payment),
+        });
+      }
+    }
+
+    resolved.push({ paymentId: payment.id, bookingId: booking.bookingId, amount: payment.amount / 100 });
+
+    // Same "tell the guest their booking is confirmed" step the client-verify
+    // and webhook paths both do - a booking healed this way still needs it,
+    // it just never got sent by either of the other two.
+    try {
+      const [bookingUser, bookingCategory] = await Promise.all([
+        storage.getUser(updatedBooking.userId),
+        storage.getRoomCategory(updatedBooking.roomCategoryId),
+      ]);
+      if (bookingCategory) {
+        await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
+        await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
+      }
+    } catch (notifyError) {
+      console.error(`Auto-reconcile: payment recorded for booking ${booking.bookingId} but confirmation notification failed:`, notifyError);
+    }
+  }
+
+  return { checked: captured.length, resolved };
 }

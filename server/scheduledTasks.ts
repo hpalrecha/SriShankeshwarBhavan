@@ -2,7 +2,7 @@ import cron from "node-cron";
 import { storage } from "./storage";
 import { sendPreCheckinReminderEmail, sendCheckinDayWelcomeEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import { whatsappService } from "./whatsapp";
-import { findUnmatchedRazorpayPayments } from "./payment-reconciliation";
+import { findUnmatchedRazorpayPayments, autoResolvePendingRazorpayPayments } from "./payment-reconciliation";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -351,6 +351,32 @@ export function startPaymentReconciliationTask() {
   console.log("Payment reconciliation task scheduled for 6:30 AM daily");
 }
 
+// The active backup for the webhook - see autoResolvePendingRazorpayPayments
+// for the full reasoning. Runs every 5 minutes so a payment that slips past
+// both the client-verify call and the webhook (guest closes the tab right
+// after paying, webhook disabled/unreachable, etc.) is caught and the
+// booking healed within minutes, not days. A 2-day lookback is intentional
+// overlap with the last few runs, not just "since last run" - cheap
+// insurance against a missed tick (deploy restart, transient Razorpay API
+// error) rather than a hard dependency on every run succeeding.
+export function startPaymentAutoResolveTask() {
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      const result = await autoResolvePendingRazorpayPayments(2);
+      if (result.resolved.length > 0) {
+        console.log(
+          `✅ Auto-reconcile: healed ${result.resolved.length} booking(s) from a captured payment that never got recorded:`,
+          JSON.stringify(result.resolved, null, 2)
+        );
+      }
+    } catch (error) {
+      console.error("Error in payment auto-resolve task:", error);
+    }
+  });
+
+  console.log("Payment auto-resolve task scheduled for every 5 minutes");
+}
+
 // Start all scheduled tasks
 export function initializeScheduledTasks() {
   startPreCheckinReminderTask();
@@ -360,5 +386,6 @@ export function initializeScheduledTasks() {
   startDailyRoomReportTask();
   startSoldOutAlertTask();
   startPaymentReconciliationTask();
+  startPaymentAutoResolveTask();
   console.log("All notification tasks initialized (email + WhatsApp)");
 }
