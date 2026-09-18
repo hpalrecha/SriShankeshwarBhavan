@@ -295,13 +295,35 @@ export default function GuestDetailsForm({ bookingData, availabilityData, onCanc
       order_id: orderData.gatewayData.id,
       handler: async (response: any) => {
         console.log("Razorpay payment successful:", response);
+
+        // Fire a second, redundant confirmation via sendBeacon before the
+        // awaited fetch below even starts. A normal fetch can be killed
+        // mid-flight if the browser/app closes or navigates away right
+        // after Razorpay confirms - exactly the failure mode that left a
+        // real paid booking stuck "unpaid" for days (see the Nisha Nahar
+        // incident). sendBeacon is purpose-built to still get the request
+        // out even as the page is torn down, unlike fetch. Best-effort and
+        // fire-and-forget - the awaited call below remains the primary
+        // path that drives the UI, this is only insurance underneath it.
+        const verifyPayload = {
+          transactionId: orderData.transactionId,
+          paymentData: response,
+          gatewayName: "razorpay",
+        };
+        if (navigator.sendBeacon) {
+          try {
+            navigator.sendBeacon(
+              "/api/payment/verify",
+              new Blob([JSON.stringify(verifyPayload)], { type: "application/json" })
+            );
+          } catch (beaconError) {
+            console.error("sendBeacon confirmation failed (non-fatal):", beaconError);
+          }
+        }
+
         try {
           // Verify payment against the booking created before payment started
-          const verifyResponse = await apiRequest("POST", "/api/payment/verify", {
-            transactionId: orderData.transactionId,
-            paymentData: response,
-            gatewayName: "razorpay",
-          });
+          const verifyResponse = await apiRequest("POST", "/api/payment/verify", verifyPayload);
 
           if (verifyResponse.ok) {
             toast({ title: "Payment Successful", description: "Your payment has been processed!" });
