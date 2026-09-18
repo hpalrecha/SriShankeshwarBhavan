@@ -11,7 +11,22 @@ process.env.AWS_REGION = "ap-south-1";
 process.env.FROM_EMAIL = "booking@ssbb.in";
 
 const app = express();
-app.use(express.json());
+// The Razorpay (and ICICI) webhook routes verify Razorpay's signature
+// against the RAW request body via their own express.raw() middleware -
+// they need the untouched byte stream, not a parsed object. If this global
+// json() parser ran first, it would consume the body and set req._body,
+// which makes body-parser skip the route-specific raw() parser entirely -
+// req.body then arrives as a plain object, crypto.createHmac(...).update()
+// throws on it, and the webhook 500s on every single delivery. That was
+// happening unconditionally, which is almost certainly why Razorpay
+// auto-disabled the webhook - not downtime, a 100%-reproducible bug. Skip
+// global JSON parsing for exactly those two paths so their own raw()
+// middleware gets an unconsumed body.
+const RAW_BODY_WEBHOOK_PATHS = ["/api/payment/razorpay/webhook", "/api/payment/icici/webhook"];
+app.use((req, res, next) => {
+  if (RAW_BODY_WEBHOOK_PATHS.includes(req.path)) return next();
+  express.json()(req, res, next);
+});
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
