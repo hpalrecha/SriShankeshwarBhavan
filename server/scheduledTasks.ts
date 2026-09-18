@@ -2,7 +2,7 @@ import cron from "node-cron";
 import { storage } from "./storage";
 import { sendPreCheckinReminderEmail, sendCheckinDayWelcomeEmail, sendPostCheckoutFeedbackEmail } from "./email";
 import { whatsappService } from "./whatsapp";
-import { findUnmatchedRazorpayPayments, autoResolvePendingRazorpayPayments } from "./payment-reconciliation";
+import { findUnmatchedRazorpayPayments, autoResolveStuckPaymentTransactions } from "./payment-reconciliation";
 
 // Send pre-checkin reminders at 10:00 AM daily for tomorrow's check-ins
 export function startPreCheckinReminderTask() {
@@ -351,18 +351,18 @@ export function startPaymentReconciliationTask() {
   console.log("Payment reconciliation task scheduled for 6:30 AM daily");
 }
 
-// The active backup for the webhook - see autoResolvePendingRazorpayPayments
-// for the full reasoning. Runs every 5 minutes so a payment that slips past
-// both the client-verify call and the webhook (guest closes the tab right
-// after paying, webhook disabled/unreachable, etc.) is caught and the
-// booking healed within minutes, not days. A 2-day lookback is intentional
-// overlap with the last few runs, not just "since last run" - cheap
-// insurance against a missed tick (deploy restart, transient Razorpay API
-// error) rather than a hard dependency on every run succeeding.
+// The active backup for the webhook - see autoResolveStuckPaymentTransactions
+// for the full reasoning. Only checks OUR OWN payment_transactions rows
+// still stuck "pending", so its cost scales with how many are actually
+// stuck rather than total booking volume - safe to run tightly even at
+// high traffic. Every 2 minutes, past the function's own 2-minute grace
+// period, so a payment that slips past both the client-verify call and the
+// webhook (guest closes the tab right after paying, webhook down, etc.) is
+// caught and the booking healed within a few minutes, not days.
 export function startPaymentAutoResolveTask() {
-  cron.schedule("*/5 * * * *", async () => {
+  cron.schedule("*/2 * * * *", async () => {
     try {
-      const result = await autoResolvePendingRazorpayPayments(2);
+      const result = await autoResolveStuckPaymentTransactions(2);
       if (result.resolved.length > 0) {
         console.log(
           `✅ Auto-reconcile: healed ${result.resolved.length} booking(s) from a captured payment that never got recorded:`,
@@ -374,7 +374,7 @@ export function startPaymentAutoResolveTask() {
     }
   });
 
-  console.log("Payment auto-resolve task scheduled for every 5 minutes");
+  console.log("Payment auto-resolve task scheduled for every 2 minutes");
 }
 
 // Start all scheduled tasks

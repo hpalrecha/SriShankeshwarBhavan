@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { sendBookingConfirmationEmail } from "./email";
 import { whatsappService } from "./whatsapp";
+import type { RoomBooking } from "@shared/schema";
 
 // Shared by both reconciliation functions below - pages through every
 // Razorpay payment captured in the window, so each caller doesn't repeat
@@ -159,72 +160,99 @@ export interface AutoResolveResult {
   resolved: AutoResolvedPayment[];
 }
 
-// The active backup for the webhook: rather than only waiting for Razorpay
-// to push a payment.captured event (which depends on the webhook being
-// enabled and reachable) or for the guest's own browser to report success
-// (which depends on it staying open long enough to do so), this reaches
-// out to Razorpay directly and asks what it actually captured, then heals
-// any booking that's still "unpaid" despite a real captured payment. Meant
-// to run on a short interval (see scheduledTasks.ts) so a payment that
-// slips through both of the other paths is caught within minutes rather
-// than sitting invisible until someone notices - see the Nisha Nahar
-// booking (SSH-1789365893695-WRJ10XMOL), stuck unpaid for 3 days because
-// both other paths failed at once.
-//
-// Deliberately conservative about what it touches: only a payment whose
-// receipt note resolves to a real, existing booking that's still
-// genuinely unresolved. A payment with no matching booking at all is left
-// for a human (findUnmatchedRazorpayPayments) rather than auto-creating
-// anything, and a booking already in a resolved state is left untouched
-// so this can never clobber or duplicate work the fast paths already did.
-export async function autoResolvePendingRazorpayPayments(
-  days: number = 2
-): Promise<AutoResolveResult> {
-  const captured = await fetchCapturedRazorpayPayments(days);
-  const resolved: AutoResolvedPayment[] = [];
+// Shared by both auto-resolve paths below - marks a booking paid from a
+// captured Razorpay payment and sends the same "booking confirmed" email/
+// WhatsApp the client-verify and webhook paths already send, since a
+// booking healed this way never got that notification from either of them.
+async function markBookingPaidFromCapturedPayment(booking: RoomBooking, payment: any): Promise<void> {
+  const updatedBooking = await storage.updateRoomBooking(booking.id, {
+    paymentStatus: "paid_online",
+    paymentReference: payment.id,
+  });
 
-  for (const payment of captured) {
-    const receipt: string = payment.notes?.receipt || "";
-    const match = receipt.match(/^booking_(.+)/);
-    if (!match) continue;
-
-    const booking = await storage.getRoomBookingByBookingId(match[1]);
-    if (!booking || RESOLVED_PAYMENT_STATUSES.includes(booking.paymentStatus)) continue;
-
-    const updatedBooking = await storage.updateRoomBooking(booking.id, {
-      paymentStatus: "paid_online",
-      paymentReference: payment.id,
-    });
-
-    if (payment.order_id) {
-      const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
-      if (transaction && !["completed", "success"].includes(transaction.status)) {
-        await storage.updatePaymentTransaction(transaction.id, {
-          status: "completed",
-          gatewayTransactionId: payment.id,
-          gatewayResponse: JSON.stringify(payment),
-        });
-      }
-    }
-
-    resolved.push({ paymentId: payment.id, bookingId: booking.bookingId, amount: payment.amount / 100 });
-
-    // Same "tell the guest their booking is confirmed" step the client-verify
-    // and webhook paths both do - a booking healed this way still needs it,
-    // it just never got sent by either of the other two.
-    try {
-      const [bookingUser, bookingCategory] = await Promise.all([
-        storage.getUser(updatedBooking.userId),
-        storage.getRoomCategory(updatedBooking.roomCategoryId),
-      ]);
-      if (bookingCategory) {
-        await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
-        await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
-      }
-    } catch (notifyError) {
-      console.error(`Auto-reconcile: payment recorded for booking ${booking.bookingId} but confirmation notification failed:`, notifyError);
+  if (payment.order_id) {
+    const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+    if (transaction && !["completed", "success"].includes(transaction.status)) {
+      await storage.updatePaymentTransaction(transaction.id, {
+        status: "completed",
+        gatewayTransactionId: payment.id,
+        gatewayResponse: JSON.stringify(payment),
+      });
     }
   }
 
-  return { checked: captured.length, resolved };
+  try {
+    const [bookingUser, bookingCategory] = await Promise.all([
+      storage.getUser(updatedBooking.userId),
+      storage.getRoomCategory(updatedBooking.roomCategoryId),
+    ]);
+    if (bookingCategory) {
+      await sendBookingConfirmationEmail({ booking: updatedBooking, user: bookingUser || null, category: bookingCategory });
+      await whatsappService.sendBookingConfirmation(updatedBooking, bookingUser || null, bookingCategory);
+    }
+  } catch (notifyError) {
+    console.error(`Auto-reconcile: payment recorded for booking ${booking.bookingId} but confirmation notification failed:`, notifyError);
+  }
+}
+
+// The active backup for the webhook, sized to scale with how many payments
+// are ACTUALLY stuck rather than with total booking volume. Instead of
+// listing everything Razorpay captured in a window (findUnmatchedRazorpayPayments
+// below does that, but its cost grows with total traffic), this only ever
+// looks at OUR OWN payment_transactions rows still sitting "pending" past a
+// short grace period, and asks Razorpay about those specific orders one at
+// a time. A payment that resolves normally (the common case) leaves
+// "pending" within seconds via the client-verify call or the webhook and
+// never shows up here at all - so this stays cheap even at high volume,
+// unlike re-scanning every payment on every run.
+//
+// Meant to run every 1-2 minutes (see scheduledTasks.ts) so a payment that
+// slips through both the client-verify call and the webhook is caught
+// within minutes rather than sitting invisible for days - see the Nisha
+// Nahar booking (SSH-1789365893695-WRJ10XMOL), stuck unpaid for 3 days
+// because both of those failed at once (and the webhook itself, it turned
+// out, had a signature-verification bug making it fail 100% of the time -
+// see server/index.ts - so it could never have caught this either).
+export async function autoResolveStuckPaymentTransactions(
+  staleAfterMinutes: number = 2
+): Promise<AutoResolveResult> {
+  const gateway = await storage.getPaymentGatewayByName("razorpay");
+  if (!gateway || !gateway.publicKey || !gateway.secretKey) {
+    throw new Error("Razorpay gateway is not configured");
+  }
+  const auth = Buffer.from(`${gateway.publicKey}:${gateway.secretKey}`).toString("base64");
+
+  const cutoff = Date.now() - staleAfterMinutes * 60 * 1000;
+  const allTransactions = await storage.getPaymentTransactions();
+  const stuck = allTransactions.filter(
+    (t) =>
+      t.status === "pending" &&
+      t.gatewayId === gateway.id &&
+      t.orderId &&
+      t.createdAt &&
+      new Date(t.createdAt).getTime() < cutoff
+  );
+
+  const resolved: AutoResolvedPayment[] = [];
+
+  for (const transaction of stuck) {
+    const response = await fetch(`https://api.razorpay.com/v1/orders/${transaction.orderId}/payments`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    if (!response.ok) {
+      console.error(`autoResolveStuckPaymentTransactions: Razorpay lookup failed for order ${transaction.orderId} (${response.status})`);
+      continue;
+    }
+    const data = await response.json();
+    const capturedPayment = (data.items || []).find((p: any) => p.status === "captured");
+    if (!capturedPayment) continue; // genuinely still unpaid (or failed) - nothing to heal yet
+
+    const booking = await storage.getRoomBooking(transaction.bookingId);
+    if (!booking || RESOLVED_PAYMENT_STATUSES.includes(booking.paymentStatus)) continue;
+
+    await markBookingPaidFromCapturedPayment(booking, capturedPayment);
+    resolved.push({ paymentId: capturedPayment.id, bookingId: booking.bookingId, amount: capturedPayment.amount / 100 });
+  }
+
+  return { checked: stuck.length, resolved };
 }
