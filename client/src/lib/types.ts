@@ -67,7 +67,7 @@ export interface DashboardStats {
 
 export interface TrusteeFormData {
   name: string;
-  email: string;
+  email?: string;
   mobile: string;
   trusteeAutoBookDates?: string;
   trusteeRoomCategoryId?: number;

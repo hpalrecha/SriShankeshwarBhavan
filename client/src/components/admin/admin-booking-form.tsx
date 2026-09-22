@@ -16,7 +16,7 @@ import type { RoomCategory } from "@shared/schema";
 
 const adminBookingSchema = z.object({
   guestName: z.string().min(2, "Guest name is required"),
-  guestEmail: z.string().email("Valid email is required"),
+  guestEmail: z.string().email("Valid email is required").optional().or(z.literal("")),
   guestMobile: z.string().min(10, "Valid mobile number is required"),
   checkinDate: z.string().min(1, "Check-in date is required"),
   checkoutDate: z.string().min(1, "Check-out date is required"),
@@ -185,7 +185,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
       const response = await apiRequest("POST", "/api/admin/bookings/combination", {
         user: {
           name: data.guestName,
-          email: data.guestEmail,
+          email: data.guestEmail || undefined,
           mobile: data.guestMobile,
           // Address fields
           address: data.address,

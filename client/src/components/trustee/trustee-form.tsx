@@ -14,7 +14,7 @@ import type { TrusteeFormData } from "@/lib/types";
 
 const trusteeSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Valid email is required"),
+  email: z.string().email("Valid email is required").optional().or(z.literal("")),
   mobile: z.string().min(10, "Valid mobile number is required"),
   trusteeAutoBookDates: z.string().optional(),
   trusteeRoomCategoryId: z.string().optional(),
