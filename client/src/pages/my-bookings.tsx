@@ -1,13 +1,28 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, CreditCard, Phone, Mail, Utensils } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Calendar, MapPin, Users, CreditCard, Phone, Mail, Utensils, Clock, Pencil } from "lucide-react";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import Footer from "@/components/Footer";
+
+// Converts an ISO/date-time string into the value <input type="datetime-local">
+// expects (local time, no timezone/seconds) - a raw ISO string with "Z"
+// or offset just shows blank in that input.
+function toDatetimeLocalValue(value?: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 interface Booking {
   booking: {
@@ -49,6 +64,53 @@ export default function MyBookings() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [editingBooking, setEditingBooking] = useState<Booking["booking"] | null>(null);
+  const [travelForm, setTravelForm] = useState({
+    estimatedArrivalTime: "",
+    estimatedDepartureTime: "",
+    arrivingFrom: "",
+    goingTo: "",
+  });
+
+  const openEditDialog = (booking: Booking["booking"]) => {
+    setEditingBooking(booking);
+    setTravelForm({
+      estimatedArrivalTime: toDatetimeLocalValue(booking.estimatedArrivalTime),
+      estimatedDepartureTime: toDatetimeLocalValue(booking.estimatedDepartureTime),
+      arrivingFrom: booking.arrivingFrom || "",
+      goingTo: booking.goingTo || "",
+    });
+  };
+
+  const updateTravelDetailsMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingBooking) return;
+      return await apiRequest("PATCH", `/api/bookings/${editingBooking.id}/travel-details`, {
+        estimatedArrivalTime: travelForm.estimatedArrivalTime
+          ? new Date(travelForm.estimatedArrivalTime).toISOString()
+          : undefined,
+        estimatedDepartureTime: travelForm.estimatedDepartureTime
+          ? new Date(travelForm.estimatedDepartureTime).toISOString()
+          : undefined,
+        arrivingFrom: travelForm.arrivingFrom || undefined,
+        goingTo: travelForm.goingTo || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-bookings"] });
+      toast({ title: "Booking Updated", description: "Your travel details have been updated." });
+      setEditingBooking(null);
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Could not update your booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -182,8 +244,16 @@ export default function MyBookings() {
                   </div>
 
                   {/* Travel Details */}
-                  {(item.booking.arrivingFrom || item.booking.goingTo) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">Travel Details</p>
+                      {item.booking.status !== "cancelled" && item.booking.status !== "checked_out" && (
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(item.booking)}>
+                          <Pencil className="w-3 h-3 mr-1" /> Edit
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {item.booking.arrivingFrom && (
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
@@ -202,8 +272,30 @@ export default function MyBookings() {
                           </div>
                         </div>
                       )}
+                      {item.booking.estimatedArrivalTime && (
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium">Est. Arrival Time</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(item.booking.estimatedArrivalTime).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {item.booking.estimatedDepartureTime && (
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium">Est. Departure Time</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(item.booking.estimatedDepartureTime).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   {/* Food Options */}
                   {(item.booking.breakfastDays > 0 || item.booking.lunchDays > 0 || item.booking.dinnerDays > 0) && (
@@ -261,6 +353,62 @@ export default function MyBookings() {
       
       {/* Footer */}
       <Footer />
+
+      {/* Edit Travel Details Dialog */}
+      <Dialog open={!!editingBooking} onOpenChange={(open) => !open && setEditingBooking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Travel Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="eta">Estimated Arrival Time</Label>
+              <Input
+                id="eta"
+                type="datetime-local"
+                value={travelForm.estimatedArrivalTime}
+                onChange={(e) => setTravelForm((f) => ({ ...f, estimatedArrivalTime: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="etd">Estimated Departure Time</Label>
+              <Input
+                id="etd"
+                type="datetime-local"
+                value={travelForm.estimatedDepartureTime}
+                onChange={(e) => setTravelForm((f) => ({ ...f, estimatedDepartureTime: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="arrivingFrom">Arriving From</Label>
+              <Input
+                id="arrivingFrom"
+                value={travelForm.arrivingFrom}
+                onChange={(e) => setTravelForm((f) => ({ ...f, arrivingFrom: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="goingTo">Going To</Label>
+              <Input
+                id="goingTo"
+                value={travelForm.goingTo}
+                onChange={(e) => setTravelForm((f) => ({ ...f, goingTo: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingBooking(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateTravelDetailsMutation.mutate()}
+              disabled={updateTravelDetailsMutation.isPending}
+            >
+              {updateTravelDetailsMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

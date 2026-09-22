@@ -1488,6 +1488,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Guest self-service edit of travel/arrival details - the only fields a
+  // guest can safely change post-booking without touching price, dates, or
+  // payment. Added after a guest picked the wrong ETA/ETD time at checkout
+  // and had to message the hotel to fix it manually.
+  app.patch("/api/bookings/:id/travel-details", requireAuth, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const userId = (req.session as any).userId;
+
+      const booking = await storage.getRoomBooking(bookingId);
+      if (!booking || booking.userId !== userId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      if (booking.status === "cancelled" || booking.status === "checked_out") {
+        return res.status(400).json({ message: "This booking can no longer be edited" });
+      }
+
+      const travelDetailsSchema = z.object({
+        estimatedArrivalTime: z.string().optional(),
+        estimatedDepartureTime: z.string().optional(),
+        arrivingFrom: z.string().optional(),
+        goingTo: z.string().optional(),
+      });
+      const updates = travelDetailsSchema.parse(req.body);
+
+      const updatedBooking = await storage.updateRoomBooking(bookingId, {
+        ...updates,
+        estimatedArrivalTime: updates.estimatedArrivalTime ? new Date(updates.estimatedArrivalTime) : undefined,
+        estimatedDepartureTime: updates.estimatedDepartureTime ? new Date(updates.estimatedDepartureTime) : undefined,
+      });
+
+      res.json({ booking: updatedBooking });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid travel details", errors: error.errors });
+      }
+      console.error("Error updating booking travel details:", error);
+      res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
   // Room Category Image Upload
   app.post("/api/admin/room-category-image", upload.single('image'), async (req, res) => {
     try {
