@@ -57,6 +57,13 @@ const adminBookingSchema = z.object({
 
 type AdminBookingFormData = z.infer<typeof adminBookingSchema>;
 
+// Local (not UTC) yyyy-MM-ddTHH:mm, so "now" as a datetime-local min doesn't
+// shift by the browser's UTC offset the way toISOString() would.
+function toLocalDateTimeInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 interface AdminBookingFormProps {
   preselectedUser?: {
     id: number;
@@ -125,6 +132,7 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
 
   const watchedCheckin = form.watch("checkinDate");
   const watchedCheckout = form.watch("checkoutDate");
+  const minDateTimeLocal = toLocalDateTimeInputValue(new Date());
 
   // Real, date-aware room availability for the dates currently selected -
   // this used to just show each category's static totalUnits regardless of
@@ -403,15 +411,15 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
 
 
             <div className="space-y-2">
-              <Label htmlFor="checkinDate">Check-in Date</Label>
+              <Label htmlFor="checkinDate">Check-in Date & Time</Label>
               <Input
                 id="checkinDate"
-                type="date"
+                type="datetime-local"
                 {...form.register("checkinDate")}
-                min={new Date().toISOString().split('T')[0]}
+                min={minDateTimeLocal}
                 onChange={(e) => {
                   form.setValue('checkinDate', e.target.value);
-                  // Auto-update checkout date if it's before the new checkin date
+                  // Auto-update checkout date/time if it's before the new checkin date/time
                   const checkinDate = e.target.value;
                   const checkoutDate = form.getValues('checkoutDate');
                   if (checkoutDate && checkinDate && new Date(checkoutDate) < new Date(checkinDate)) {
@@ -425,22 +433,22 @@ export default function AdminBookingForm({ preselectedUser }: AdminBookingFormPr
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="checkoutDate">Check-out Date</Label>
+              <Label htmlFor="checkoutDate">Check-out Date & Time</Label>
               <Input
                 id="checkoutDate"
-                type="date"
+                type="datetime-local"
                 {...form.register("checkoutDate")}
-                min={form.watch('checkinDate') || new Date().toISOString().split('T')[0]}
+                min={form.watch('checkinDate') || minDateTimeLocal}
                 onBlur={(e) => {
                   const checkinDate = form.getValues('checkinDate');
                   const selectedCheckout = e.target.value;
-                  
-                  // Force checkout date to be same or after checkin date
+
+                  // Force checkout date/time to be same or after checkin date/time
                   if (checkinDate && selectedCheckout && new Date(selectedCheckout) < new Date(checkinDate)) {
                     form.setValue('checkoutDate', checkinDate);
                     toast({
                       title: "Invalid Date",
-                      description: "Check-out date automatically set to check-in date. Cannot be before check-in.",
+                      description: "Check-out time automatically set to check-in time. Cannot be before check-in.",
                       variant: "destructive",
                     });
                   }

@@ -1720,6 +1720,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CSV export of bookings, optionally scoped to a check-in date range -
+  // reuses the same search/filter logic as the bookings table so "export"
+  // always matches whatever the admin currently has filtered on screen.
+  app.get("/api/admin/bookings/export", async (req, res) => {
+    try {
+      const filters = {
+        checkinFrom: (req.query.checkinFrom as string) || undefined,
+        checkinTo: (req.query.checkinTo as string) || undefined,
+      };
+
+      const totalBookings = await storage.getTotalBookingsCount(filters);
+      const bookings = await storage.getRecentBookings(totalBookings || 1, 0, filters);
+
+      const rows = await Promise.all(
+        bookings.map(async (booking) => {
+          const user = await storage.getUser(booking.userId);
+          const category = await storage.getRoomCategory(booking.roomCategoryId);
+          return { booking, user, category };
+        })
+      );
+
+      const csvEscape = (value: unknown) => {
+        const str = value === null || value === undefined ? "" : String(value);
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const headers = [
+        "Booking ID", "Guest Name", "Email", "Mobile", "Room Category", "Room Number",
+        "Check-in Date", "Check-in Time", "Check-out Date", "Check-out Time", "Nights",
+        "Guests", "Rooms Booked", "Status", "Payment Status", "Payment Method",
+        "Total Amount", "Actual Check-in", "Actual Check-out", "Booked On",
+      ];
+
+      const lines = [headers.join(",")];
+      for (const { booking, user, category } of rows) {
+        const checkin = new Date(booking.checkinDate);
+        const checkout = new Date(booking.checkoutDate);
+        const nights = Math.max(1, Math.ceil((checkout.getTime() - checkin.getTime()) / (1000 * 60 * 60 * 24)));
+        lines.push([
+          csvEscape(booking.bookingId),
+          csvEscape(user?.name),
+          csvEscape(user?.email),
+          csvEscape(user?.mobile),
+          csvEscape(category?.name),
+          csvEscape(booking.roomNumber),
+          csvEscape(checkin.toLocaleDateString()),
+          csvEscape(checkin.toLocaleTimeString()),
+          csvEscape(checkout.toLocaleDateString()),
+          csvEscape(checkout.toLocaleTimeString()),
+          csvEscape(nights),
+          csvEscape(booking.guests),
+          csvEscape(booking.roomsBooked ?? 1),
+          csvEscape(booking.status),
+          csvEscape(booking.paymentStatus),
+          csvEscape(booking.paymentMethod),
+          csvEscape(booking.totalAmount),
+          csvEscape(booking.actualCheckinTime ? new Date(booking.actualCheckinTime).toLocaleString() : ""),
+          csvEscape(booking.actualCheckoutTime ? new Date(booking.actualCheckoutTime).toLocaleString() : ""),
+          csvEscape(booking.createdAt ? new Date(booking.createdAt).toLocaleString() : ""),
+        ].join(","));
+      }
+
+      const rangeLabel = filters.checkinFrom || filters.checkinTo
+        ? `${filters.checkinFrom || "any"}_to_${filters.checkinTo || "any"}`
+        : "all";
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="bookings-${rangeLabel}.csv"`);
+      // BOM so Excel opens the UTF-8 file (guest names, addresses) correctly.
+      res.send("﻿" + lines.join("\n"));
+    } catch (error) {
+      console.error("Error exporting bookings:", error);
+      res.status(500).json({ message: "Failed to export bookings" });
+    }
+  });
+
   app.get("/api/admin/todays-checkins", async (req, res) => {
     try {
       const checkins = await storage.getTodaysCheckins();

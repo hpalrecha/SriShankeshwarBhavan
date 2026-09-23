@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { Eye, Users, Calendar, CreditCard, BookOpen, ChevronLeft, ChevronRight, Search, CalendarRange, X } from "lucide-react";
+import { Eye, Pencil, Users, Calendar, CreditCard, BookOpen, ChevronLeft, ChevronRight, Search, CalendarRange, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import BookingDetailsModal from "./booking-details-modal";
+import CheckInOutDialog from "./checkin-checkout-dialog";
 import type { BookingWithDetails } from "@/lib/types";
 
 interface PaginatedBookingsResponse {
@@ -38,6 +39,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const [search, setSearch] = useState("");
   const [checkinFrom, setCheckinFrom] = useState<Date | undefined>(undefined);
   const [checkinTo, setCheckinTo] = useState<Date | undefined>(undefined);
+  const [pendingAction, setPendingAction] = useState<{ booking: BookingWithDetails; mode: "checkin" | "checkout" } | null>(null);
 
   // Debounce the search box so every keystroke doesn't trigger a fetch -
   // and reset back to page 1 whenever the actual search term changes.
@@ -133,6 +135,25 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
     setIsModalOpen(true);
   };
 
+  const confirmCheckInOut = (dateTimeIso: string) => {
+    if (!pendingAction) return;
+    const { booking, mode } = pendingAction;
+    updateBookingMutation.mutate({
+      id: booking.booking.id,
+      updates: mode === "checkin"
+        ? { status: "checked_in", actualCheckinTime: dateTimeIso }
+        : { status: "checked_out", actualCheckoutTime: dateTimeIso },
+    });
+    setPendingAction(null);
+  };
+
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (checkinFromParam) params.set("checkinFrom", checkinFromParam);
+    if (checkinToParam) params.set("checkinTo", checkinToParam);
+    window.open(`/api/admin/bookings/export?${params.toString()}`, "_blank");
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       confirmed: "default",
@@ -209,6 +230,10 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           <X className="h-4 w-4" /> Clear
         </Button>
       )}
+      <Button variant="outline" onClick={handleExport} className="gap-2">
+        <Download className="h-4 w-4" />
+        Export CSV{checkinFrom || checkinTo ? " (filtered)" : " (all)"}
+      </Button>
     </div>
   );
 
@@ -267,9 +292,15 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                     <span className="text-sm font-medium">{category.name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Dates:</span>
+                    <span className="text-sm text-gray-500">Check-in:</span>
                     <span className="text-sm">
-                      {new Date(booking.checkinDate).toLocaleDateString()} - {new Date(booking.checkoutDate).toLocaleDateString()}
+                      {new Date(booking.checkinDate).toLocaleDateString()} {new Date(booking.checkinDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Check-out:</span>
+                    <span className="text-sm">
+                      {new Date(booking.checkoutDate).toLocaleDateString()} {new Date(booking.checkoutDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -292,19 +323,19 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                       size="sm"
                       variant="outline"
                       className="text-green-600 border-green-600 hover:bg-green-50 flex-1"
-                      onClick={() => handleStatusChange(booking.id, "checked_in")}
+                      onClick={() => setPendingAction({ booking: { booking, user, category }, mode: "checkin" })}
                       disabled={updateBookingMutation.isPending}
                     >
                       Check In
                     </Button>
                   )}
-                  
+
                   {booking.status === "checked_in" && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="text-blue-600 border-blue-600 hover:bg-blue-50 flex-1"
-                      onClick={() => handleStatusChange(booking.id, "checked_out")}
+                      onClick={() => setPendingAction({ booking: { booking, user, category }, mode: "checkout" })}
                       disabled={updateBookingMutation.isPending}
                     >
                       Check Out
@@ -335,6 +366,15 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                   >
                     <Eye className="h-4 w-4" />
                     Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewDetails({ booking, user, category })}
+                    className="flex items-center gap-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
                   </Button>
                 </div>
               </CardContent>
@@ -383,7 +423,11 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                     <div className="flex items-center gap-1 text-sm">
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span>
-                        {new Date(booking.checkinDate).toLocaleDateString()} - {new Date(booking.checkoutDate).toLocaleDateString()}
+                        {new Date(booking.checkinDate).toLocaleDateString()}{" "}
+                        {new Date(booking.checkinDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {" - "}
+                        {new Date(booking.checkoutDate).toLocaleDateString()}{" "}
+                        {new Date(booking.checkoutDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
@@ -424,21 +468,21 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                             size="sm"
                             variant="outline"
                             className="text-green-600 border-green-600 hover:bg-green-50"
-                            onClick={() => handleStatusChange(booking.id, "checked_in")}
+                            onClick={() => setPendingAction({ booking: { booking, user, category }, mode: "checkin" })}
                             disabled={updateBookingMutation.isPending}
                           >
                             Check In
                           </Button>
                         </div>
                       )}
-                      
+
                       {booking.status === "checked_in" && (
                         <div className="flex gap-1">
                           <Button
                             size="sm"
                             variant="outline"
                             className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                            onClick={() => handleStatusChange(booking.id, "checked_out")}
+                            onClick={() => setPendingAction({ booking: { booking, user, category }, mode: "checkout" })}
                             disabled={updateBookingMutation.isPending}
                           >
                             Check Out
@@ -467,15 +511,26 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                   </td>
                   
                   <td className="p-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewDetails({ booking, user, category })}
-                      className="flex items-center gap-2"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Details
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails({ booking, user, category })}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Details
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails({ booking, user, category })}
+                        className="flex items-center gap-2"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -557,6 +612,24 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           setIsModalOpen(false);
           setSelectedBooking(null);
         }}
+      />
+    )}
+
+    {/* Check-in / Check-out confirmation with editable date & time */}
+    {pendingAction && (
+      <CheckInOutDialog
+        open={!!pendingAction}
+        onOpenChange={(open) => !open && setPendingAction(null)}
+        mode={pendingAction.mode}
+        guestName={pendingAction.booking.user.name}
+        bookingLabel={`${pendingAction.booking.category.name} - Booking ID: ${pendingAction.booking.booking.bookingId}`}
+        defaultDateTime={
+          pendingAction.mode === "checkin"
+            ? pendingAction.booking.booking.actualCheckinTime
+            : pendingAction.booking.booking.actualCheckoutTime
+        }
+        isPending={updateBookingMutation.isPending}
+        onConfirm={confirmCheckInOut}
       />
     )}
     </>

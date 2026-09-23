@@ -12,12 +12,20 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
 import BookingDetailsModal from "./booking-details-modal";
+import CheckInOutDialog from "./checkin-checkout-dialog";
 import { Plane } from "lucide-react";
 
 const travelDetailsSchema = z.object({
   arrivingFrom: z.string().optional(),
   goingTo: z.string().optional(),
+  checkinDateTime: z.string().min(1, "Check-in date & time is required"),
 });
+
+// Local (not UTC) yyyy-MM-ddTHH:mm for a native datetime-local input's value.
+function toLocalInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 export default function CheckinCheckout() {
   const { toast } = useToast();
@@ -25,12 +33,14 @@ export default function CheckinCheckout() {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithDetails | null>(null);
   const [showTravelDialog, setShowTravelDialog] = useState(false);
   const [checkingInBooking, setCheckingInBooking] = useState<BookingWithDetails | null>(null);
+  const [checkingOutBooking, setCheckingOutBooking] = useState<BookingWithDetails | null>(null);
 
   const travelForm = useForm<z.infer<typeof travelDetailsSchema>>({
     resolver: zodResolver(travelDetailsSchema),
     defaultValues: {
       arrivingFrom: "",
       goingTo: "",
+      checkinDateTime: "",
     },
   });
 
@@ -82,19 +92,23 @@ export default function CheckinCheckout() {
     travelForm.reset({
       arrivingFrom: booking.booking.arrivingFrom || "",
       goingTo: booking.booking.goingTo || "",
+      checkinDateTime: toLocalInputValue(
+        booking.booking.actualCheckinTime ? new Date(booking.booking.actualCheckinTime) : new Date()
+      ),
     });
     setShowTravelDialog(true);
   };
 
   const confirmCheckIn = (values: z.infer<typeof travelDetailsSchema>) => {
     if (!checkingInBooking) return;
-    
+
     updateBookingMutation.mutate({
       id: checkingInBooking.booking.id,
-      updates: { 
+      updates: {
         status: "checked_in",
         arrivingFrom: values.arrivingFrom,
         goingTo: values.goingTo,
+        actualCheckinTime: new Date(values.checkinDateTime).toISOString(),
       },
     });
     setShowTravelDialog(false);
@@ -102,11 +116,17 @@ export default function CheckinCheckout() {
     travelForm.reset();
   };
 
-  const handleCheckOut = (bookingId: number) => {
+  const handleCheckOut = (booking: BookingWithDetails) => {
+    setCheckingOutBooking(booking);
+  };
+
+  const confirmCheckOut = (dateTimeIso: string) => {
+    if (!checkingOutBooking) return;
     updateBookingMutation.mutate({
-      id: bookingId,
-      updates: { status: "checked_out" },
+      id: checkingOutBooking.booking.id,
+      updates: { status: "checked_out", actualCheckoutTime: dateTimeIso },
     });
+    setCheckingOutBooking(null);
   };
 
   if (loadingCheckins || loadingCheckouts) {
@@ -218,7 +238,7 @@ export default function CheckinCheckout() {
                         size="sm"
                         variant="outline"
                         className="bg-green-600 text-white hover:bg-green-700"
-                        onClick={() => handleCheckOut(booking.id)}
+                        onClick={() => handleCheckOut({ booking, user, category })}
                         disabled={updateBookingMutation.isPending}
                       >
                         Check Out
@@ -271,6 +291,20 @@ export default function CheckinCheckout() {
                 <form onSubmit={travelForm.handleSubmit(confirmCheckIn)} className="space-y-4">
                   <FormField
                     control={travelForm.control}
+                    name="checkinDateTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Check-in Date & Time</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={travelForm.control}
                     name="arrivingFrom"
                     render={({ field }) => (
                       <FormItem>
@@ -320,6 +354,20 @@ export default function CheckinCheckout() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Check-out confirmation with editable date & time */}
+      {checkingOutBooking && (
+        <CheckInOutDialog
+          open={!!checkingOutBooking}
+          onOpenChange={(open) => !open && setCheckingOutBooking(null)}
+          mode="checkout"
+          guestName={checkingOutBooking.user.name}
+          bookingLabel={`${checkingOutBooking.category.name} - Booking ID: ${checkingOutBooking.booking.bookingId}`}
+          defaultDateTime={checkingOutBooking.booking.actualCheckoutTime}
+          isPending={updateBookingMutation.isPending}
+          onConfirm={confirmCheckOut}
+        />
+      )}
     </div>
   );
 }

@@ -24,6 +24,12 @@ interface BookingDetailsModalProps {
 
 // Removed IDProofViewer component - now opening images directly in new tab
 
+// Local (not UTC) yyyy-MM-ddTHH:mm for a native datetime-local input's value.
+function toLocalDateTimeInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetailsModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,6 +37,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [status, setStatus] = useState("");
+  const [editCheckin, setEditCheckin] = useState("");
+  const [editCheckout, setEditCheckout] = useState("");
+  const [editGuests, setEditGuests] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
@@ -261,11 +270,11 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Check-in</p>
-                  <p className="font-medium">{checkinDate.toLocaleDateString()}</p>
+                  <p className="font-medium">{checkinDate.toLocaleDateString()} {checkinDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Check-out</p>
-                  <p className="font-medium">{checkoutDate.toLocaleDateString()}</p>
+                  <p className="font-medium">{checkoutDate.toLocaleDateString()} {checkoutDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               </div>
               <div>
@@ -494,6 +503,64 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editCheckin">Check-in Date & Time</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="editCheckin"
+                    type="datetime-local"
+                    value={editCheckin || toLocalDateTimeInputValue(checkinDate)}
+                    onChange={(e) => setEditCheckin(e.target.value)}
+                  />
+                  <Button
+                    onClick={() => updateBookingMutation.mutate({ checkinDate: new Date(editCheckin || toLocalDateTimeInputValue(checkinDate)).toISOString() })}
+                    disabled={updateBookingMutation.isPending}
+                    size="sm"
+                  >
+                    Update
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editCheckout">Check-out Date & Time</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="editCheckout"
+                    type="datetime-local"
+                    value={editCheckout || toLocalDateTimeInputValue(checkoutDate)}
+                    onChange={(e) => setEditCheckout(e.target.value)}
+                  />
+                  <Button
+                    onClick={() => updateBookingMutation.mutate({ checkoutDate: new Date(editCheckout || toLocalDateTimeInputValue(checkoutDate)).toISOString() })}
+                    disabled={updateBookingMutation.isPending}
+                    size="sm"
+                  >
+                    Update
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editGuests">Guests</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="editGuests"
+                    type="number"
+                    min={1}
+                    value={editGuests || String(booking.booking.guests)}
+                    onChange={(e) => setEditGuests(e.target.value)}
+                  />
+                  <Button
+                    onClick={() => updateBookingMutation.mutate({ guests: parseInt(editGuests || String(booking.booking.guests), 10) })}
+                    disabled={updateBookingMutation.isPending}
+                    size="sm"
+                  >
+                    Update
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="roomNumber">Room Number</Label>
                 <div className="flex gap-2">
