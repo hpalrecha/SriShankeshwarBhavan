@@ -1926,10 +1926,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
-      
+
+      // Basic shape checks on the fields the admin's guest-edit UI actually
+      // sends - catches an obviously malformed value before it reaches the
+      // DB instead of silently saving it.
+      if (updates.name !== undefined && !String(updates.name).trim()) {
+        return res.status(400).json({ message: "Name cannot be empty" });
+      }
+      if (updates.mobile !== undefined && !/^[0-9+\-\s()]{7,20}$/.test(String(updates.mobile).trim())) {
+        return res.status(400).json({ message: "Enter a valid mobile number" });
+      }
+      if (updates.email !== undefined && updates.email !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(updates.email).trim())) {
+        return res.status(400).json({ message: "Enter a valid email address" });
+      }
+
       const updatedUser = await storage.updateUser(id, updates);
       res.json(updatedUser);
-    } catch (error) {
+    } catch (error: any) {
+      // users.mobile is DB-unique - a Postgres unique-violation (23505) here
+      // means the admin tried to set this guest's mobile to one already
+      // used by a different account. Surface that plainly instead of the
+      // generic 500 the guest-edit UI can't do anything useful with.
+      if (error?.code === "23505") {
+        return res.status(400).json({ message: "That mobile number is already used by another guest account" });
+      }
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
     }

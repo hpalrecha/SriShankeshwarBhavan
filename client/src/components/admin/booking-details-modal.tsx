@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle, Camera, Printer } from "lucide-react";
+import { Upload, User, Calendar, CreditCard, MapPin, Phone, Mail, ImageIcon, XCircle, Camera, Printer, Pencil, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { BookingWithDetails } from "@/lib/types";
@@ -40,6 +40,10 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const [editCheckin, setEditCheckin] = useState("");
   const [editCheckout, setEditCheckout] = useState("");
   const [editGuests, setEditGuests] = useState("");
+  const [isEditingGuest, setIsEditingGuest] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestMobile, setGuestMobile] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
@@ -74,6 +78,51 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
       toast({
         title: "Update Failed",
         description: "Failed to update booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Guest name/email/mobile live on the users row, not room_bookings, so
+  // this hits the user endpoint - editing here updates the guest's account
+  // (and therefore every booking under it), which is what "fix a guest's
+  // details" means in practice, not just this one booking.
+  const updateGuestMutation = useMutation({
+    mutationFn: async (updates: { name?: string; email?: string; mobile?: string }) => {
+      return await apiRequest("PATCH", `/api/admin/users/${booking?.user.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/recent-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings-table"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/todays-checkouts"] });
+      setIsEditingGuest(false);
+      toast({
+        title: "Guest Updated",
+        description: "Guest details have been successfully updated.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Guest update error:", error);
+      // apiRequest throws "<status>: <raw response body>" - the body is the
+      // route's own JSON {message}, e.g. the duplicate-mobile or invalid-
+      // format errors added server-side. Pull that out so the toast shows
+      // the specific reason instead of a generic failure.
+      let description = "Failed to update guest details. Please try again.";
+      const raw = String(error?.message || "");
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart !== -1) {
+        try {
+          const parsed = JSON.parse(raw.slice(jsonStart));
+          if (parsed?.message) description = parsed.message;
+        } catch {
+          // fall back to the generic message above
+        }
+      }
+      toast({
+        title: "Update Failed",
+        description,
         variant: "destructive",
       });
     },
@@ -120,6 +169,30 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
 
   const handleUpdate = (field: string, value: string) => {
     updateBookingMutation.mutate({ [field]: value });
+  };
+
+  const startEditingGuest = () => {
+    if (!booking) return;
+    setGuestName(booking.user.name || "");
+    setGuestEmail(booking.user.email || "");
+    setGuestMobile(booking.user.mobile || "");
+    setIsEditingGuest(true);
+  };
+
+  const saveGuestEdits = () => {
+    if (!guestName.trim() || !guestMobile.trim()) {
+      toast({
+        title: "Missing details",
+        description: "Name and mobile number are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateGuestMutation.mutate({
+      name: guestName.trim(),
+      email: guestEmail.trim() || undefined,
+      mobile: guestMobile.trim(),
+    });
   };
 
   const handleIdProofUpload = async () => {
@@ -204,24 +277,61 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
           {/* Guest Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Guest Information
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Guest Information
+                </span>
+                {!isEditingGuest && (
+                  <Button variant="ghost" size="sm" onClick={startEditingGuest} className="gap-1">
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-gray-500" />
-                <span className="font-medium">{booking.user.name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-gray-500" />
-                <span>{booking.user.email}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-gray-500" />
-                <span>{booking.user.mobile}</span>
-              </div>
+              {isEditingGuest ? (
+                <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
+                  <div className="space-y-1">
+                    <Label htmlFor="guestNameEdit">Name</Label>
+                    <Input id="guestNameEdit" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Guest name" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="guestEmailEdit">Email</Label>
+                    <Input id="guestEmailEdit" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="Email (optional)" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="guestMobileEdit">Mobile Number</Label>
+                    <Input id="guestMobileEdit" value={guestMobile} onChange={(e) => setGuestMobile(e.target.value)} placeholder="Mobile number" />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" onClick={saveGuestEdits} disabled={updateGuestMutation.isPending} className="gap-1">
+                      <Check className="h-4 w-4" />
+                      {updateGuestMutation.isPending ? "Saving..." : "Save"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingGuest(false)} disabled={updateGuestMutation.isPending} className="gap-1">
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium">{guestName || booking.user.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <span>{guestEmail || booking.user.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span>{guestMobile || booking.user.mobile}</span>
+                  </div>
+                </>
+              )}
               <div>
                 <p className="text-sm text-gray-600">Total Guests: {booking.booking.guests}</p>
                 <p className="text-sm text-gray-600">Rooms Booked: {booking.booking.roomsBooked || 1}</p>
