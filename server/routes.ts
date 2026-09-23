@@ -869,13 +869,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: dateValidation.message });
       }
 
-      // Create or get user
-      let user = await storage.getUserByEmail(userData.email);
+      // Create or get user. Mobile first, same as the guest-facing booking
+      // route - email is optional now, so looking up by email alone would
+      // crash when it's blank (getUserByEmail(undefined)), and mobile is
+      // the more reliable identifier anyway for a returning guest.
+      let user = await storage.getUserByMobile(userData.mobile);
+      if (!user && userData.email) {
+        user = await storage.getUserByEmail(userData.email);
+      }
       if (!user) {
         const hashedPassword = await bcrypt.hash("guest123", 10);
         user = await storage.createUser({
           name: userData.name,
-          email: userData.email,
+          email: userData.email || undefined,
           mobile: userData.mobile,
           password: hashedPassword,
         });
