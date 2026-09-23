@@ -40,6 +40,9 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const [checkinFrom, setCheckinFrom] = useState<Date | undefined>(undefined);
   const [checkinTo, setCheckinTo] = useState<Date | undefined>(undefined);
   const [pendingAction, setPendingAction] = useState<{ booking: BookingWithDetails; mode: "checkin" | "checkout" } | null>(null);
+  const [exportFrom, setExportFrom] = useState<Date | undefined>(undefined);
+  const [exportTo, setExportTo] = useState<Date | undefined>(undefined);
+  const [exportPopoverOpen, setExportPopoverOpen] = useState(false);
 
   // Debounce the search box so every keystroke doesn't trigger a fetch -
   // and reset back to page 1 whenever the actual search term changes.
@@ -149,9 +152,17 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
 
   const handleExport = () => {
     const params = new URLSearchParams();
-    if (checkinFromParam) params.set("checkinFrom", checkinFromParam);
-    if (checkinToParam) params.set("checkinTo", checkinToParam);
+    if (exportFrom) params.set("checkinFrom", format(exportFrom, "yyyy-MM-dd"));
+    if (exportTo) params.set("checkinTo", format(exportTo, "yyyy-MM-dd"));
     window.open(`/api/admin/bookings/export?${params.toString()}`, "_blank");
+    setExportPopoverOpen(false);
+  };
+
+  const handleExportAllTime = () => {
+    setExportFrom(undefined);
+    setExportTo(undefined);
+    window.open("/api/admin/bookings/export", "_blank");
+    setExportPopoverOpen(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -230,10 +241,42 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           <X className="h-4 w-4" /> Clear
         </Button>
       )}
-      <Button variant="outline" onClick={handleExport} className="gap-2">
-        <Download className="h-4 w-4" />
-        Export CSV{checkinFrom || checkinTo ? " (filtered)" : " (all)"}
-      </Button>
+      <Popover open={exportPopoverOpen} onOpenChange={setExportPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-3 space-y-3" align="end">
+          <div className="text-sm font-medium text-gray-700">
+            Export by check-in date range
+          </div>
+          <CalendarPicker
+            mode="range"
+            selected={{ from: exportFrom, to: exportTo }}
+            onSelect={(range) => {
+              setExportFrom(range?.from);
+              setExportTo(range?.to);
+            }}
+            numberOfMonths={2}
+          />
+          <div className="flex items-center justify-between gap-2 pt-1 border-t">
+            <Button variant="ghost" size="sm" onClick={handleExportAllTime}>
+              Export all bookings (past &amp; present)
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExport}
+              disabled={!exportFrom && !exportTo}
+              className="gap-1"
+            >
+              <Download className="h-4 w-4" />
+              Export range
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 
