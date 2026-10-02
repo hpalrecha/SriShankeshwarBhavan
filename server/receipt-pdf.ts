@@ -269,6 +269,9 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
       ? { icon: "coin", label: "Total Amount", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` }
       : { icon: "coin", label: "Room Rent", value: `Rs. ${roomAmount.toFixed(2)}` };
 
+    const extraBedAmount = parseFloat(b.extraBedAmount || "0");
+    const foodAmount = parseFloat(b.foodAmount || "0");
+
     const rows: Array<{ icon: IconKind; label: string; value: string; blank?: boolean }> = [
       { icon: "person", label: "Guest Full Name", value: dash(guestName) },
       { icon: "idcard", label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
@@ -279,6 +282,12 @@ export function generateReceiptPdfBuffer(data: ReceiptData): Promise<Buffer> {
       { icon: "person", label: "Total Guests", value: dash(b.guests) },
       { icon: "bed", label: "Room No.", value: b.roomNumber || "", blank: !b.roomNumber },
       { icon: "creditcard", label: "Payment Mode", value: isOnlinePayment ? "Online" : "Cash" },
+      ...(isOnlinePayment && extraBedAmount > 0
+        ? [{ icon: "bed" as IconKind, label: `Extra Bed${(b.extraBeds || 0) > 1 ? "s" : ""} (${b.extraBeds})`, value: `Rs. ${extraBedAmount.toFixed(2)}` }]
+        : []),
+      ...(isOnlinePayment && foodAmount > 0
+        ? [{ icon: "coin" as IconKind, label: "Food", value: `Rs. ${foodAmount.toFixed(2)}` }]
+        : []),
       rentRow,
       { icon: "car", label: "Vehicle No.", value: "—" },
     ];

@@ -417,7 +417,15 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                   <p className="font-medium">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</p>
                 </div>
               )}
-              
+
+              {/* Extra Bed Amount */}
+              {booking.booking.extraBedAmount && parseFloat(booking.booking.extraBedAmount) > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600">Extra Bed{(booking.booking.extraBeds || 0) > 1 ? 's' : ''} ({booking.booking.extraBeds})</p>
+                  <p className="font-medium">₹{parseFloat(booking.booking.extraBedAmount).toFixed(2)}</p>
+                </div>
+              )}
+
               {/* Actual Check-in/Check-out Times */}
               {booking.booking.actualCheckinTime && (
                 <div>
@@ -916,6 +924,18 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                 <p className="text-gray-600">Rooms</p>
                 <p className="font-medium">{booking.booking.roomsBooked || 1}</p>
               </div>
+              {booking.booking.extraBedAmount && parseFloat(booking.booking.extraBedAmount) > 0 && (
+                <div>
+                  <p className="text-gray-600">Extra Beds ({booking.booking.extraBeds})</p>
+                  <p className="font-medium">₹{parseFloat(booking.booking.extraBedAmount).toFixed(2)}</p>
+                </div>
+              )}
+              {booking.booking.foodAmount && parseFloat(booking.booking.foodAmount) > 0 && (
+                <div>
+                  <p className="text-gray-600">Food</p>
+                  <p className="font-medium">₹{parseFloat(booking.booking.foodAmount).toFixed(2)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-gray-600">Total Amount</p>
                 <p className="font-bold text-lg text-brand-orange">₹{parseFloat(booking.booking.totalAmount).toLocaleString()}</p>

@@ -59,6 +59,9 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     ? { icon: <IndianRupee />, label: "Total Amount", value: `Rs. ${parseFloat(b.totalAmount || "0").toFixed(2)}` }
     : { icon: <IndianRupee />, label: "Room Rent", value: `Rs. ${roomAmount.toFixed(2)}` };
 
+  const extraBedAmount = parseFloat(b.extraBedAmount || "0");
+  const foodAmount = parseFloat(b.foodAmount || "0");
+
   const rows: Array<{ icon: ReactNode; label: string; value: ReactNode; blank?: boolean }> = [
     { icon: <User />, label: "Guest Full Name", value: dash(guestName) },
     { icon: <IdCard />, label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
@@ -69,6 +72,12 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     { icon: <User />, label: "Total Guests", value: dash(b.guests) },
     { icon: <BedDouble />, label: "Room No.", value: b.roomNumber ? b.roomNumber : "", blank: !b.roomNumber },
     { icon: <CreditCard />, label: "Payment Mode", value: isOnlinePayment ? "Online" : "Cash" },
+    ...(isOnlinePayment && extraBedAmount > 0
+      ? [{ icon: <BedDouble />, label: `Extra Bed${(b.extraBeds || 0) > 1 ? "s" : ""} (${b.extraBeds})`, value: `Rs. ${extraBedAmount.toFixed(2)}` }]
+      : []),
+    ...(isOnlinePayment && foodAmount > 0
+      ? [{ icon: <IndianRupee />, label: "Food", value: `Rs. ${foodAmount.toFixed(2)}` }]
+      : []),
     rentRow,
     { icon: <Car />, label: "Vehicle No.", value: "—" },
   ];
