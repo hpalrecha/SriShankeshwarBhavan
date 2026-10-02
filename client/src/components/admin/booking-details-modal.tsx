@@ -247,6 +247,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const checkinDate = new Date(booking.booking.checkinDate);
   const checkoutDate = new Date(booking.booking.checkoutDate);
   const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
+  // Food/extra-bed charges are only collected upfront on an online payment -
+  // a pay-at-checkin booking owes them separately, so "booked" doesn't mean "paid".
+  const foodPaid = booking.booking.paymentMethod === "pay_online" && booking.booking.paymentStatus === "paid_online";
 
   return (
     <>
@@ -566,10 +569,12 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           </div>
                         )}
                       </div>
-                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
+                      <span className={`font-medium bg-white px-2 py-1 rounded ${foodPaid ? "text-green-600" : "text-red-600"}`}>
+                        {foodPaid ? "Paid" : "Not Paid"}
+                      </span>
                     </div>
                   )}
-                  
+
                   {/* Lunch */}
                   {(booking.booking.foodLunch || (booking.booking.lunchDays && booking.booking.lunchDays > 0)) && (
                     <div className="flex justify-between items-center p-3 bg-orange-50 rounded border-l-4 border-orange-400">
@@ -581,10 +586,12 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           </div>
                         )}
                       </div>
-                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
+                      <span className={`font-medium bg-white px-2 py-1 rounded ${foodPaid ? "text-green-600" : "text-red-600"}`}>
+                        {foodPaid ? "Paid" : "Not Paid"}
+                      </span>
                     </div>
                   )}
-                  
+
                   {/* Dinner */}
                   {(booking.booking.foodDinner || (booking.booking.dinnerDays && booking.booking.dinnerDays > 0)) && (
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded border-l-4 border-blue-400">
@@ -596,7 +603,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                           </div>
                         )}
                       </div>
-                      <span className="text-green-600 font-medium bg-white px-2 py-1 rounded">Booked</span>
+                      <span className={`font-medium bg-white px-2 py-1 rounded ${foodPaid ? "text-green-600" : "text-red-600"}`}>
+                        {foodPaid ? "Paid" : "Not Paid"}
+                      </span>
                     </div>
                   )}
                 </div>
