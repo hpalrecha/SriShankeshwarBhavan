@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage, InsufficientAvailabilityError } from "./storage";
-import { validateBookingDates } from "./booking-date-validation";
+import { validateBookingDates, validateBookingUpdate } from "./booking-date-validation";
 import { insertUserSchema, insertRoomBookingSchema, type RoomBooking } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -2022,6 +2022,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (updates[dateField] && typeof updates[dateField] === "string") {
           updates[dateField] = new Date(updates[dateField]);
         }
+      }
+
+      const dateValidation = validateBookingUpdate(originalBooking, updates);
+      if (!dateValidation.valid) {
+        return res.status(400).json({ message: dateValidation.message });
       }
 
       let updatedBooking: RoomBooking;

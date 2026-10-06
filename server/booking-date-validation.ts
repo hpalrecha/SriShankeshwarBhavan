@@ -37,3 +37,25 @@ export function validateBookingDates({
 
   return { valid: true };
 }
+
+const BOOKING_DATE_FIELDS = ["checkinDate", "checkoutDate", "estimatedArrivalTime", "estimatedDepartureTime"] as const;
+
+// Validates a partial admin update against the booking's current values. Skips
+// the check entirely when the update touches none of the date/time fields, so
+// unrelated edits (status, payment, ID proofs) never trip on legacy rows.
+export function validateBookingUpdate(
+  original: Record<string, any>,
+  updates: Record<string, any>,
+): BookingDateValidationResult {
+  if (!BOOKING_DATE_FIELDS.some((field) => field in updates)) {
+    return { valid: true };
+  }
+  const value = (field: (typeof BOOKING_DATE_FIELDS)[number]) =>
+    field in updates ? updates[field] : original[field];
+  return validateBookingDates({
+    checkinDate: value("checkinDate"),
+    checkoutDate: value("checkoutDate"),
+    checkinTime: value("estimatedArrivalTime"),
+    checkoutTime: value("estimatedDepartureTime"),
+  });
+}
