@@ -247,6 +247,16 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
   const checkinDate = new Date(booking.booking.checkinDate);
   const checkoutDate = new Date(booking.booking.checkoutDate);
   const nights = Math.max(1, Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // Pinned to Asia/Kolkata so the time reads the same on any admin's machine,
+  // matching the printed receipt. Shows the actual check-in/out moment only;
+  // date-only fallback (checkinDate/checkoutDate are midnight UTC) until then.
+  const kolkataDateTime = (d: Date) =>
+    d.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+  const kolkataDate = (d: Date) =>
+    d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+  const checkinDisplay = booking.booking.actualCheckinTime ? kolkataDateTime(new Date(booking.booking.actualCheckinTime)) : kolkataDate(checkinDate);
+  const checkoutDisplay = booking.booking.actualCheckoutTime ? kolkataDateTime(new Date(booking.booking.actualCheckoutTime)) : kolkataDate(checkoutDate);
   // Food/extra-bed charges are only collected upfront on an online payment -
   // a pay-at-checkin booking owes them separately, so "booked" doesn't mean "paid".
   const foodPaid = booking.booking.paymentMethod === "pay_online" && booking.booking.paymentStatus === "paid_online";
@@ -383,11 +393,11 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Check-in</p>
-                  <p className="font-medium">{checkinDate.toLocaleDateString()} {checkinDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className="font-medium">{checkinDisplay}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Check-out</p>
-                  <p className="font-medium">{checkoutDate.toLocaleDateString()} {checkoutDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className="font-medium">{checkoutDisplay}</p>
                 </div>
               </div>
               <div>
