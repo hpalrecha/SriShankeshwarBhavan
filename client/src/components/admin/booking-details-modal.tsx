@@ -796,7 +796,9 @@ export default function BookingDetailsModal({ booking, isOpen, onClose }: Bookin
                     Cancel Booking
                   </Button>
                   <p className="text-xs text-gray-500">
-                    This will mark the booking as cancelled and may trigger refund processing.
+                    This will mark the booking as cancelled. No refund is processed automatically -
+                    per Trust policy, the amount may instead be applied to Sadhu-Sadhvi Gochari-Paani
+                    Seva, arranged manually.
                   </p>
                 </div>
               )}

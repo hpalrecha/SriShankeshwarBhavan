@@ -99,7 +99,7 @@ export default function LocationSection() {
                   <li>• Railway connectivity via Patan station with connecting buses</li>
                   <li>• Airport transfers from Ahmedabad can be arranged upon request</li>
                   <li>• Local taxi and auto-rickshaw services available</li>
-                  <li>• Free parking available for guests with vehicles</li>
+                  <li>• Parking is not available at present; it is planned for the future</li>
                 </ul>
               </CardContent>
             </Card>

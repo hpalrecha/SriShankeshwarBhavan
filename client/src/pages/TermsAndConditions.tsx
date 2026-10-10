@@ -69,7 +69,7 @@ export default function TermsAndConditions() {
             <div className="space-y-2">
               <p>• Common areas are for shared use with mutual respect</p>
               <p>• Temple timings must be observed for darshan and prayers</p>
-              <p>• Parking subject to availability</p>
+              <p>• Parking is not available at present; it is planned for the future</p>
               <p>• Lost or damaged property will be charged as per actual cost</p>
               <p>• 24 hours running hot water is available in every room</p>
               <p>• RO purified water is available for drinking</p>

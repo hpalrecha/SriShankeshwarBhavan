@@ -43,6 +43,9 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const [exportFrom, setExportFrom] = useState<Date | undefined>(undefined);
   const [exportTo, setExportTo] = useState<Date | undefined>(undefined);
   const [exportPopoverOpen, setExportPopoverOpen] = useState(false);
+  // Cancelled bookings are hidden from the default "Active" view so they
+  // don't mix in with confirmed/paid ones - a separate tab shows them.
+  const [statusFilter, setStatusFilter] = useState<"active" | "cancelled" | "all">("active");
 
   // Debounce the search box so every keystroke doesn't trigger a fetch -
   // and reset back to page 1 whenever the actual search term changes.
@@ -52,7 +55,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   }, [searchInput]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, checkinFrom, checkinTo]);
+  }, [search, checkinFrom, checkinTo, statusFilter]);
 
   const checkinFromParam = checkinFrom ? format(checkinFrom, "yyyy-MM-dd") : "";
   const checkinToParam = checkinTo ? format(checkinTo, "yyyy-MM-dd") : "";
@@ -60,9 +63,11 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
   const { data: bookingsResponse, isLoading } = useQuery<PaginatedBookingsResponse>({
     // Different key to avoid cache conflicts with other components hitting
     // the same underlying endpoint with different params.
-    queryKey: ["/api/admin/bookings-table", currentPage, search, checkinFromParam, checkinToParam],
+    queryKey: ["/api/admin/bookings-table", currentPage, search, checkinFromParam, checkinToParam, userFilter ? "all" : statusFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(currentPage), limit: "30" });
+      // A single user's booking history should show everything, including
+      // cancelled - only the main admin table defaults to hiding cancelled.
+      const params = new URLSearchParams({ page: String(currentPage), limit: "30", status: userFilter ? "all" : statusFilter });
       if (search) params.set("search", search);
       if (checkinFromParam) params.set("checkinFrom", checkinFromParam);
       if (checkinToParam) params.set("checkinTo", checkinToParam);
@@ -204,6 +209,26 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
     setCheckinTo(undefined);
   };
 
+  const statusTabs = !userFilter && (
+    <div className="flex gap-1 px-6 pb-3">
+      {([
+        { key: "active", label: "Confirmed & Paid" },
+        { key: "cancelled", label: "Cancelled" },
+        { key: "all", label: "All" },
+      ] as const).map((tab) => (
+        <Button
+          key={tab.key}
+          type="button"
+          size="sm"
+          variant={statusFilter === tab.key ? "default" : "outline"}
+          onClick={() => setStatusFilter(tab.key)}
+        >
+          {tab.label}
+        </Button>
+      ))}
+    </div>
+  );
+
   const filterBar = !userFilter && (
     <div className="flex flex-col sm:flex-row gap-3 px-6 pb-4">
       <div className="relative flex-1 min-w-[200px]">
@@ -290,6 +315,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
         <CardHeader>
           <CardTitle>Recent Bookings</CardTitle>
         </CardHeader>
+        {statusTabs}
         {filterBar}
         <CardContent>
           <p className="text-gray-500">
@@ -309,6 +335,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
           {userFilter ? `User Bookings (${filteredBookings.length})` : `All Bookings (${pagination?.total || filteredBookings.length})`}
         </CardTitle>
       </CardHeader>
+      {statusTabs}
       {filterBar}
       <CardContent className="p-0">
         {/* Mobile Cards View */}

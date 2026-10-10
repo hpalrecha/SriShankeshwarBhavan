@@ -62,6 +62,10 @@ export interface BookingListFilters {
   search?: string;
   checkinFrom?: string;
   checkinTo?: string;
+  // Admin bookings table defaults to hiding cancelled bookings so they don't
+  // mix in with confirmed/paid ones - "cancelled" shows only cancelled,
+  // "all" (or omitted) applies no status filter at all.
+  status?: "active" | "cancelled" | "all";
 }
 
 export interface IStorage {
@@ -473,6 +477,11 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.checkinTo) {
       conditions.push(lte(roomBookings.checkinDate, new Date(filters.checkinTo)));
+    }
+    if (filters?.status === "active") {
+      conditions.push(ne(roomBookings.status, "cancelled"));
+    } else if (filters?.status === "cancelled") {
+      conditions.push(eq(roomBookings.status, "cancelled"));
     }
     if (filters?.search) {
       const term = `%${filters.search.trim()}%`;

@@ -77,60 +77,6 @@ const upload = multer({
   }
 });
 
-// Refunds an online payment when its booking is cancelled. Safe to call on
-// any booking - it's a no-op unless the booking was actually paid online and
-// hasn't already been refunded, so both cancellation routes can call it
-// unconditionally. Never throws: a refund failure must not block the
-// cancellation itself, it just leaves the booking flagged "refund_failed" so
-// staff can see it in the admin panel and refund manually.
-async function refundOnlinePaymentIfApplicable(
-  booking: RoomBooking
-): Promise<{ attempted: boolean; success?: boolean; error?: string }> {
-  if (booking.paymentMethod !== "pay_online" || booking.paymentStatus !== "paid_online") {
-    return { attempted: false };
-  }
-
-  if (!booking.paymentReference) {
-    console.error(`Cannot auto-refund booking ${booking.bookingId}: no payment reference on file`);
-    await storage.updateRoomBooking(booking.id, { paymentStatus: "refund_failed" });
-    return { attempted: true, success: false, error: "No payment reference on file" };
-  }
-
-  try {
-    const transactions = await storage.getPaymentTransactionsByBookingId(booking.id);
-    // The client-driven /api/payment/verify path marks a transaction
-    // "success", but every gateway's webhook handler (Razorpay/ICICI/PayU)
-    // marks the same outcome "completed" instead - checking only "success"
-    // meant a booking confirmed via webhook could never be matched to its
-    // real transaction here, silently falling back to whichever gateway
-    // happens to be named "razorpay" even when the actual payment went
-    // through ICICI or PayU, and refunding through the wrong gateway.
-    const successfulTransaction = transactions.find(t => t.status === "success" || t.status === "completed");
-    const gateway = successfulTransaction
-      ? await storage.getPaymentGateway(successfulTransaction.gatewayId)
-      : await storage.getPaymentGatewayByName("razorpay");
-
-    if (!gateway) {
-      throw new Error("Payment gateway configuration not found");
-    }
-
-    const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
-    await paymentGateway.refundPayment(booking.paymentReference, parseFloat(booking.totalAmount));
-
-    if (successfulTransaction) {
-      await storage.updatePaymentTransaction(successfulTransaction.id, { status: "refunded" });
-    }
-    await storage.updateRoomBooking(booking.id, { paymentStatus: "refunded" });
-    console.log(`✅ Refunded ₹${booking.totalAmount} for cancelled booking ${booking.bookingId}`);
-    return { attempted: true, success: true };
-  } catch (error: any) {
-    const message = error?.error?.description || error?.message || "Refund failed";
-    console.error(`❌ Auto-refund failed for booking ${booking.bookingId}:`, message);
-    await storage.updateRoomBooking(booking.id, { paymentStatus: "refund_failed" });
-    return { attempted: true, success: false, error: message };
-  }
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for deployment debugging
   app.get("/api/health", async (req, res) => {
@@ -1452,9 +1398,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Booking cannot be cancelled" });
       }
 
-      // Refund first, so the email/WhatsApp below can report the real outcome
-      // instead of promising a refund that hasn't happened yet.
-      const refundResult = await refundOnlinePaymentIfApplicable(booking);
+      // No automatic refund on cancellation - advance bookings are non-
+      // refundable per Trust policy; a guest may instead have their balance
+      // applied to Sadhu-Sadhvi Gochari-Paani Seva, arranged manually by the
+      // Trust, not by this code.
 
       // Send booking cancellation email and WhatsApp notification
       try {
@@ -1480,14 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error sending booking cancellation notifications:", error);
       }
 
-      res.json({
-        message: "Booking cancelled successfully",
-        refund: refundResult.attempted
-          ? (refundResult.success
-              ? { status: "refunded" }
-              : { status: "refund_failed", error: refundResult.error })
-          : undefined,
-      });
+      res.json({ message: "Booking cancelled successfully" });
     } catch (error) {
       console.error("Error cancelling booking:", error);
       res.status(500).json({ message: "Failed to cancel booking" });
@@ -1685,10 +1625,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 30; // Show 30 per page by default
       const offset = (page - 1) * limit;
+      const statusParam = req.query.status as string;
+      const status: "active" | "cancelled" | "all" | undefined =
+        statusParam === "active" ? "active" : statusParam === "cancelled" ? "cancelled" : statusParam === "all" ? "all" : undefined;
       const filters = {
         search: (req.query.search as string) || undefined,
         checkinFrom: (req.query.checkinFrom as string) || undefined,
         checkinTo: (req.query.checkinTo as string) || undefined,
+        status,
       };
 
       const bookings = await storage.getRecentBookings(limit, offset, filters);
@@ -2054,14 +1998,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // cancelled the booking, not a loser of the race above (which means
       // it was already cancelled by someone else).
       if (cancelledByThisRequest) {
-        // originalBooking still has the pre-cancel paymentStatus/paymentReference
-        // needed to decide whether a refund is owed; the status update above
-        // doesn't touch those fields.
-        const refundResult = await refundOnlinePaymentIfApplicable(originalBooking);
-        if (refundResult.attempted) {
-          updatedBooking = await storage.getRoomBooking(id) || updatedBooking;
-        }
-
+        // No automatic refund on cancellation - advance bookings are non-
+        // refundable per Trust policy; a guest may instead have their balance
+        // applied to Sadhu-Sadhvi Gochari-Paani Seva, arranged manually by the
+        // Trust, not by this code.
         console.log(`📱 Admin cancelled booking ${originalBooking.bookingId}, sending notifications asynchronously...`);
 
         // Send all cancellation notifications asynchronously (fire-and-forget)
