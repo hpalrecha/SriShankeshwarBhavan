@@ -20,6 +20,37 @@ interface TrusteeReservedDate {
   updatedAt: string;
 }
 
+interface OverlapBooking {
+  bookingId: string;
+  guestName: string;
+  categoryName: string;
+  checkinDate: string;
+  checkoutDate: string;
+  paymentStatus: string;
+}
+
+// The server answers 409 BOOKINGS_OVERLAP when existing non-trustee guests
+// already hold the night being locked. apiRequest throws "409: <json body>".
+function parseOverlap(error: Error): { date: string; bookings: OverlapBooking[] } | null {
+  if (!error.message.startsWith("409:")) return null;
+  try {
+    const body = JSON.parse(error.message.slice(4).trim());
+    return body.code === "BOOKINGS_OVERLAP" ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+const fmtStay = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" });
+
+function overlapMessage(o: { date: string; bookings: OverlapBooking[] }) {
+  const lines = o.bookings.map(
+    (b) => `• ${b.guestName} - ${b.categoryName}, ${fmtStay(b.checkinDate)} to ${fmtStay(b.checkoutDate)} (${b.paymentStatus}) [${b.bookingId}]`
+  );
+  return `${o.bookings.length} existing booking(s) already hold ${format(new Date(`${o.date}T00:00:00`), "PPP")}:\n\n${lines.join("\n")}\n\nLocking this date will NOT cancel them - they keep their rooms, only new guests are blocked.\n\nLock anyway?`;
+}
+
 export default function TrusteeReservations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -52,25 +83,37 @@ export default function TrusteeReservations() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/trustee-reserved-dates"] });
 
   const createReservedDateMutation = useMutation({
-    mutationFn: (data: { reservedDate: string; description: string; isEnabled: boolean }) =>
+    mutationFn: (data: { reservedDate: string; description: string; isEnabled: boolean; confirmOverlap?: boolean }) =>
       apiRequest("POST", "/api/admin/trustee-reserved-dates", data),
     onSuccess: () => {
       toast({ title: "Date reserved", description: "This date is now blocked for trustee-only booking." });
       invalidate();
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      const overlap = parseOverlap(error);
+      if (overlap) {
+        if (confirm(overlapMessage(overlap))) createReservedDateMutation.mutate({ ...variables, confirmOverlap: true });
+        return;
+      }
       toast({ title: "Error", description: error.message || "Failed to reserve date", variant: "destructive" });
     },
   });
 
   const updateReservedDateMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: number; updates: Partial<TrusteeReservedDate> }) =>
+    mutationFn: ({ id, updates }: { id: number; updates: Partial<TrusteeReservedDate> & { confirmOverlap?: boolean } }) =>
       apiRequest("PATCH", `/api/admin/trustee-reserved-dates/${id}`, updates),
     onSuccess: () => {
       toast({ title: "Updated", description: "Trustee reserved date updated." });
       invalidate();
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      const overlap = parseOverlap(error);
+      if (overlap) {
+        if (confirm(overlapMessage(overlap))) {
+          updateReservedDateMutation.mutate({ ...variables, updates: { ...variables.updates, confirmOverlap: true } });
+        }
+        return;
+      }
       toast({ title: "Error", description: error.message || "Failed to update reserved date", variant: "destructive" });
     },
   });

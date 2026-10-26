@@ -2,6 +2,7 @@ import { storage } from "./storage";
 import { sendBookingConfirmationEmail } from "./email";
 import { whatsappService } from "./whatsapp";
 import type { RoomBooking } from "@shared/schema";
+import { paidAmountMatches } from "./booking-guards";
 
 // Shared by both reconciliation functions below - pages through every
 // Razorpay payment captured in the window, so each caller doesn't repeat
@@ -224,13 +225,19 @@ export async function autoResolveStuckPaymentTransactions(
 
   const cutoff = Date.now() - staleAfterMinutes * 60 * 1000;
   const allTransactions = await storage.getPaymentTransactions();
+  // A "failed" row can still hide a captured payment: a guest's first attempt
+  // on an order fails (failure webhook marks it failed), the retry on the same
+  // order succeeds, and then the tab closes / success webhook is lost. Recent
+  // failed rows are therefore re-checked too - bounded to 24h so this stays
+  // cheap.
+  const failedWindowStart = Date.now() - 24 * 60 * 60 * 1000;
   const stuck = allTransactions.filter(
     (t) =>
-      t.status === "pending" &&
       t.gatewayId === gateway.id &&
       t.orderId &&
       t.createdAt &&
-      new Date(t.createdAt).getTime() < cutoff
+      ((t.status === "pending" && new Date(t.createdAt).getTime() < cutoff) ||
+        (t.status === "failed" && new Date(t.createdAt).getTime() > failedWindowStart))
   );
 
   const resolved: AutoResolvedPayment[] = [];
@@ -249,6 +256,15 @@ export async function autoResolveStuckPaymentTransactions(
 
     const booking = await storage.getRoomBooking(transaction.bookingId);
     if (!booking || RESOLVED_PAYMENT_STATUSES.includes(booking.paymentStatus)) continue;
+
+    // Never mark paid on a captured amount that differs from what the order
+    // was created for - leave it for the admin reconciliation report.
+    if (!paidAmountMatches(capturedPayment.amount / 100, transaction.amount)) {
+      console.error(
+        `autoResolveStuckPaymentTransactions: amount mismatch for booking ${booking.bookingId}: captured ${capturedPayment.amount / 100}, expected ${transaction.amount}. Not marking paid.`
+      );
+      continue;
+    }
 
     await markBookingPaidFromCapturedPayment(booking, capturedPayment);
     resolved.push({ paymentId: capturedPayment.id, bookingId: booking.bookingId, amount: capturedPayment.amount / 100 });

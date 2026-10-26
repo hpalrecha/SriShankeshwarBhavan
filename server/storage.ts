@@ -142,6 +142,7 @@ export interface IStorage {
   updateTrusteeReservedDate(id: number, reservedDate: Partial<TrusteeReservedDate>): Promise<TrusteeReservedDate>;
   deleteTrusteeReservedDate(id: number): Promise<void>;
   getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]>;
+  getNonTrusteeBookingsOnDate(dateStr: string): Promise<Array<{ bookingId: string; guestName: string; categoryName: string; checkinDate: Date; checkoutDate: Date; status: string; paymentStatus: string }>>;
 
   // Payment Gateways
   getPaymentGateways(): Promise<PaymentGateway[]>;
@@ -810,6 +811,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTrusteeReservedDate(id: number): Promise<void> {
     await db.delete(trusteeReservedDates).where(eq(trusteeReservedDates.id, id));
+  }
+
+  // Live (not cancelled / checked out) non-trustee bookings whose stay covers
+  // the given night (YYYY-MM-DD) - these guests aren't affected when a date is
+  // reserved for trustees, so admin gets warned before locking over them.
+  async getNonTrusteeBookingsOnDate(dateStr: string) {
+    const day = new Date(`${dateStr}T00:00:00.000Z`);
+    return await db
+      .select({
+        bookingId: roomBookings.bookingId,
+        guestName: sql<string>`coalesce(${roomBookings.primaryGuestName}, ${users.name})`,
+        categoryName: roomCategories.name,
+        checkinDate: roomBookings.checkinDate,
+        checkoutDate: roomBookings.checkoutDate,
+        status: roomBookings.status,
+        paymentStatus: roomBookings.paymentStatus,
+      })
+      .from(roomBookings)
+      .innerJoin(users, eq(users.id, roomBookings.userId))
+      .innerJoin(roomCategories, eq(roomCategories.id, roomBookings.roomCategoryId))
+      .where(and(
+        ne(roomBookings.status, "cancelled"),
+        ne(roomBookings.status, "checked_out"),
+        lte(roomBookings.checkinDate, day),
+        // overnight stay covering the day, or a same-day stay (billed as 1 night)
+        or(gt(roomBookings.checkoutDate, day), and(eq(roomBookings.checkinDate, day), lte(roomBookings.checkoutDate, day))),
+        eq(users.isTrustee, false),
+      ))
+      .orderBy(asc(roomBookings.checkinDate));
   }
 
   async getTrusteeReservedDatesEnabled(): Promise<TrusteeReservedDate[]> {

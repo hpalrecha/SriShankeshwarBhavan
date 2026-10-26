@@ -501,7 +501,7 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {Math.ceil((new Date(booking.checkoutDate).getTime() - new Date(booking.checkinDate).getTime()) / (1000 * 60 * 60 * 24))} nights
+                      {Math.max(1, Math.ceil((new Date(booking.checkoutDate).getTime() - new Date(booking.checkinDate).getTime()) / (1000 * 60 * 60 * 24)))} nights
                     </div>
                   </td>
                   

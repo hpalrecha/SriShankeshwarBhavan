@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { storage, InsufficientAvailabilityError } from "./storage";
 import { validateBookingDates, validateBookingUpdate } from "./booking-date-validation";
+import { lastNightEnd, applyGuestBookingDefaults, isSettledTransaction, paidAmountMatches, orderMatchesTransaction, isCheckinInPast, publicGuestSummary, withoutPassword, canBookTrusteeReservedDates } from "./booking-guards";
 import { insertUserSchema, insertRoomBookingSchema, type RoomBooking } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -615,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // why a guest search for the same dates comes back empty.
       const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
       const bookingDates: string[] = [];
-      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(startDate); d < lastNightEnd(startDate, endDate); d.setDate(d.getDate() + 1)) {
         bookingDates.push(d.toISOString().split('T')[0]);
       }
       const trusteeOnly = bookingDates.some(bd =>
@@ -747,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any dates in the booking range are trustee-reserved
       const trusteeReservedDates = await storage.getTrusteeReservedDatesEnabled();
       const bookingDates = [];
-      for (let date = new Date(startDate); date < endDate; date.setDate(date.getDate() + 1)) {
+      for (let date = new Date(startDate); date < lastNightEnd(startDate, endDate); date.setDate(date.getDate() + 1)) {
         bookingDates.push(new Date(date));
       }
       
@@ -1025,6 +1026,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: dateValidation.message });
       }
 
+      if (isCheckinInPast(bookingData.checkinDate)) {
+        return res.status(400).json({ message: "Check-in date cannot be in the past. Please select today or a later date." });
+      }
+
       // Get room category to check capacity
       const category = await storage.getRoomCategory(bookingData.roomCategoryId);
       if (!category) {
@@ -1079,7 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check each day in the booking range against trustee reserved dates
       const bookingDates = [];
-      for (let date = new Date(bookingCheckinDate); date < bookingCheckoutDate; date.setDate(date.getDate() + 1)) {
+      for (let date = new Date(bookingCheckinDate); date < lastNightEnd(bookingCheckinDate, bookingCheckoutDate); date.setDate(date.getDate() + 1)) {
         bookingDates.push(new Date(date));
       }
 
@@ -1093,9 +1098,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (isReservedDate) {
           // Only allow trustees to book on reserved dates - the real,
-          // stored status on the looked-up/created account above, never the
-          // client-supplied claim in the request body.
-          if (!user.isTrustee) {
+          // stored status on the account, AND the caller must actually be
+          // logged in as that account. The account is matched by mobile
+          // number alone, so without the session check anyone could type a
+          // trustee's number to get past the lock.
+          if (!canBookTrusteeReservedDates(user, (req.session as any)?.userId)) {
             conflictingDates.push({
               date: bookingDate.toDateString(),
               reservedDate: bookingDateString
@@ -1195,7 +1202,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const totalAmount = roomAmount + foodAmount + extraBedAmount;
 
-      const booking = await storage.createRoomBooking({
+      // applyGuestBookingDefaults overwrites the server-owned fields (payment
+      // status, status, room, auto-booking, check-in/out times) whatever the
+      // request body says - payment only becomes "paid" via the verified
+      // payment routes. Covered by booking-guards.test.ts.
+      const booking = await storage.createRoomBooking(applyGuestBookingDefaults({
         ...bookingData,
         bookingId,
         userId: user.id,
@@ -1207,7 +1218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         foodAmount: foodAmount.toString(),
         extraBeds: bookingData.extraBeds || 0,
         extraBedAmount: extraBedAmount.toString(),
-      });
+      }));
 
       // Send notifications asynchronously (fire-and-forget for better performance).
       // Skipped when this booking is awaiting online payment - it isn't actually
@@ -1270,7 +1281,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         booking,
-        user,
+        // Public endpoint that looks accounts up by mobile number alone - the
+        // returned row must never include the password hash.
+        user: withoutPassword(user),
         bookingId,
         autoLoggedIn: !awaitingOnlinePayment,
         // The client shows a "your account was created" toast off this -
@@ -1313,7 +1326,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(booking.userId);
       const category = await storage.getRoomCategory(booking.roomCategoryId);
 
-      res.json({ booking, user, category });
+      // Unauthenticated endpoint: never return the account record itself.
+      res.json({ booking, user: publicGuestSummary(user), category });
     } catch (error) {
       console.error("Error fetching booking:", error);
       res.status(500).json({ message: "Failed to fetch booking" });
@@ -2862,6 +2876,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Valid date is required (YYYY-MM-DD format)" });
       }
       
+      // Warn (don't block) when existing non-trustee guests already hold this
+      // night - admin must confirm before the lock is saved.
+      if (isEnabled !== false && !req.body.confirmOverlap) {
+        const overlapping = await storage.getNonTrusteeBookingsOnDate(String(reservedDate).slice(0, 10));
+        if (overlapping.length > 0) {
+          return res.status(409).json({ code: "BOOKINGS_OVERLAP", date: String(reservedDate).slice(0, 10), bookings: overlapping });
+        }
+      }
+
       const newReservedDate = await storage.createTrusteeReservedDate({
         reservedDate,
         description: description || "Trustee Reserved Day",
@@ -2885,7 +2908,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Valid date is required (YYYY-MM-DD format)" });
       }
       
-      const updatedReservedDate = await storage.updateTrusteeReservedDate(id, updates);
+      const { confirmOverlap, ...rest } = updates;
+      // Same overlap warning when a paused date is switched back on or moved.
+      if (!confirmOverlap && (rest.isEnabled === true || rest.reservedDate)) {
+        const current = (await storage.getTrusteeReservedDates()).find((d) => d.id === id);
+        const willBeEnabled = rest.isEnabled ?? current?.isEnabled;
+        const targetDate = rest.reservedDate ?? current?.reservedDate;
+        if (willBeEnabled && targetDate) {
+          const dateStr = typeof targetDate === "string" ? targetDate.slice(0, 10) : new Date(targetDate).toISOString().slice(0, 10);
+          const overlapping = await storage.getNonTrusteeBookingsOnDate(dateStr);
+          if (overlapping.length > 0) {
+            return res.status(409).json({ code: "BOOKINGS_OVERLAP", date: dateStr, bookings: overlapping });
+          }
+        }
+      }
+
+      const updatedReservedDate = await storage.updateTrusteeReservedDate(id, rest);
       res.json(updatedReservedDate);
     } catch (error: any) {
       console.error("Error updating trustee reserved date:", error);
@@ -3243,9 +3281,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Payment gateway not found" });
       }
 
+      // The signed payment must belong to THIS transaction's own order. The
+      // signature alone only proves some Razorpay order was paid - without
+      // this, proof of a cheap booking's payment could be replayed against an
+      // expensive booking's transaction id.
+      if (gateway.gatewayName === "razorpay" && !orderMatchesTransaction(paymentData?.razorpay_order_id, transaction.orderId)) {
+        console.error("Payment verify rejected - order id does not match transaction:", transactionId);
+        return res.status(400).json({ error: "Payment verification failed" });
+      }
+
       // Create payment gateway instance
       const paymentGateway = PaymentGatewayFactory.createGateway(gateway);
-      
+
       // Verify payment
       const verificationResult = await PaymentService.verifyPayment(paymentGateway, paymentData);
 
@@ -3299,11 +3346,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       } else {
-        // Update transaction status to failed
-        await storage.updatePaymentTransaction(transaction.id, {
-          status: "failed",
-          failureReason: verificationResult.error || "Payment verification failed",
-        });
+        // Update transaction status to failed - unless the webhook or the
+        // auto-resolve job already settled it as paid.
+        if (!isSettledTransaction(transaction.status)) {
+          await storage.updatePaymentTransaction(transaction.id, {
+            status: "failed",
+            failureReason: verificationResult.error || "Payment verification failed",
+          });
+        }
 
         res.status(400).json({ error: "Payment verification failed" });
       }
@@ -3661,6 +3711,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // payment.order_id, not payment.id, matches what create-order stored -
     // payment.id is Razorpay's payment ID, never written to orderId.
     const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
+
+    // The paid amount must equal what the order was created for (the
+    // booking's total at create-order time). On a mismatch, don't mark the
+    // booking paid - the admin reconciliation report will surface it.
+    if (transaction && !paidAmountMatches(payment.amount / 100, transaction.amount)) {
+      console.error(
+        `❌ Razorpay webhook: amount mismatch for booking ${stringBookingId}: paid ${payment.amount / 100}, expected ${transaction.amount}. Not marking paid.`
+      );
+      return;
+    }
+
     if (transaction) {
       await storage.updatePaymentTransaction(transaction.id, {
         status: 'completed',
@@ -3707,6 +3768,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const transaction = await storage.getPaymentTransactionByOrderId(payment.order_id);
     if (!transaction) {
       console.error("❌ Razorpay webhook: no payment_transactions row for order", payment.order_id);
+      return;
+    }
+
+    // A failed attempt can be reported after (or before) a successful retry
+    // on the same order - never overwrite a transaction already settled.
+    if (isSettledTransaction(transaction.status)) {
+      console.log("ℹ️ Razorpay failure webhook ignored - transaction already settled:", transaction.transactionId);
       return;
     }
 
