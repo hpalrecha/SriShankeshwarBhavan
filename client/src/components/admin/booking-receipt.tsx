@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard } from "lucide-react";
+import { FileText, CalendarDays, User, MapPin, CalendarCheck2, CalendarX2, Users, BedDouble, IndianRupee, Car, CreditCard, IdCard, Phone, Mail } from "lucide-react";
+import { createPortal } from "react-dom";
 import type { BookingWithDetails } from "@/lib/types";
 
 interface BookingReceiptProps {
@@ -64,8 +65,11 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
 
   const rows: Array<{ icon: ReactNode; label: string; value: ReactNode; blank?: boolean }> = [
     { icon: <User />, label: "Guest Full Name", value: dash(guestName) },
+    { icon: <Phone />, label: "Phone Number", value: dash(b.primaryGuestPhone || booking.user.mobile) },
+    { icon: <Mail />, label: "Email", value: dash(b.primaryGuestEmail || booking.user.email) },
     { icon: <IdCard />, label: "Aadhaar Number", value: dash(b.aadhaarNumber) },
     { icon: <MapPin />, label: "City", value: dash(b.city) },
+    { icon: <CalendarDays />, label: "Booked On", value: b.createdAt ? fmtDateTime(new Date(b.createdAt)) : "—" },
     { icon: <CalendarCheck2 />, label: "Check-in", value: checkinValue },
     { icon: <CalendarX2 />, label: "Check-out", value: checkoutValue },
     { icon: <Users />, label: "Male / Female / Children", value: "—" },
@@ -82,7 +86,10 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
     { icon: <Car />, label: "Vehicle No.", value: "—" },
   ];
 
-  return (
+  // Portaled to <body> so print CSS can display:none every other body child.
+  // visibility:hidden alone left the app's full height in flow, so the fixed
+  // receipt repeated on every printed page.
+  return createPortal(
     <div id="booking-receipt-print">
       <div className="receipt-page">
         <div className="receipt-border">
@@ -168,6 +175,7 @@ export default function BookingReceipt({ booking }: BookingReceiptProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

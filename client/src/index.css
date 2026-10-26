@@ -103,6 +103,14 @@
 
 /* Booking receipt print isolation - the receipt renders off-screen
    at all times; this makes it (and only it) visible when printing. */
+/* Digits-only face: Georgia's old-style numerals look uneven, so 0-9 and
+   common number punctuation render in a clean sans (Segoe UI, like phone numbers). */
+@font-face {
+  font-family: 'ReceiptNum';
+  src: local('Segoe UI'), local('Helvetica Neue'), local('Arial');
+  unicode-range: U+0030-0039, U+002C-002F, U+003A;
+}
+
 #booking-receipt-print {
   --receipt-maroon: #8b1220;
   --receipt-maroon-soft: #c23b4a;
@@ -111,7 +119,8 @@
   position: absolute;
   left: -9999px;
   width: 210mm;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'ReceiptNum', Georgia, 'Times New Roman', serif;
+  font-variant-numeric: lining-nums;
   color: var(--receipt-ink);
 }
 
@@ -127,12 +136,8 @@
     height: auto !important;
     background: #fff !important;
   }
-  body * {
-    visibility: hidden;
-  }
-  #booking-receipt-print,
-  #booking-receipt-print * {
-    visibility: visible;
+  body > *:not(#booking-receipt-print) {
+    display: none !important;
   }
   /* Fixed + inset so this box owns the page on its own terms - nothing
      hidden-but-still-in-flow elsewhere (the admin dialog, its overlay
@@ -278,7 +283,7 @@
     grid-template-columns: 22px 58mm 12px 1fr;
     align-items: center;
     column-gap: 8px;
-    padding: 3mm 0;
+    padding: 2.2mm 0;
     border-bottom: 1px dotted var(--receipt-maroon-line);
   }
   .detail-row:last-child {
