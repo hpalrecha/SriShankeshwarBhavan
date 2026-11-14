@@ -14,6 +14,19 @@ import BookingDetailsModal from "./booking-details-modal";
 import CheckInOutDialog from "./checkin-checkout-dialog";
 import type { BookingWithDetails } from "@/lib/types";
 
+// Pinned to Asia/Kolkata so the time reads the same on any admin's machine,
+// matching booking-details-modal.tsx and the printed receipt. Shows the
+// actual check-in/out moment only; date-only fallback (checkinDate/
+// checkoutDate are midnight UTC, not a real time) until then.
+const kolkataDateTime = (d: Date) =>
+  d.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+const kolkataDate = (d: Date) =>
+  d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+const checkinDisplay = (booking: BookingWithDetails["booking"]) =>
+  booking.actualCheckinTime ? kolkataDateTime(new Date(booking.actualCheckinTime)) : kolkataDate(new Date(booking.checkinDate));
+const checkoutDisplay = (booking: BookingWithDetails["booking"]) =>
+  booking.actualCheckoutTime ? kolkataDateTime(new Date(booking.actualCheckoutTime)) : kolkataDate(new Date(booking.checkoutDate));
+
 interface PaginatedBookingsResponse {
   bookings: BookingWithDetails[];
   pagination: {
@@ -363,15 +376,11 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Check-in:</span>
-                    <span className="text-sm">
-                      {new Date(booking.checkinDate).toLocaleDateString()} {new Date(booking.checkinDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+                    <span className="text-sm">{checkinDisplay(booking)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Check-out:</span>
-                    <span className="text-sm">
-                      {new Date(booking.checkoutDate).toLocaleDateString()} {new Date(booking.checkoutDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+                    <span className="text-sm">{checkoutDisplay(booking)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Amount:</span>
@@ -493,11 +502,9 @@ export default function BookingsTable({ userFilter }: BookingsTableProps) {
                     <div className="flex items-center gap-1 text-sm">
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span>
-                        {new Date(booking.checkinDate).toLocaleDateString()}{" "}
-                        {new Date(booking.checkinDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {checkinDisplay(booking)}
                         {" - "}
-                        {new Date(booking.checkoutDate).toLocaleDateString()}{" "}
-                        {new Date(booking.checkoutDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {checkoutDisplay(booking)}
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
